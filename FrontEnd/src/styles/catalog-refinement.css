@@ -19,3 +19,6 @@
 /* Shared ALV controls supersede the imported column-preset fields. */
 .slc-ref [data-layout-preset] { display: none !important; }
 @media(max-width:600px) { .app .tile-grid { grid-template-columns: minmax(0,1fr); } .app .tile { width: 100%; height: 120px; padding: 14px; } }
+
+/* A live figure on an application tile: one muted line beside the arrow, cut with an ellipsis. */
+.app .tile-metric { flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 10.5px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; }
