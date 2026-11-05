@@ -2,6 +2,7 @@
 // quantities (an equal split, each editable) with a live total, what is left, and each BL's value.
 import { useState } from 'react';
 import { Modal } from '@/components/ui/Modal';
+import { DataTable } from '@/components/table/DataTable';
 import { Notice } from '@/components/ui/Notice';
 import { WizardSteps } from '@/components/ui/WizardSteps';
 import { formatAmount } from '@/lib/fields/parse';
@@ -58,7 +59,7 @@ export function SplitDialog({ tf, source, open, busy, onClose, onSave }: {
           <section className="tsf-split__section">
             <h3>Quantities</h3>
             <p className="tsf-split__hint">An equal split to start with; change any quantity. The BLs may add up to less than {fmtQty(limit)} {unit}, never more.</p>
-            <table className="ds-table tsf-split__table">
+            <DataTable className="tsf-split__table" nativeLayout nativeExport aria-label="New BLs">
               <thead><tr><th>New BL</th><th className="num">Quantity ({unit})</th><th className="num">Value ({cur})</th></tr></thead>
               <tbody>{quantities.map((q, i) => (
                 <tr key={i}>
@@ -69,7 +70,7 @@ export function SplitDialog({ tf, source, open, busy, onClose, onSave }: {
                 </tr>
               ))}</tbody>
               <tfoot><tr><th>Total</th><th className="num">{fmtQty(summary.total)}</th><th /></tr></tfoot>
-            </table>
+            </DataTable>
             <dl className="tsf-split__facts">
               <div><dt>Available</dt><dd>{fmtQty(summary.limit)} {unit}</dd></div>
               <div><dt>Left open</dt><dd className={summary.left.startsWith('-') ? 'bad' : ''}>{fmtQty(summary.left)} {unit}</dd></div>

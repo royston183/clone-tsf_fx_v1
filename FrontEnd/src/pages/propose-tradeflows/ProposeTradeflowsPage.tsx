@@ -3,6 +3,7 @@
 // person's preferences into rules (design 2026-11-05-manage-propose-tradeflows). Accept writes the Deal ID on the BLs.
 import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, Check, Server, Sparkles, Undo2 } from 'lucide-react';
+import { DataTable } from '@/components/table/DataTable';
 import { TrafficLightTag } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Loading } from '@/components/ui/Loading';
@@ -52,7 +53,7 @@ export default function ProposeTradeflowsPage() {
       {loaded && (
         <div className="tsf-propose__layout">
           <div className="tsf-propose__deals">
-            <table className="ds-table">
+            <DataTable nativeLayout nativeExport aria-label="Deal IDs">
               <thead><tr><th>Deal ID</th><th>Commodity</th><th className="num">Deal Amount</th><th className="num">Remaining USD</th><th>Status</th></tr></thead>
               <tbody>{loaded.deals.map(d => (
                 <tr key={d.dealId} className={d.dealId === selected ? 'selected' : ''} onClick={() => setSelected(d.dealId)}>
@@ -63,7 +64,7 @@ export default function ProposeTradeflowsPage() {
                   <td><TrafficLightTag tone={d.status === 'Open' ? 'amber' : d.status === 'Filled' ? 'green' : 'red'}>{d.status}</TrafficLightTag></td>
                 </tr>
               ))}</tbody>
-            </table>
+            </DataTable>
           </div>
           <div className="tsf-propose__detail">
             {!deal && <p className="tsf-propose__empty">Choose a Deal ID to see its BLs and get proposals.</p>}
@@ -149,12 +150,12 @@ function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; 
       <section className="tsf-propose__section">
         <h4>Assigned BLs <span>{assigned.length}</span></h4>
         {!assigned.length && <p className="tsf-propose__muted">None yet.</p>}
-        {assigned.length > 0 && <table className="ds-table"><thead><tr><th>BL No</th><th>Trade flow</th><th className="num">Quantity</th><th className="num">Assigned USD</th><th /></tr></thead>
+        {assigned.length > 0 && <DataTable nativeLayout nativeExport aria-label="Assigned BLs"><thead><tr><th>BL No</th><th>Trade flow</th><th className="num">Quantity</th><th className="num">Assigned USD</th><th /></tr></thead>
           <tbody>{assigned.map(b => <tr key={b.blNo}>
             <td className="mono">{b.blNo}</td><td className="mono">{b.tfNo} · {formatDate(str(b.tfDate))}</td>
             <td className="num">{fmtQty(str(b.quantity))}</td><td className="num">{formatAmount(str(b.assignedUsd))}</td>
             <td className="actions"><button className="button small secondary" disabled={busy} aria-label={`Unassign BL ${b.blNo}`} onClick={() => setUnassign(b)}><Undo2 size={14} />Unassign</button></td>
-          </tr>)}</tbody></table>}
+          </tr>)}</tbody></DataTable>}
       </section>
 
       <section className="tsf-propose__section">

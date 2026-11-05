@@ -5,6 +5,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { AlertCircle, ArrowLeft, Plus, Scissors, Server, Trash2 } from 'lucide-react';
 import { LargeList } from '@/components/list/LargeList';
+import { DataTable } from '@/components/table/DataTable';
 import { TrafficLightTag } from '@/components/ui/Badge';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { Loading } from '@/components/ui/Loading';
@@ -134,7 +135,7 @@ function Record({ tfKey, onBack, onSaved, onError }: { tfKey: Row; onBack: () =>
         </div>
       </div>
       <div className="tsf-manage__table">
-        <table className="ds-table">
+        <DataTable nativeLayout aria-label="Bills of lading">
           <thead><tr><th>BL No</th><th>Record date</th><th>Status</th><th>Deal ID</th><th className="num">Quantity ({unit})</th><th className="num">Value ({cur})</th><th>Deleted by</th><th className="actions">Actions</th></tr></thead>
           <tbody>{shown.map(b => {
             const s = blStatus(b);
@@ -156,7 +157,7 @@ function Record({ tfKey, onBack, onSaved, onError }: { tfKey: Row; onBack: () =>
               </tr>
             );
           })}</tbody>
-        </table>
+        </DataTable>
         {!shown.length && <p className="tsf-manage__empty">No active BLs. Use Add BLs to give the trade flow's open quantity new BLs.</p>}
       </div>
       {dialog?.kind === 'split' && <SplitDialog tf={tf} source={dialog.source} open={open} busy={busy} onClose={() => setDialog(null)}
