@@ -10,9 +10,9 @@ describe('Master Data and Trade Flows pages', () => {
     expect(kids('master-data')).toEqual(['Maintain Commodity']);
     expect(kids('trade-flows')).toEqual(['Tradeflows Upload', 'Tradeflows List', 'Update Price', 'Manage Tradeflows', 'Propose Tradeflow']);
   });
-  it('opens Manage Tradeflows on its own page and keeps Propose Tradeflow a placeholder until it is built', () => {
+  it('opens Manage Tradeflows and Propose Tradeflow on their own pages', () => {
     const tf = applicationPages.find(p => p.id === 'trade-flows');
     expect(tf?.children?.find(c => c.id === 'manage-tradeflows')?.page).toBe('manage-tradeflows');
-    expect(tf?.children?.find(c => c.id === 'propose-tradeflow')?.page).toBe('planned');
+    expect(tf?.children?.find(c => c.id === 'propose-tradeflow')?.page).toBe('propose-tradeflows');
   });
 });

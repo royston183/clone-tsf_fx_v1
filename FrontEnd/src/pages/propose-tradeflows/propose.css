@@ -1,0 +1,41 @@
+/* Propose Tradeflows (scoped to .tsf-propose). Colours come from the ALM tokens. */
+.tsf-propose__layout { display: grid; grid-template-columns: minmax(420px, 1fr) minmax(420px, 1.15fr); gap: 18px; align-items: start; }
+.tsf-propose__deals { overflow-x: auto; }
+.tsf-propose__deals .num, .tsf-propose__panel .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsf-propose__deals tbody tr { cursor: pointer; }
+.tsf-propose__deals tbody tr.selected td { background: var(--selected, rgba(29, 111, 216, .08)); }
+.tsf-propose__deals button.link { background: none; border: 0; padding: 0; color: var(--accent, #1d6fd8); font: inherit; cursor: pointer; }
+.tsf-propose__empty { color: var(--muted, #64748b); padding: 24px; border: 1px dashed var(--border, #dbe3ee); border-radius: 10px; text-align: center; }
+.tsf-propose__panel { border: 1px solid var(--border, #dbe3ee); border-radius: 10px; padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.tsf-propose__eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted, #64748b); }
+.tsf-propose__panel h3 { margin: 2px 0 10px; font-size: 18px; }
+.tsf-propose__panel h3 span { font-size: 13px; font-weight: 500; color: var(--muted, #64748b); margin-left: 6px; }
+.tsf-propose__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 18px; margin: 0; }
+.tsf-propose__facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted, #64748b); }
+.tsf-propose__facts dd { margin: 2px 0 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tsf-propose__facts dd.strong { color: var(--accent, #1d6fd8); }
+.tsf-propose__section h4 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; }
+.tsf-propose__section h4 span { color: var(--muted, #64748b); font-weight: 500; margin-left: 4px; }
+.tsf-propose__section td.actions { text-align: right; }
+.tsf-propose__muted { color: var(--muted, #64748b); font-size: 13px; margin: 6px 0 0; }
+.tsf-propose__prefs { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.tsf-propose__prefs textarea { width: 100%; resize: vertical; }
+.tsf-propose__ask { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; margin: 10px 0 4px; }
+.tsf-propose__chip { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: var(--chip, rgba(29, 111, 216, .1)); color: var(--accent, #1d6fd8); }
+.tsf-propose__cards { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.tsf-propose__card { border: 1px solid var(--border, #dbe3ee); border-radius: 10px; padding: 10px 12px; background: var(--surface-2, var(--panel, #f7f9fc)); }
+.tsf-propose__card-head { display: flex; align-items: center; gap: 10px; }
+.tsf-propose__rank { width: 24px; height: 24px; border-radius: 50%; display: inline-grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--accent, #1d6fd8); color: #fff; flex: none; }
+.tsf-propose__figures { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; flex: 1; font-size: 13px; color: var(--muted, #64748b); }
+.tsf-propose__figures b { color: var(--text, inherit); font-size: 14px; font-variant-numeric: tabular-nums; }
+.tsf-propose__figures .exact { color: var(--success, #1f8a4c); font-weight: 600; }
+.tsf-propose__reason { display: flex; gap: 6px; align-items: flex-start; margin: 8px 0 6px; font-size: 13px; }
+.tsf-propose__reason svg { flex: none; margin-top: 2px; color: var(--accent, #1d6fd8); }
+.tsf-propose__bls { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; font-size: 12.5px; }
+.tsf-propose__bls li { display: grid; grid-template-columns: 110px 1fr 120px 130px; gap: 8px; padding: 3px 0; border-top: 1px dashed var(--border, #dbe3ee); }
+
+@media (max-width: 1100px) { .tsf-propose__layout { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .tsf-propose__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tsf-propose__bls li { grid-template-columns: 1fr 1fr; }
+}

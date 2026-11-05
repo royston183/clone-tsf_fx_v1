@@ -84,3 +84,20 @@ test('Manage Tradeflows locks a BL that carries a Deal ID', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Split BL 4000000004' })).toBeDisabled();
   await expect(page.getByRole('button', { name: 'Delete BL 4000000004' })).toBeDisabled();
 });
+
+test('Propose Tradeflow lists Deal IDs with what is left and assigns a proposal', async ({ page }) => {
+  await page.goto('/trade-flows/propose-tradeflow');
+  const deals = page.locator('.tsf-propose__deals');
+  await expect(deals).toContainText('DL26000160');
+  await expect(deals.locator('tr', { hasText: 'DL26000160' })).toContainText('No USD rate');
+  await deals.getByRole('button', { name: 'DL26000142' }).click();
+  await expect(page.locator('.tsf-propose__facts')).toContainText('2,83,800.00 USD');
+  await page.getByRole('button', { name: 'Find proposals' }).click();
+  const cards = page.locator('.tsf-propose__card');
+  await expect(cards.first()).toBeVisible();
+  await expect(cards.first()).toContainText('AI not connected');
+  await cards.first().getByRole('button', { name: 'Accept' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Assign' }).click();
+  await expect(page.locator('.ds-toast')).toContainText('assigned to DL26000142');
+  await expect(deals.locator('tr', { hasText: 'DL26000142' })).toContainText('Filled');
+});

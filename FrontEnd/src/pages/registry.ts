@@ -14,6 +14,7 @@ export interface CustomPageProps {
 export const CUSTOM_PAGES: Record<string, ComponentType<CustomPageProps>> = {
   planned: lazy(() => import('./planned/PlannedPage')),
   'manage-tradeflows': lazy(() => import('./manage-tradeflows/ManageTradeflowsPage')),
+  'propose-tradeflows': lazy(() => import('./propose-tradeflows/ProposeTradeflowsPage')),
   'fx-blotter': lazy(() => import('./fx-blotter/FxBlotterPage')),
   'trader-workbench': lazy(() => import('./trader-workbench/TraderWorkbenchPage')),
   'deal-confirmation': lazy(() => import('./deal-confirmation/DealConfirmationPage')),

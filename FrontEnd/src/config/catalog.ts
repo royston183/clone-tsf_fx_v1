@@ -57,7 +57,7 @@ export const applicationPages: CatalogPage[] = [
       { id: 'tradeflows-list', title: 'Tradeflows List', type: 'application', icon: 'reports', module: 'tradeflow', service: 'tradeflow', description: 'Every trade flow with its Bill of Lading, priced at the commodity price of its TF date, and its value.' },
       { id: 'update-price', title: 'Update Price', type: 'application', icon: 'interest', module: 'commodity-price', service: 'tradeflow', description: 'Set the price of a commodity from an effective date.' },
       { id: 'manage-tradeflows', title: 'Manage Tradeflows', type: 'application', icon: 'workflow', page: 'manage-tradeflows', service: 'tradeflow', description: 'Split a trade flow into BLs within its quantity, add BLs or delete one.' },
-      { id: 'propose-tradeflow', title: 'Propose Tradeflow', type: 'application', icon: 'approvals', page: 'planned', description: 'Propose trade flows (logic to come).' }
+      { id: 'propose-tradeflow', title: 'Propose Tradeflow', type: 'application', icon: 'approvals', page: 'propose-tradeflows', service: 'tradeflow', description: 'AI-ranked proposals of free BLs that match each Deal ID by commodity and USD value (±1%).' }
     ]
   },
   {
