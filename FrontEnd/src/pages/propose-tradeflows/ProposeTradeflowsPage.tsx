@@ -53,13 +53,12 @@ export default function ProposeTradeflowsPage() {
         <div className="tsf-propose__layout">
           <div className="tsf-propose__deals">
             <table className="ds-table">
-              <thead><tr><th>Deal ID</th><th>Commodity</th><th className="num">Deal Amount</th><th className="num">USD</th><th className="num">Remaining USD</th><th>Status</th></tr></thead>
+              <thead><tr><th>Deal ID</th><th>Commodity</th><th className="num">Deal Amount</th><th className="num">Remaining USD</th><th>Status</th></tr></thead>
               <tbody>{loaded.deals.map(d => (
                 <tr key={d.dealId} className={d.dealId === selected ? 'selected' : ''} onClick={() => setSelected(d.dealId)}>
                   <td><button className="link mono" onClick={() => setSelected(d.dealId)} aria-pressed={d.dealId === selected}>{d.dealId}</button></td>
                   <td>{d.tsfCommodity}{d.tsfCommodityText ? ` - ${d.tsfCommodityText}` : ''}</td>
                   <td className="num">{formatAmount(d.amount)} {d.currency}</td>
-                  <td className="num">{d.usd === null ? '—' : formatAmount(d.usd)}</td>
                   <td className="num">{d.remainingUsd ? formatAmount(d.remainingUsd) : '—'}</td>
                   <td><TrafficLightTag tone={d.status === 'Open' ? 'amber' : d.status === 'Filled' ? 'green' : 'red'}>{d.status}</TrafficLightTag></td>
                 </tr>
