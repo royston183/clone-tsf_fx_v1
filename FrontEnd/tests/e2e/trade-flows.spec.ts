@@ -20,7 +20,7 @@ test('Master Data and Trade Flows follow Overview on the rail with their tiles',
   await page.goto('/master-data');
   await expect(page.getByRole('link', { name: /Maintain Commodity/ })).toBeVisible();
   await page.goto('/trade-flows');
-  for (const tile of ['Tradeflows Upload', 'Tradeflows List', 'Update Price', 'Manage Tradeflows']) await expect(page.getByRole('link', { name: new RegExp(`^${tile}`) })).toBeVisible();
+  for (const tile of ['Tradeflows Upload', 'Tradeflows List', 'Update Price', 'Manage Tradeflows', 'Propose Tradeflow']) await expect(page.getByRole('link', { name: new RegExp(`^${tile}`) })).toBeVisible();
 });
 
 test('Maintain Commodity and Update Price list their sample rows', async ({ page }) => {

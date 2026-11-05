@@ -8,10 +8,11 @@ describe('Master Data and Trade Flows pages', () => {
   it('have the requested tiles in order', () => {
     const kids = (id: string) => applicationPages.find(p => p.id === id)?.children?.map(c => c.title);
     expect(kids('master-data')).toEqual(['Maintain Commodity']);
-    expect(kids('trade-flows')).toEqual(['Tradeflows Upload', 'Tradeflows List', 'Update Price', 'Manage Tradeflows']);
+    expect(kids('trade-flows')).toEqual(['Tradeflows Upload', 'Tradeflows List', 'Update Price', 'Manage Tradeflows', 'Propose Tradeflow']);
   });
   it('keeps Manage Tradeflows as a placeholder', () => {
     const tf = applicationPages.find(p => p.id === 'trade-flows');
     expect(tf?.children?.find(c => c.id === 'manage-tradeflows')?.page).toBe('planned');
+    expect(tf?.children?.find(c => c.id === 'propose-tradeflow')?.page).toBe('planned');
   });
 });
