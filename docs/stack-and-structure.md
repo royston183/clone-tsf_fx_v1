@@ -103,6 +103,9 @@ peers; every package is listed explicitly instead.
 Both servers listen on `127.0.0.1` only. The FrontEnd calls the BackEnd at `VITE_API_BASE_URL`, else the page's own
 host on `VITE_API_PORT` (`npm run dev` sets it to the BackEnd port), only from `src/lib/client/backend-api.ts`, with no
 cookies: the acting user (the SAP user, else `DEMO`) goes as `x-app-user` and every call carries `x-app-request: 1`.
+The BackEnd may call the Anthropic Messages API for AI features, with `@anthropic-ai/sdk` (approved library) and the
+key `ANTHROPIC_API_KEY` from its environment; it never reaches the browser.
+
 The BackEnd allows only the FrontEnd's origins (`APP_ORIGINS`, else the FrontEnd host names on `FRONTEND_PORT`)
 through CORS, and every write needs a listed origin and that header.
 

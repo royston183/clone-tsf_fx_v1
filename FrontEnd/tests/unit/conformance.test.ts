@@ -24,7 +24,7 @@ export const STACK = {
     }
   },
   backEnd: {
-    dependencies: { '@azure/functions': '4.16.5', '@fastify/cors': '11.3.1', fastify: '5.12.7', mysql2: '3.24.4', zod: '4.6.7' },
+    dependencies: { '@anthropic-ai/sdk': '1.1.0', '@azure/functions': '4.16.5', '@fastify/cors': '11.3.1', fastify: '5.12.7', mysql2: '3.24.4', zod: '4.6.7' },
     devDependencies: {
       '@eslint/js': '9.39.5', '@types/node': '22.20.5', esbuild: '0.28.2', eslint: '9.39.5', globals: '17.13.0',
       tsx: '4.23.15', typescript: '5.9.3', 'typescript-eslint': '8.71.2', vite: '8.3.4', vitest: '5.0.3'

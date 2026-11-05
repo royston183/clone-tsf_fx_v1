@@ -10,6 +10,7 @@ import { route } from '@core/server/router';
 import { appRoot, loadEnvFile, runtimeNodePlatform } from './platform-node';
 import type { RefDeps } from './ref/middleware-proxy';
 import { isRefPath, routeRef } from './ref/routes';
+import { AI_PATH, aiProposals, defaultAiDeps, type AiDeps } from './ai/proposals';
 
 export const DEFAULT_PORT = 3200;
 const BODY_LIMIT = 6 * 1024 * 1024;
@@ -23,7 +24,7 @@ export function portOf(env: Record<string, string | undefined> = process.env): n
 }
 
 /** The Fastify app over the core router, plus the reference routes under /api/ref/ (tests call it with inject()). */
-export function buildServer(cfg: AppConfig, ref: RefDeps = {}): FastifyInstance {
+export function buildServer(cfg: AppConfig, ref: RefDeps = {}, ai: AiDeps = defaultAiDeps()): FastifyInstance {
   const app = Fastify({ logger: false, bodyLimit: BODY_LIMIT });
   // The core reads the raw body itself (size limit, content type, JSON errors), as it did under Next.js.
   app.removeAllContentTypeParsers();
@@ -49,7 +50,9 @@ export function buildServer(cfg: AppConfig, ref: RefDeps = {}): FastifyInstance 
     }
     const body = req.method === 'GET' || req.method === 'HEAD' || typeof req.body !== 'string' ? undefined : req.body;
     const request = new Request(url, { method: req.method, headers, body });
-    const res = isRefPath(new URL(url).pathname) ? (await routeRef(request, cfg, ref))! : await route(request, cfg);
+    const pathname = new URL(url).pathname;
+    const res = pathname === AI_PATH && req.method === 'POST' ? await aiProposals(request, cfg, ai)
+      : isRefPath(pathname) ? (await routeRef(request, cfg, ref))! : await route(request, cfg);
     reply.status(res.status);
     res.headers.forEach((value, key) => { reply.header(key, value); });
     return reply.send(await res.text());

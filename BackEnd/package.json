@@ -19,6 +19,7 @@
     "gen-schema": "tsx scripts/gen-schema.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "1.1.0",
     "@azure/functions": "4.16.5",
     "@fastify/cors": "11.3.1",
     "fastify": "5.12.7",

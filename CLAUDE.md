@@ -88,7 +88,9 @@ wizard progress for multi-stage actions, and labelled green/amber/red status tag
 - **The browser calls SAP through the relay**, in both application types (`FrontEnd/src/core/sap/client.ts`, at
   `VITE_SAP_RELAY_URL`, default `http://localhost:3001`; the relay is built separately). The BackEnd never calls SAP:
   no SAP host, user, password, service URL or SAP import in `BackEnd/`. The only other host the BackEnd calls is a REST
-  data service listed in `FrontEnd/src/config/rest-services.json` for `rest` modules (docs/how-to-add-an-application.md §1b). **The FrontEnd is static:** nothing serves an
+  data service listed in `FrontEnd/src/config/rest-services.json` for `rest` modules (docs/how-to-add-an-application.md §1b), and, for
+  AI features, the Anthropic Messages API through `@anthropic-ai/sdk` (key `ANTHROPIC_API_KEY` in the BackEnd environment only,
+  never `VITE_*`, never in a file other than `.env.local`; send Anthropic only the fields the feature's design lists). **The FrontEnd is static:** nothing serves an
   API at its own origin and no code calls one (no `/api` route, request interceptor or Vite proxy).
 - The FrontEnd and the BackEnd run on two ports (3100 and 3200). Only `FrontEnd/src/lib/client/backend-api.ts` calls
   the BackEnd, without cookies, naming the acting user in `x-app-user`; the BackEnd allows only the FrontEnd's origins
