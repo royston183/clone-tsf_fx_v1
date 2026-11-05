@@ -57,3 +57,30 @@ test('Tradeflows Upload refuses the 7 BL Numbers SAP already holds and posts the
   // The browser never sends TF No: SAP (here the stub) numbers each trade flow from ZSGTSFNR02's interval.
   expect(sap.created.map(r => String(r.TfNo))).toEqual(['3000000011', '3000000012', '3000000013']);
 });
+
+test('Manage Tradeflows splits a BL into three and keeps the old one, flagged as deleted', async ({ page }) => {
+  await page.goto('/trade-flows/manage-tradeflows');
+  await page.getByText('TF00000001', { exact: true }).click();
+  await expect(page.getByRole('heading', { name: /TF00000001/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Split BL 4000000001' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Split BL 4000000001' });
+  await dialog.getByLabel('Number of BLs').fill('3');
+  await dialog.getByRole('button', { name: 'Next' }).click();
+  await expect(dialog.getByLabel('Quantity of BL 1')).toHaveValue('14666.667');
+  await dialog.getByLabel('Quantity of BL 1').fill('50000');
+  await expect(dialog.getByText(/The BLs add up to .* more than the 44000.000 available/)).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Save 3 BLs' })).toBeDisabled();
+  await dialog.getByLabel('Quantity of BL 1').fill('14666.667');
+  await dialog.getByRole('button', { name: 'Save 3 BLs' }).click();
+  await expect(page.locator('.ds-toast')).toHaveText('BL 4000000001 split into 3 BLs');
+  await expect(page.getByText('3 active · 1 deleted')).toBeVisible();
+  await page.getByLabel('Show deleted BLs').check();
+  await expect(page.locator('tr.deleted')).toContainText('4000000001');
+});
+
+test('Manage Tradeflows locks a BL that carries a Deal ID', async ({ page }) => {
+  await page.goto('/trade-flows/manage-tradeflows');
+  await page.getByText('TF00000004', { exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Split BL 4000000004' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Delete BL 4000000004' })).toBeDisabled();
+});
