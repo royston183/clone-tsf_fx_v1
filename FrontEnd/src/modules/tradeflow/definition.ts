@@ -57,7 +57,9 @@ const fieldCol = (d: FieldDef<TfLookups>): Column => {
 // What the trade flow is, its goods, Price and Value first (visible without scrolling); the shipment details after.
 const LEAD = ['blNumber', 'commodity', 'goods', 'quantity', 'unit'];
 const COLUMNS: Column[] = [
-  col('tfNo', 'TF No', { code: true }), dateCol('tfDate', 'TF Date'), col('blNo', 'BL No', { code: true }),
+  col('tfNo', 'TF No', { code: true }), dateCol('tfDate', 'TF Date'),
+  // One BL: its number; several (split in Manage Tradeflows): how many.
+  col('blNo', 'BL No', { code: true, text: r => (Number(r.blCount) > 1 ? `${r.blCount} BLs` : str(r.blNo)) }),
   ...LEAD.map(byField).map(fieldCol),
   col('price', 'Price', {
     type: 'amount', align: 'right', text: r => (priced(r) ? `${formatAmount(r.price)} ${str(r.currency)}` : 'No price'),
@@ -77,7 +79,7 @@ export const tradeflow: ObjectModuleDef<TfLookups> = {
   list: {
     entity: 'tradeflows', keys: ['tfNo', 'tfDate'],
     columns: COLUMNS,
-    fields: [tfNo, tfDate, blNo, ...TF_FIELDS, price, value, currency, dealId],
+    fields: [tfNo, tfDate, blNo, ...TF_FIELDS, price, value, currency, dealId, { field: 'blCount', label: 'BLs', type: 'integer' }],
     search: ['tfNo', 'blNumber', 'contractRef', 'invoiceRef', 'dealId'],
     filters: ['tfDate', 'commodity', 'tfNo'],
     sort: ['tfNo', 'tfDate', 'blDate', 'commodity', 'quantity', 'value'],

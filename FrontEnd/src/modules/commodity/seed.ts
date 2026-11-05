@@ -8,4 +8,7 @@ export const COMMODITY_ROWS: Row[] = [
   { commodity: 'CASHEW', description: 'Cashew kernels', unit: 'MTS', currency: 'USD' }
 ];
 
-export const commoditySeed = (): ModuleSeed => ({ tables: { commodities: COMMODITY_ROWS.map(r => ({ ...r })) } });
+export const commoditySeed = (): ModuleSeed => ({
+  tables: { commodities: COMMODITY_ROWS.map(r => ({ ...r, tsfCommodity: '' })) },
+  lookups: { tsfCommodities: [{ code: 'C105', text: 'CORN' }, { code: 'C110', text: 'WHEAT' }, { code: 'C130', text: 'ALMOND' }] }
+});

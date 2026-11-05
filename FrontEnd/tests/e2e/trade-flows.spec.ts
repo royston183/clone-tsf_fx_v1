@@ -37,7 +37,7 @@ test('Tradeflows List shows price and value and opens a trade flow with its Bill
   const dialog = page.getByRole('dialog');
   await expect(dialog).toContainText('NAM6036645');
   await dialog.getByRole('tab', { name: 'Bill of Lading' }).click();
-  await expect(dialog).toContainText('BL00000001');
+  await expect(dialog).toContainText('4000000001');
 });
 
 test('Tradeflows Upload refuses the 7 BL Numbers SAP already holds and posts the 3 new rows of TF.xlsx', async ({ page }) => {
@@ -88,16 +88,16 @@ test('Manage Tradeflows locks a BL that carries a Deal ID', async ({ page }) => 
 test('Propose Tradeflow lists Deal IDs with what is left and assigns a proposal', async ({ page }) => {
   await page.goto('/trade-flows/propose-tradeflow');
   const deals = page.locator('.tsf-propose__deals');
-  await expect(deals).toContainText('DL26000160');
-  await expect(deals.locator('tr', { hasText: 'DL26000160' })).toContainText('No USD rate');
-  await deals.getByRole('button', { name: 'DL26000142' }).click();
+  await expect(deals).toContainText('7000000160');
+  await expect(deals.locator('tr', { hasText: '7000000160' })).toContainText('No USD rate');
+  await deals.getByRole('button', { name: '7000000142' }).click();
   await expect(page.locator('.tsf-propose__facts')).toContainText('2,83,800.00 USD');
   await page.getByRole('button', { name: 'Find proposals' }).click();
   const cards = page.locator('.tsf-propose__card');
   await expect(cards.first()).toBeVisible();
-  await expect(cards.first()).toContainText('AI not connected');
+  await expect(cards.first()).toContainText('AI is not configured. Ranked by closeness.');
   await cards.first().getByRole('button', { name: 'Accept' }).click();
   await page.getByRole('dialog').getByRole('button', { name: 'Assign' }).click();
-  await expect(page.locator('.ds-toast')).toContainText('assigned to DL26000142');
-  await expect(deals.locator('tr', { hasText: 'DL26000142' })).toContainText('Filled');
+  await expect(page.locator('.ds-toast')).toContainText('assigned to 7000000142');
+  await expect(deals.locator('tr', { hasText: '7000000142' })).toContainText('Filled');
 });

@@ -5,5 +5,6 @@ export const contract: ODataContract = {
   service: 'ZFS_SB_TRADEFLOW_O4_API',
   naming: 'pascal',
   etag: true,
-  tables: { commodities: { entitySet: 'Commodity' } }
+  tables: { commodities: { entitySet: 'Commodity' } },
+  lookups: { tsfCommodities: { entitySet: 'TsfCommodity', fields: { code: 'Commodity', text: 'Description' } } }
 };

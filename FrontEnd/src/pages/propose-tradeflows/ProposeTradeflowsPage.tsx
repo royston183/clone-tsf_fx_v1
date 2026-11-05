@@ -14,7 +14,9 @@ import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { rankByCloseness, type Combination, type Rules } from '@/lib/propose/match';
 import { fmtQty } from '@/pages/manage-tradeflows/logic';
+import { onSampleData } from '@/lib/client/data';
 import { sampleProposeData, type AiAnswer, type ProposeData } from './data';
+import { liveProposeData } from './live';
 import { acceptPlan, commodityNote, dealRows, proposalsFor, ruleChips, type DealRow } from './logic';
 import './propose.css';
 
@@ -22,8 +24,8 @@ interface Loaded { deals: DealRow[]; bls: Row[]; commodities: Row[]; rates: Reco
 interface Proposal { combo: Combination; reason: string }
 const usd = (v: string | null) => (v === null || v === '' ? '—' : `${formatAmount(v)} USD`);
 export default function ProposeTradeflowsPage() {
-  // Sample data until the live sources are connected (Part B: liveProposeData).
-  const data = useMemo(() => sampleProposeData(), []);
+  // Live data once its modules have a source (SAP, the middleware, the AI); the sample data otherwise.
+  const data = useMemo(() => (onSampleData('bl-assign') ? sampleProposeData() : liveProposeData()), []);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [error, setError] = useState('');
   const [reload, setReload] = useState(0);

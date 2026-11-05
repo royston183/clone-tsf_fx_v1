@@ -73,6 +73,12 @@ describe('tradeflow module (Tradeflows List)', () => {
     expect(value?.text({ value: '0.00', currency: '' })).toBe('');
     expect(tradeflow.header.find(f => f.field === 'price')?.shown?.({ price: '0.0000' }, {})).toBe('No price');
   });
+  it('shows the BL No of a trade flow with one BL and the count when it has several', () => {
+    const c = tradeflow.list.columns.find(x => x.field === 'blNo');
+    expect(c?.text({ blNo: '4000000012', blCount: '1' })).toBe('4000000012');
+    expect(c?.text({ blNo: '', blCount: '3' })).toBe('3 BLs');
+    expect(c?.text({ blNo: 'BL00000001' })).toBe('BL00000001');
+  });
   it('marks a trade flow without a price amber', () => {
     const price = tradeflow.list.columns.find(c => c.field === 'price');
     expect(price?.statusTone?.({ price: '' })).toBe('amber');
