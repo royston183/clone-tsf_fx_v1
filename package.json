@@ -1,0 +1,20 @@
+{
+  "name": "tsf-fx",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Scripts only: the FrontEnd (Vite + React) and the BackEnd (Node + Fastify) each have their own package.json.",
+  "engines": {
+    "node": ">=22.13.0 <23"
+  },
+  "scripts": {
+    "install:all": "node scripts/install.mjs",
+    "dev": "node scripts/dev.mjs",
+    "build-db": "npm --prefix BackEnd run build-db",
+    "gen-schema": "npm --prefix BackEnd run gen-schema --",
+    "deploy": "node scripts/deploy/index.mjs .",
+    "test:deploy": "node --test scripts/deploy/*.test.mjs",
+    "verify": "npm run test:deploy && npm run gen-schema -- --check && npm --prefix BackEnd run verify && npm --prefix FrontEnd run verify",
+    "e2e": "npm --prefix FrontEnd run e2e",
+    "test:live": "npm --prefix FrontEnd run test:live"
+  }
+}

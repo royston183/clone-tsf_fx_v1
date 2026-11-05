@@ -1,0 +1,43 @@
+/* ALM 1 Update Manual Data: period bar and amount grid on the maintenance workbench tokens. */
+.md-period{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;padding:4px 18px 14px;border-bottom:1px solid var(--line)}
+.md-period .field{margin:0;min-width:150px}
+.md-period .field:first-child{min-width:240px}
+.md-period .md-year{min-width:0;width:96px}
+.md-app>.notice{margin:12px 18px 0}
+.md-app>.notice ul{margin:4px 0 0;padding-left:18px;width:100%}
+.md-filter-panel{border-bottom:1px solid var(--line)}
+.md-filter-panel .md-period{border-bottom:0}
+.md-period-right{display:flex;align-items:center;gap:12px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end;min-height:32px}
+.md-filters{align-items:center;padding:0 18px 12px}
+.md-summary{font-weight:600;color:var(--text)}
+.md-context{font-size:12px;font-weight:600;color:var(--text);white-space:nowrap}
+.md-toggle{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);white-space:nowrap}
+.md-hint{font-size:11.5px;color:var(--muted);align-self:center;margin-right:4px}
+.md-hint.bad{color:var(--ds-bad)}
+.md-wrap{max-height:calc(100vh - 380px)}
+.md-table th{padding:8px 12px;vertical-align:bottom}
+.md-table th.md-amt{text-align:right}
+.md-table th.md-amt span{display:block;max-width:150px;margin-left:auto;overflow:hidden;text-overflow:ellipsis}
+.md-table th small{display:block;font-size:10px;font-weight:500;opacity:.75;margin-top:2px}
+.md-amt{text-align:right;font-variant-numeric:tabular-nums;min-width:110px}
+.md-table td.md-amt{padding:5px 8px}
+.md-table td:not(.md-amt){padding:8px 12px}
+/* Group ID and description stay in view while the buckets scroll sideways. */
+.md-id,.md-name{position:sticky;background:var(--surface);z-index:1}
+.md-id{left:0;min-width:130px}
+.md-name{left:130px;min-width:220px;max-width:300px;overflow:hidden;text-overflow:ellipsis;box-shadow:inset -1px 0 0 var(--line)}
+.md-table thead :is(.md-id,.md-name){background:var(--bg);z-index:3}
+.md-table tbody tr:hover :is(.md-id,.md-name){background:var(--ds-row)}
+.md-tag{display:inline-block;margin-left:8px;font-size:10px;font-weight:600;padding:1px 6px;border-radius:999px;background:var(--pale);color:var(--blue);vertical-align:1px}
+.md-manual td{background:color-mix(in srgb,var(--pale) 35%,transparent)}
+.md-manual :is(.md-id,.md-name){background:color-mix(in srgb,var(--pale) 35%,var(--surface))}
+.md-cell{width:140px;text-align:right;font-variant-numeric:tabular-nums}
+.md-cell.dirty:not(.bad){border-color:var(--blue);background:color-mix(in srgb,var(--pale) 60%,var(--surface))}
+.md-total{font-weight:700;color:var(--text);border-left:1px solid var(--line)}
+.md-table tfoot td{position:sticky;bottom:0;z-index:1;background:var(--bg);font-weight:700;border-top:2px solid var(--line);border-bottom:0}
+.md-table tfoot :is(.md-id,.md-name){z-index:3}
+@media(max-width:750px){.md-period{padding:4px 12px 12px}.md-period .field,.md-period .field:first-child{min-width:0;flex:1 1 140px}.md-period-right{margin-left:0;justify-content:flex-start;width:100%}.md-period-right .ds-search{flex:1}.md-id,.md-name{position:static}}
+/* Every report table uses the ALM 1 Quarterly Report's type sizes: 11px data, 10.5px headings. */
+.ds-table.md-table{font-size:11px}
+.ds-table.md-table th{font-size:10.5px}
+.md-table .md-cell{font-size:11px}

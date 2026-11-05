@@ -1,0 +1,128 @@
+[
+  {
+    "key": "timebuckets",
+    "title": "Time Buckets",
+    "binding": "ZFS_SB_ALMTIMEBKT_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_almtimebkt_o4_api/srvd_a2x/sap/zfs_sd_almtimebkt/0001/"
+  },
+  {
+    "key": "trm-transactions",
+    "title": "TRM Transactions (NIIF)",
+    "binding": "ZFS_SB_TRMPOSVAL26E_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_trmposval26e_o4_api/srvd_a2x/sap/zfs_sd_trmposval26e/0001/"
+  },
+  {
+    "key": "tsf-deals",
+    "title": "TSF FX Deals",
+    "binding": "ZFS_SB_TSFDEAL_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_tsfdeal_o4_api/srvd_a2x/sap/zfs_sd_tsfdeal/0001/"
+  },
+  {
+    "key": "trmfxapp",
+    "title": "TRM FX Workflow Data (TrmFxApp)",
+    "binding": "ZFS_SB_TRMFXAPP_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_trmfxapp_o4_api/srvd_a2x/sap/zfs_sd_trmfxapp/0001/"
+  },
+  {
+    "key": "trmfx",
+    "title": "TRM FX Transactions",
+    "binding": "ZFS_SB_TRMFX_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_trmfx_o4_api/srvd_a2x/sap/zfs_sd_trmfx/0001/"
+  },
+  {
+    "key": "ottk",
+    "title": "SLC OTTK Detail",
+    "binding": "ZFS_SB_SLCOTTKDETAIL_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_slcottkdetail_o4_api/srvd_a2x/sap/zfs_sd_slcottkdetail/0001/"
+  },
+  {
+    "key": "dttk",
+    "title": "SLC DTTK Detail",
+    "binding": "ZFS_SB_SLCDTTKDETAIL_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_slcdttkdetail_o4_api/srvd_a2x/sap/zfs_sd_slcdttkdetail/0001/"
+  },
+  {
+    "key": "dealid",
+    "title": "Deal ID",
+    "binding": "ZFS_SB_DEALID_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_dealid_o4_api/srvd_a2x/sap/zfs_sd_dealid/0001/"
+  },
+  {
+    "key": "tf",
+    "title": "Trade Flow",
+    "binding": "ZFS_SB_TRDFLOW_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_trdflow_o4_api/srvd_a2x/sap/zfs_sd_trdflow/0001/"
+  },
+  {
+    "key": "trmposting",
+    "title": "TRM Posting Run",
+    "binding": "ZFS_SB_TRMPOSTING_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_trmposting_o4_api/srvd_a2x/sap/zfs_sd_trmposting/0001/"
+  },
+  {
+    "key": "trmmaster",
+    "title": "TRM Master Data",
+    "binding": "ZFS_SB_TRMMASTER_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_trmmaster_o4_api/srvd_a2x/sap/zfs_sd_trmmaster/0001/"
+  },
+  {
+    "key": "slctsfbpbank",
+    "title": "TSF Partner Bank Details",
+    "binding": "ZFS_SB_SLCTSFBPBANK_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_slctsfbpbank_o4_api/srvd_a2x/sap/zfs_sd_slctsfbpbank/0001/"
+  },
+  {
+    "key": "trmflowpost",
+    "title": "TRM Flow Posting",
+    "binding": "ZFS_SB_TRMFLOWPOST_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_trmflowpost_o4_api/srvd_a2x/sap/zfs_sd_trmflowpost/0001/"
+  },
+  {
+    "key": "fiaccdoc",
+    "title": "FI Accounting Document",
+    "binding": "ZFS_SB_FIACCDOC_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_fiaccdoc_o4_api/srvd_a2x/sap/zfs_sd_fiaccdoc/0001/"
+  },
+  {
+    "key": "almdmsdoc",
+    "title": "DMS Documents",
+    "binding": "ZFS_SB_ALMDMSDOC_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_almdmsdoc_o4_api/srvd_a2x/sap/zfs_sd_almdmsdoc/0001/"
+  },
+  {
+    "key": "housebank",
+    "title": "House Bank Accounts",
+    "binding": "ZFS_SB_HBKACCT_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_hbkacct_o4_api/srvd_a2x/sap/zfs_sd_housebankaccount/0001/"
+  },
+  {
+    "key": "exchangerate",
+    "title": "Exchange Rates",
+    "binding": "ZFS_SB_EXCHANGERATE_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_exchangerate_o4_api/srvd_a2x/sap/zfs_sd_exchangerate/0001/"
+  },
+  {
+    "key": "companycode",
+    "title": "Company Codes (OData V2)",
+    "binding": "API_COMPANYCODE_SRV",
+    "path": "/sap/opu/odata/sap/API_COMPANYCODE_SRV/"
+  },
+  {
+    "key": "businesspartner",
+    "title": "Business Partners (OData V2)",
+    "binding": "API_BUSINESS_PARTNER",
+    "path": "/sap/opu/odata/sap/API_BUSINESS_PARTNER/"
+  },
+  {
+    "key": "glaccount",
+    "title": "G/L Accounts (OData V2)",
+    "binding": "API_GLACCOUNTINCHARTOFACCOUNTS_SRV",
+    "path": "/sap/opu/odata/sap/API_GLACCOUNTINCHARTOFACCOUNTS_SRV/"
+  },
+  {
+    "key": "tradeflow",
+    "title": "Trade Flows",
+    "binding": "ZFS_SB_TRADEFLOW_O4_API",
+    "path": "/sap/opu/odata4/sap/zfs_sb_tradeflow_o4_api/srvd_a2x/sap/zfs_sd_tradeflow/0001/"
+  }
+]

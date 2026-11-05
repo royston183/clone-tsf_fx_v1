@@ -1,0 +1,417 @@
+import { ApiError, list, odataString, service } from '@/ref/api-client'
+import { replaceInPlace, txt } from '../../shared/fx/masters.ts'
+import { fxList, isAbort, type FxFilter, type FxRow } from '../../shared/fx/mw.ts'
+import { dateFromIso, num } from '../../shared/fx/sap.ts'
+import { BUSINESS_AREAS, COMMODITIES, ENTITIES, FIXING_REFERENCES, FX_MODELS, PROFIT_CENTERS, pairOf } from './data.ts'
+import { loadD1LegsOfContracts } from './appStr.ts'
+import { toAreaCodes, installAreaCodes, type AreaCodes } from './extendedFields.ts'
+import type { CodeDesc, CodeLabel, Entity, FixingReference, FxModel, LegTemplate, MasterContract } from './types.ts'
+
+/**
+ * The masters the blotter reads from the middleware, instead of the constants that used to sit
+ * in data.ts:
+ *
+ *   comp            ZSGTSFTR_COMP     entities, company codes, profit centres, business areas
+ *   fxModel         ZSGTSFTR_RULE_BT  FX models
+ *   commodity       ZSGTSFTR_COMODIT  commodities
+ *   masterContract  ZSGTSFTR_MAS_CON  Master Contracts
+ *   tolerance       ZSGTSFTR_TOLR     the Master Contract tolerance (ID T01)
+ *
+ * Unlike the other FX screens this does NOT fall back to dummy data when a read fails: a
+ * blotter that quietly offered the wrong entities or contracts would book against them. A
+ * failure is an error the screen shows, with a retry.
+ *
+ * Group, trader and business partner are deliberately not here — see the note in data.ts.
+ */
+
+// ---------------------------------------------------------------- settings read from the API
+
+/** The tolerance the program reads as the Master Contract tolerance. */
+export const MC_TOLERANCE_ID = 'T01'
+
+/**
+ * The Master Contract statuses a deal can be assigned to. ZSGTSFTR_MC_STAT reads 03 "Confirmed
+ * by MO" and 04 "In Use"; every other status is a contract that has not been confirmed yet
+ * (01, 02), is in correction (11, 12, 13, 21, 22) or has ended (09). This is an assumption
+ * drawn from those descriptions, not something the API states — change it here if the SAP
+ * blotter's rule differs.
+ */
+export const USABLE_MC_STATUSES = ['03', '04'] as const
+
+/** Kept from the old FX_MODELS: no API column carries it. */
+export const VALUE_DATE_TOLERANCE_DAYS = 5
+/** The old list gave each model a spread in basis points; the API has no such column, so none is assumed. */
+export const SPREAD_BP = 0
+
+// ---------------------------------------------------------------- pure mappers
+
+const unique = (values: readonly string[]): string[] => [...new Set(values.map((v) => v.trim()).filter(Boolean))]
+
+/**
+ * `code` is the entity (ZCOM_ID, e.g. OGA) that every row of the blotter stores; `cocode` is the
+ * SAP company code (ZBUKRS, e.g. SG03) that goes to SAP. A row needs both to be usable.
+ */
+export function toEntities(rows: readonly FxRow[]): Entity[] {
+  return rows
+    .filter((r) => txt(r, 'ZCOM_ID') && txt(r, 'ZBUKRS'))
+    .map((r) => ({
+      code: txt(r, 'ZCOM_ID'),
+      cocode: txt(r, 'ZBUKRS'),
+      name: txt(r, 'ZBUTXT'),
+      currency: txt(r, 'ZWAERS'),
+      defaultProfitCenter: txt(r, 'ZFX_PC_NAME'),
+      businessArea: txt(r, 'ZBA_NAME'),
+      origin: txt(r, 'ZORIGIN') === 'X',
+    }))
+}
+
+/** The FX profit centre names (ZFX_PC_NAME), each once. */
+export function toProfitCenters(rows: readonly FxRow[]): CodeLabel[] {
+  return unique(rows.map((r) => txt(r, 'ZFX_PC_NAME'))).map((name) => ({ code: name, label: name }))
+}
+
+/**
+ * Every business area name the company master carries for a deal: the company's own (ZBA_NAME)
+ * and the two other sets a deal can be booked under (ZBA_NAME_O, ZBA_NAME_B), each once. The
+ * _CT set belongs to another business (ICFS) and only repeats SINGAPORE.
+ */
+export function toBusinessAreas(rows: readonly FxRow[]): CodeLabel[] {
+  return unique(rows.flatMap((r) => [txt(r, 'ZBA_NAME'), txt(r, 'ZBA_NAME_O'), txt(r, 'ZBA_NAME_B')])).map((name) => ({
+    code: name,
+    label: name,
+  }))
+}
+
+export function toCommodities(rows: readonly FxRow[]): CodeDesc[] {
+  return rows
+    .filter((r) => txt(r, 'ZCOM_ID'))
+    .map((r) => ({ code: txt(r, 'ZCOM_ID'), desc: txt(r, 'ZCOM_DESC') || txt(r, 'ZCOM_SDESC') }))
+}
+
+/**
+ * ftrtFixDef (FTRT_FIX_DEF): FIX_ID is the reference, FCURR/LCURR its foreign and local currency, so
+ * FBIL (INR per USD) is the pair USD/INR. Each reference once.
+ */
+export function toFixingReferences(rows: readonly FxRow[]): FixingReference[] {
+  const seen = new Set<string>()
+  const out: FixingReference[] = []
+  for (const r of rows) {
+    const code = txt(r, 'FIX_ID')
+    if (!code || seen.has(code)) continue
+    seen.add(code)
+    out.push({ code, pair: `${txt(r, 'FCURR')}/${txt(r, 'LCURR')}` })
+  }
+  return out
+}
+
+/** The value of the tolerance row with the given ID, or undefined when the API has none. */
+export function toTolerance(rows: readonly FxRow[], id: string = MC_TOLERANCE_ID): number | undefined {
+  const row = rows.find((r) => txt(r, 'ZTOL_ID') === id)
+  return row ? num(row['ZTOL_PER']) : undefined
+}
+
+/** 'OGA-DMCC-OSIPL' -> ['OGA', 'DMCC', 'OSIPL']. */
+export const entityStringParts = (value: string): string[] =>
+  value
+    .split('-')
+    .map((p) => p.trim())
+    .filter(Boolean)
+
+const USD = 'USD'
+
+/** A leg as ZSGTSFTR_RULE_BT holds it: the entity that books it, the transaction type and the base currency. */
+type RuleLeg = { entity: string; txnType: string; currency: string }
+
+/**
+ * The legs of the models the test systems use, as SAP's own ZSGTSFTR_RULE_BT shows them (SE16, 01.10.2026).
+ * The cloud copy of that table (middleware "fxModel") has not caught up: for every model its leg columns
+ * hold placeholders (entity IN11 / SG10, transaction type 600), and it lacks M038 to M044. Until it is
+ * refreshed these two models take their legs from here; every other model still derives them from its
+ * entity string, as before. Transaction types are blotter codes: FWD is 619 Forward-TSF, NDF is 631 NDF-TSF.
+ *
+ *   M032  D1 OSIPL 619 USD  ->  D2 OGA 631 INR     (D1 books on IN11, which SAP does not have)
+ *   M033  D1 OGA   619 USD  ->  D2 OGA 631 INR     (both legs on SG03: bookable here)
+ */
+export const RULE_TABLE_LEGS: Readonly<Record<string, { d1: RuleLeg; d2: RuleLeg }>> = {
+  M032: { d1: { entity: 'OSIPL', txnType: 'FWD', currency: 'USD' }, d2: { entity: 'OGA', txnType: 'NDF', currency: 'INR' } },
+  M033: { d1: { entity: 'OGA', txnType: 'FWD', currency: 'USD' }, d2: { entity: 'OGA', txnType: 'NDF', currency: 'INR' } },
+}
+
+/**
+ * Buy or Sell of a leg's first currency, as the original Auto Deal sets it (include
+ * ZSGTSF_PFX_BLOTTER_AUTO_DEAL, FORM process_auto_data; c_1 is Buy, c_2 is Sell). Each leg buys
+ * when its own base currency is USD and sells otherwise, so a model with D1 in USD and D2 in INR
+ * has D1 Buy and D2 Sell. The rule table has no buy / sell column of its own: this is the
+ * program's rule, not a guess. The second currency takes the opposite side.
+ */
+const legSigns = (baseCurrency: string): [string, string] => (baseCurrency === USD ? ['B', 'S'] : ['S', 'B'])
+
+/**
+ * The entity string gives the legs (first to second entity is D1, second to third is D2); the
+ * two legs' base currencies give the pair and each leg's direction. Models whose pair is not one
+ * the blotter quotes keep an empty pair, and so offer no Auto Deal legs.
+ */
+export function toFxModels(rows: readonly FxRow[], tolerancePct: number): FxModel[] {
+  return rows
+    .filter((r) => txt(r, 'ZMOD_ID'))
+    .map((r) => {
+      const entities = entityStringParts(txt(r, 'ZENT_DESC'))
+      const rule = RULE_TABLE_LEGS[txt(r, 'ZMOD_ID')]
+      const base1 = rule?.d1.currency ?? txt(r, 'ZD1_BCURR')
+      const base2 = rule?.d2.currency ?? txt(r, 'ZD2_BCURR')
+      // USD leads when either leg is in USD, as the program quotes it.
+      const pair = base2 === USD ? `${base2}/${base1}` : `${base1}/${base2}`
+      const leg = (from: string | undefined, to: string | undefined, base: string, txnType?: string): LegTemplate => {
+        const [bs1, bs2] = legSigns(base)
+        return { from: from ?? '', to: to ?? '', bs1, bs2, ...(txnType ? { txnType } : {}) }
+      }
+      return {
+        code: txt(r, 'ZMOD_ID'),
+        desc: txt(r, 'ZMOD_DESC'),
+        entities,
+        pair: pairOf(pair) ? pair : '',
+        d1: rule ? leg(rule.d1.entity, rule.d2.entity, base1, rule.d1.txnType) : leg(entities[0], entities[1], base1),
+        d2: rule ? leg(rule.d2.entity, entities[2], base2, rule.d2.txnType) : leg(entities[1], entities[2], base2),
+        spreadBp: SPREAD_BP,
+        ssEligible: txt(r, 'ZSS') === 'X',
+        tolerancePct,
+        valueDateToleranceDays: VALUE_DATE_TOLERANCE_DAYS,
+      }
+    })
+}
+
+/**
+ * A contract needs a number, a currency pair and both ends of its shipping window to be checked
+ * against a deal; a row without them is left out. The balance is read as USD, so a contract in
+ * another currency is left out too rather than mixed into a USD total.
+ */
+export function toMasterContracts(rows: readonly FxRow[], usage?: Readonly<Record<string, number>>): MasterContract[] {
+  const out: MasterContract[] = []
+  for (const r of rows) {
+    const shipStart = dateFromIso(r['ZSHIP_START'])
+    const shipEnd = dateFromIso(r['ZSHIP_END'])
+    const mcDate = dateFromIso(r['ZMC_DATE'])
+    if (!txt(r, 'ZMC_REF_NO') || !shipStart || !shipEnd || !mcDate) continue
+    if (txt(r, 'ZCURR') !== 'USD' || !txt(r, 'ZOCURR')) continue
+    // ZUTI_AMT is never written (the legacy blotter does not touch it); the amount in use is what the
+    // contract's Deal 1 legs add up to. Without a usage read (tests), the column is all there is.
+    const utilized = usage ? (usage[txt(r, 'ZMC_REF_NO')] ?? 0) : num(r['ZUTI_AMT'])
+    out.push({
+      mcNumber: txt(r, 'ZMC_REF_NO'),
+      origin: txt(r, 'ZORIGIN'),
+      fxModel: txt(r, 'ZMOD_ID'),
+      modelDesc: txt(r, 'ZMOD_DESC'),
+      entities: entityStringParts(txt(r, 'ZENT_DESC')),
+      currPair: `${txt(r, 'ZCURR')}/${txt(r, 'ZOCURR')}`,
+      currencyId: txt(r, 'ZCURR_ID'),
+      currencyDesc: txt(r, 'ZCURR_DESC'),
+      commodityCode: txt(r, 'ZCOMMODITY'),
+      commodityDesc: txt(r, 'ZCOM_DESC_LONG') || txt(r, 'ZCOM_DESC'),
+      mcDate,
+      shipStart,
+      shipEnd,
+      amtUSD: num(r['ZAMT']),
+      utilizedUSD: utilized,
+      baseUtilizedUSD: utilized,
+      // No Master Contract column carries the blotter group; nothing reads it.
+      group: '',
+      portShipment: txt(r, 'ZPOS'),
+      portDestination: txt(r, 'ZPOD'),
+    })
+  }
+  return out
+}
+
+// ---------------------------------------------------------------- Master Contract usage
+
+/**
+ * What each contract has drawn, as the legacy AMT_CHECK works it out: the absolute amount, in the contract's
+ * currency (USD here), of every Deal 1 leg booked against it. `legs` are the TrmFxApp rows (contract + company
+ * code + transaction), `deals` the transactions' amounts (ZSGTSFV_FX: the view repeats a transaction per
+ * activity, so each BUKRS + RFHA counts once). A leg with no USD side, or no deal row, adds nothing.
+ */
+export function sumContractUsage(
+  legs: ReadonlyArray<{ mcRef: string; companyCode: string; transaction: string }>,
+  deals: readonly FxRow[],
+): Record<string, number> {
+  const byTxn = new Map<string, FxRow>()
+  for (const d of deals) {
+    const key = `${txt(d, 'BUKRS')}::${txt(d, 'RFHA')}`
+    if (!byTxn.has(key)) byTxn.set(key, d)
+  }
+  const used: Record<string, number> = {}
+  const counted = new Set<string>()
+  for (const leg of legs) {
+    const key = `${leg.companyCode}::${leg.transaction}`
+    if (counted.has(key)) continue
+    counted.add(key)
+    const d = byTxn.get(key)
+    if (!d) continue
+    const amount = txt(d, 'CURR1') === USD ? num(d['AMT1']) : txt(d, 'CURR2') === USD ? num(d['AMT2']) : 0
+    if (amount) used[leg.mcRef] = (used[leg.mcRef] ?? 0) + Math.abs(amount)
+  }
+  return used
+}
+
+/** Reads the Deal 1 legs of the given contracts and their amounts. */
+export async function loadContractUsage(mcRefs: readonly string[], signal?: AbortSignal): Promise<Record<string, number>> {
+  if (!mcRefs.length) return {}
+  let app: Awaited<ReturnType<typeof loadD1LegsOfContracts>>
+  try {
+    app = await loadD1LegsOfContracts(mcRefs, signal)
+  } catch (error) {
+    if (isAbort(error)) throw error
+    throw new MasterLoadError('TrmFxApp (Master Contract usage)', error)
+  }
+  const legs = app
+    .filter((a) => a.ZtsfMcRefNo && a.CompanyCode && a.FinancialTransaction)
+    .map((a) => ({ mcRef: (a.ZtsfMcRefNo ?? '').trim(), companyCode: a.CompanyCode, transaction: a.FinancialTransaction }))
+  if (!legs.length) return {}
+  const transactions = unique(legs.map((l) => l.transaction))
+  let deals: FxRow[]
+  try {
+    deals = await loadLegAmounts(transactions, signal)
+  } catch (error) {
+    if (isAbort(error)) throw error
+    throw new MasterLoadError('FxTransaction (Master Contract usage)', error)
+  }
+  return sumContractUsage(legs, deals)
+}
+
+const FX = service('fx')('FxTransaction')
+
+/**
+ * The amounts of the given transactions, read from SAP's FxTransaction in the row shape sumContractUsage takes.
+ * ZSGTSFV_FX (middleware "tsfvFx") is the legacy source but holds no rows here, so every leg found no amount and
+ * a contract always showed its full balance. A deal's two sides are its buy and sell currency and amount.
+ */
+export async function loadLegAmounts(transactions: readonly string[], signal?: AbortSignal): Promise<FxRow[]> {
+  const out: FxRow[] = []
+  for (let i = 0; i < transactions.length; i += 40) {
+    const filter = transactions.slice(i, i + 40).map((t) => `FinancialTransaction eq ${odataString(t)}`).join(' or ')
+    const rows = await list<{ CompanyCode: string; FinancialTransaction: string; BuyCurrency?: string; SellCurrency?: string; BuyAmount?: number | string; SellAmount?: number | string }>(
+      FX,
+      { filter, top: 1000 },
+      signal ? { signal } : undefined,
+    )
+    for (const d of rows) {
+      out.push({
+        BUKRS: d.CompanyCode,
+        RFHA: d.FinancialTransaction,
+        CURR1: d.BuyCurrency ?? '',
+        AMT1: String(d.BuyAmount ?? ''),
+        CURR2: d.SellCurrency ?? '',
+        AMT2: String(d.SellAmount ?? ''),
+      })
+    }
+  }
+  return out
+}
+
+// ---------------------------------------------------------------- loading
+
+export type BlotterMasters = {
+  entities: Entity[]
+  profitCenters: CodeLabel[]
+  businessAreas: CodeLabel[]
+  fxModels: FxModel[]
+  commodities: CodeDesc[]
+  contracts: MasterContract[]
+  /** NDF fixing references (ftrtFixDef); the dropdown's list. */
+  fixingReferences?: FixingReference[]
+  /** Profit centre / business area names -> the SAP codes a deal is booked with. */
+  areaCodes?: AreaCodes
+}
+
+/**
+ * Names the resource that failed, so the error on screen says which master is missing. An
+ * ApiError's message is already the backend's reason (the gateway words its errors two ways, a
+ * string or `{ value }`, and ApiError reads both), and its HTTP status is added: a 401 means the
+ * session has expired, a 502 that the middleware could not be reached.
+ */
+export class MasterLoadError extends Error {
+  readonly resource: string
+  constructor(resource: string, cause: unknown) {
+    const reason = cause instanceof Error ? cause.message : String(cause)
+    const status = cause instanceof ApiError && cause.status ? ` (HTTP ${cause.status})` : ''
+    super(`Could not load ${resource}: ${reason}${status}`)
+    this.name = 'MasterLoadError'
+    this.resource = resource
+  }
+}
+
+async function read(resource: string, filter: FxFilter, signal?: AbortSignal): Promise<FxRow[]> {
+  try {
+    return await fxList(resource, filter, { signal })
+  } catch (error) {
+    if (isAbort(error)) throw error
+    throw new MasterLoadError(resource, error)
+  }
+}
+
+/** Turns the five reads into the blotter's masters; throws when a master the screen cannot work without is empty. */
+export function buildMasters(raw: {
+  comp: readonly FxRow[]
+  fxModel: readonly FxRow[]
+  commodity: readonly FxRow[]
+  masterContract: readonly FxRow[]
+  tolerance: readonly FxRow[]
+  fixingRef?: readonly FxRow[]
+  /** Amount drawn per contract; absent means ZUTI_AMT is taken as it is. */
+  usage?: Readonly<Record<string, number>>
+}): BlotterMasters {
+  const entities = toEntities(raw.comp)
+  if (!entities.length) throw new MasterLoadError('comp', new Error('it returned no usable entities.'))
+  const tolerancePct = toTolerance(raw.tolerance)
+  if (tolerancePct === undefined) {
+    throw new MasterLoadError('tolerance', new Error(`it has no ${MC_TOLERANCE_ID} (Master Contract tolerance) row.`))
+  }
+  const fxModels = toFxModels(raw.fxModel, tolerancePct)
+  if (!fxModels.length) throw new MasterLoadError('fxModel', new Error('it returned no FX models.'))
+  const commodities = toCommodities(raw.commodity)
+  if (!commodities.length) throw new MasterLoadError('commodity', new Error('it returned no commodities.'))
+  const fixingReferences = raw.fixingRef ? toFixingReferences(raw.fixingRef) : undefined
+  if (fixingReferences && !fixingReferences.length) {
+    throw new MasterLoadError('ftrtFixDef', new Error('it returned no fixing references.'))
+  }
+  return {
+    entities,
+    ...(fixingReferences ? { fixingReferences } : {}),
+    profitCenters: toProfitCenters(raw.comp),
+    businessAreas: toBusinessAreas(raw.comp),
+    fxModels,
+    commodities,
+    // No usable contract is a real answer, not a failure: the Auto Deal list is just empty.
+    contracts: toMasterContracts(raw.masterContract, raw.usage),
+    areaCodes: toAreaCodes(raw.comp),
+  }
+}
+
+/** Reads the five masters in parallel. Rejects on the first failure; nothing is substituted. */
+export async function loadBlotterMasters(signal?: AbortSignal): Promise<BlotterMasters> {
+  const [comp, fxModel, commodity, masterContract, tolerance, fixingRef] = await Promise.all([
+    read('comp', {}, signal),
+    read('fxModel', {}, signal),
+    read('commodity', {}, signal),
+    read('masterContract', { 'ZMC_STAT[in]': USABLE_MC_STATUSES.join(',') }, signal),
+    read('tolerance', {}, signal),
+    read('ftrtFixDef', {}, signal),
+  ])
+  const usage = await loadContractUsage(unique(masterContract.map((r) => txt(r, 'ZMC_REF_NO'))), signal)
+  return buildMasters({ comp, fxModel, commodity, masterContract, tolerance, fixingRef, usage })
+}
+
+/**
+ * Puts the masters into the blotter's own lists (data.ts), in place, so every helper that
+ * closed over them — entityOf, modelOf, the dropdown builders — sees the loaded rows. Only this
+ * screen's lists are touched. The contracts are returned to the caller, which owns them.
+ */
+export function installMasters(m: BlotterMasters): void {
+  replaceInPlace(ENTITIES, m.entities)
+  replaceInPlace(PROFIT_CENTERS, m.profitCenters)
+  replaceInPlace(BUSINESS_AREAS, m.businessAreas)
+  replaceInPlace(FX_MODELS, m.fxModels)
+  replaceInPlace(COMMODITIES, m.commodities)
+  if (m.fixingReferences) replaceInPlace(FIXING_REFERENCES, m.fixingReferences)
+  if (m.areaCodes) installAreaCodes(m.areaCodes)
+}

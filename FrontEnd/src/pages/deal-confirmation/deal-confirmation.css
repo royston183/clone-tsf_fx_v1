@@ -1,0 +1,8 @@
+.tsf-confirm__display { border: 0; margin: 0; padding: 0; display: flex; gap: 14px; align-items: center; font-size: 12px; }
+.tsf-confirm__display legend { font-size: 11px; font-weight: 600; padding: 0; margin-bottom: 6px; }
+.tsf-confirm__display label { display: inline-flex; gap: 6px; align-items: center; font-weight: 500; }
+.tsf-confirm__filters { padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.tsf-confirm__deals { display: grid; gap: 8px; max-height: 360px; overflow: auto; }
+.tsf-confirm__deal { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+.tsf-confirm__deal summary { cursor: pointer; font-weight: 650; font-size: 12px; padding: 4px 0; }
+.tsf-confirm__deal[open] summary { margin-bottom: 8px; }

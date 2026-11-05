@@ -1,0 +1,142 @@
+/*
+ * Deliberate changes to the generated legacy stylesheet.
+ *
+ * bo-post-accounting-settlement.legacy.css is produced by tools/scope-css.mjs from
+ * legacy/bo-post-accounting-settlement.html. The original put a "row-dragging" class on <body>;
+ * scoped, those rules became ".bo-post-accounting-settlement body.row-dragging ..." and can
+ * never match, since the app root is not the body. The class now goes on the root, so the same
+ * declarations are restated against it. Imported after the generated sheet.
+ */
+.bo-post-accounting-settlement.row-dragging .drag-target:not(:disabled) {
+  box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.35);
+}
+.bo-post-accounting-settlement.row-dragging .drag-target:not(:disabled)::after {
+  content: "drop here";
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(234, 242, 255, 0.92);
+  color: var(--blue-dark);
+  font-size: 10.5px;
+  font-weight: 800;
+  border-radius: var(--radius-sm);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.bo-post-accounting-settlement.row-dragging .drag-target.drag-over:not(:disabled) {
+  box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.55), 0 7px 18px rgba(18, 38, 63, 0.16) !important;
+}
+
+/* Deal ID suggestion dropdown under the Basic Selection input (not in the legacy page). */
+.bo-post-accounting-settlement .deal-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: max(100%, 380px);
+  max-height: 280px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 50;
+}
+.bo-post-accounting-settlement .deal-suggest li {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.bo-post-accounting-settlement .deal-suggest li.active {
+  background: var(--blue-pale);
+}
+.bo-post-accounting-settlement .deal-suggest-id {
+  font-weight: 700;
+  color: var(--blue-dark);
+}
+.bo-post-accounting-settlement .deal-suggest-status {
+  justify-self: end;
+  font-size: 11px;
+  color: var(--muted);
+}
+.bo-post-accounting-settlement .deal-suggest-ref {
+  grid-column: 1 / -1;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bo-post-accounting-settlement .deal-suggest li.deal-suggest-note {
+  display: block;
+  cursor: default;
+  color: var(--red);
+  font-size: 11.5px;
+}
+
+/* Match Execute Settlement's contained dialogs; the shared FX theme otherwise
+   replaces the legacy max-width with the viewport width. */
+#alm-fx-ui .bo-post-accounting-settlement .modal-card.invoice-posting-modal,
+#alm-fx-ui .bo-post-accounting-settlement .modal-card.transaction-posting-modal {
+  max-width: 980px;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .modal-header,
+.bo-post-accounting-settlement .invoice-posting-modal .modal-footer {
+  flex-shrink: 0;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .posting-section {
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md);
+}
+.bo-post-accounting-settlement .invoice-posting-modal .posting-section + .posting-section {
+  margin-top: 10px;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .section-label {
+  margin: 0 0 10px;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .field-grid.cols3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 12px;
+  margin: 0;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .field,
+.bo-post-accounting-settlement .invoice-posting-modal .static {
+  min-width: 0;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .static {
+  height: auto;
+  min-height: 34px;
+  overflow-wrap: anywhere;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .posting-partner-bank {
+  grid-column: 1 / -1;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .posting-settlement {
+  gap: 8px;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .doc-link-pending {
+  margin: 0;
+}
+.bo-post-accounting-settlement .invoice-posting-modal .posting-accounting-table {
+  overflow-x: auto;
+}
+@media (max-width: 700px) {
+  .bo-post-accounting-settlement .invoice-posting-modal .field-grid.cols3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Checkbox columns: header and cell both centred (the shared theme otherwise centres only the header). */
+.bo-post-accounting-settlement .list-table :is(th, td).chk-col {
+  text-align: center !important;
+}

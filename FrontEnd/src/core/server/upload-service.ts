@@ -1,0 +1,79 @@
+import { cleanValues, problemText } from '@/lib/fields';
+import { checkRow, keyOf } from '@/lib/grid/grid';
+import type { Row } from '@/lib/grid/types';
+import { HttpError } from '@/lib/errors';
+import type { AnyUploadDef } from '@/modules/types';
+import type { AppConfig } from './config';
+import { actorOf, assertTrustedWrite, json, readJson } from './http';
+import { backendFor, moduleEntry, serial } from './module-service';
+import type { PlanOp } from '@/lib/planner';
+import type { Actor } from '../actor';
+
+export interface UploadLineResult { row: number; status: 'create' | 'update' | 'invalid'; problems: string[]; values: Row }
+export interface UploadCheck { lines: UploadLineResult[]; counts: { create: number; update: number; invalid: number } }
+
+/** Upload & preview (spec §6.3): every row checked and compared with SAP; post re-checks and sends one changeset. */
+export function uploadService(cfg: AppConfig, id: string) {
+  const entry = moduleEntry(cfg, id);
+  if (entry.def.kind !== 'upload') throw new HttpError(404, 'Unknown application.');
+  const def: AnyUploadDef = entry.def;
+  const backend = backendFor(id, entry);
+  const max = def.maxRows ?? 5000;
+  const tab = { keys: def.keys };
+  const pick = (r: Row): Row => Object.fromEntries(def.keys.map(k => [k, r[k] ?? '']));
+
+  async function evaluate(actor: Actor, raw: unknown): Promise<{ check: UploadCheck; rows: Row[]; existing: Map<string, Row> }> {
+    if (!Array.isArray(raw) || !raw.length) throw new HttpError(400, 'The file has no rows to upload.');
+    if (raw.length > max) throw new HttpError(400, `Upload at most ${max} rows at a time.`);
+    const lk = def.lookups(await backend.lookups(actor));
+    const rows = (raw as unknown[]).map(r => cleanValues(def.columns, r));
+    const problems: string[][] = rows.map(() => []);
+    rows.forEach((row, i) => {
+      for (const [f, p] of Object.entries(checkRow({ grid: def.columns }, row, lk, 'add'))) if (p) problems[i].push(problemText(def.columns, f, p));
+    });
+    for (const p of def.check?.(rows, lk) ?? []) problems[p.row - 1]?.push(p.message);
+    // One look-up of the uploaded keys (in chunks), never the whole table.
+    const complete = rows.filter(r => def.keys.every(k => r[k]));
+    const existing = new Map((await backend.readKeys(actor, def.entity, complete.map(pick))).map(r => [keyOf(tab, r), r]));
+    const first = new Map<string, number>();
+    const lines = rows.map((row, i): UploadLineResult => {
+      const k = keyOf(tab, row);
+      if (def.keys.every(f => row[f])) {
+        const seen = first.get(k);
+        if (seen !== undefined) problems[i].push(`Same key as row ${seen + 1}.`); else first.set(k, i);
+        if (def.mode === 'create' && existing.has(k)) problems[i].push(`${def.keys.map(f => row[f]).join(' / ')} already exists.`);
+      }
+      return { row: i + 1, status: problems[i].length ? 'invalid' : existing.has(k) ? 'update' : 'create', problems: problems[i], values: row };
+    });
+    const n = (s: UploadLineResult['status']) => lines.filter(l => l.status === s).length;
+    return { check: { lines, counts: { create: n('create'), update: n('update'), invalid: n('invalid') } }, rows, existing };
+  }
+
+  return {
+    check: async (actor: Actor, input: Record<string, unknown>) => (await evaluate(actor, input.rows)).check,
+    post: (actor: Actor, input: Record<string, unknown>) => serial(`${id}|${backend.mode}`, async () => {
+      // The preview is never trusted: every row is checked again against what is stored now.
+      const { check, rows, existing } = await evaluate(actor, input.rows);
+      const bad = check.lines.filter(l => l.status === 'invalid');
+      if (def.strict && bad.length) throw new HttpError(422, `${bad.length} rows need attention; nothing was posted.`, bad.map(l => ({ row: l.row, message: l.problems.join(' · ') })));
+      const ops: PlanOp[] = check.lines.filter(l => l.status !== 'invalid').map((l): PlanOp => {
+        const row = rows[l.row - 1];
+        const id = def.keys.map(k => row[k]).join(' / ');
+        if (l.status === 'create') return { op: 'create', id, key: pick(row), data: row };
+        return { op: 'update', id, key: pick(row), data: Object.fromEntries(Object.entries(row).filter(([f]) => !def.keys.includes(f))), etag: existing.get(keyOf(tab, row))?.__etag || undefined };
+      });
+      if (!ops.length) throw new HttpError(422, 'No valid rows to post.');
+      await backend.apply(actor, def.entity, ops);
+      return { created: check.counts.create, updated: check.counts.update, invalid: check.counts.invalid };
+    })
+  };
+}
+
+/** POST /api/modules/:id/upload/check and /post, body { rows }. */
+export async function uploadRequest(req: Request, cfg: AppConfig, id: string, what: 'check' | 'post'): Promise<Response> {
+  assertTrustedWrite(req, cfg);
+  const actor = actorOf(req);
+  const input = await readJson(req, 8 * 1024 * 1024);
+  const svc = uploadService(cfg, id);
+  return json(what === 'check' ? await svc.check(actor, input) : await svc.post(actor, input));
+}

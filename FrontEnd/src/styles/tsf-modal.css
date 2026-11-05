@@ -1,0 +1,81 @@
+/* TSF FX modal design. Mirrors "TSF - FX Application" (apps/web/src/shared/fx/alm-theme.css 211-220 dialog surfaces,
+   shared/popup/popup.css std-pop, shared/fx/transaction-details.css transaction frame). Loaded last in main.tsx. */
+.ds-overlay{
+  --tm-surface:#fff;--tm-bg:#f4f7fb;--tm-text:#22354c;--tm-heading:#16314f;--tm-muted:#718096;--tm-line:#e6ebf2;--tm-input:#d9e1eb;
+  --tm-blue:#1265c8;--tm-pale:#eaf3ff;--tm-shadow:0 24px 60px -12px #0b1a2b80;
+  --tm-edge:color-mix(in srgb,var(--tm-blue) 22%,var(--tm-input));
+}
+:root[data-theme='dark'] .ds-overlay{
+  --tm-surface:#19293a;--tm-bg:#0d1724;--tm-text:#e6eef8;--tm-heading:#e1ebf6;--tm-muted:#96acc1;--tm-line:#2a3e53;--tm-input:#2a3e53;
+  --tm-blue:#78b7ff;--tm-pale:#17304a;--tm-shadow:0 24px 60px -12px #000000b3;
+}
+:root .ds-overlay{padding:16px;background:#0b1a2b73;backdrop-filter:none;-webkit-backdrop-filter:none;font-family:'Inter Variable',Inter,'Segoe UI',Arial,sans-serif}
+:root[data-theme='dark'] .ds-overlay{background:#000000a3}
+:root .ds-overlay.transaction-overlay{background:#0b1a2ba3;backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+
+:root .ds-modal{max-width:calc(100vw - 32px);max-height:calc(100dvh - 32px);background:var(--tm-surface);color:var(--tm-text);border:1px solid var(--tm-line);border-radius:12px;box-shadow:var(--tm-shadow);animation:tm-pop-in .18s ease-out}
+@keyframes tm-pop-in{from{transform:scale(.98);opacity:0}to{transform:scale(1);opacity:1}}
+:root .ds-modal.small{width:min(420px,100%)}
+:root .ds-modal.transaction{border-color:var(--tm-edge);box-shadow:0 24px 72px -12px #0b1a2b80,0 0 0 1px var(--tm-edge)}
+
+/* Header: plain surface, hairline below, 16px/700 title, 12px muted subtitle (no gradient, no arc). */
+:root .ds-modal .ds-modal-head,:root .ds-modal.record .ds-modal-head,:root .ds-modal.transaction .ds-modal-head{
+  align-items:center;gap:10px;padding:16px 18px;background:var(--tm-surface);color:var(--tm-heading);border-bottom:1px solid var(--tm-line);overflow:visible;box-shadow:none}
+:root .ds-modal .ds-modal-head::before,:root .ds-modal .ds-modal-head::after,:root .ds-modal.record .ds-modal-head::before,:root .ds-modal.record .ds-modal-head::after,
+:root .ds-modal.transaction .ds-modal-head::before,:root .ds-modal.transaction .ds-modal-head::after{content:none;display:none}
+:root .ds-modal .kit-modal-heading{gap:2px}
+:root .ds-modal .ds-modal-head h2,:root .ds-modal.record .ds-modal-head h2{margin:0;font-size:16px;font-weight:700;line-height:1.4;letter-spacing:-.2px;color:var(--tm-heading)}
+:root .ds-modal .ds-modal-head p,:root .ds-modal.record .ds-modal-head p{margin:0;font-size:12px;line-height:1.5;color:var(--tm-muted)}
+:root .ds-modal .kit-eyebrow{font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--tm-muted)}
+/* Transaction frame: tinted header with a 4px accent bar and a bordered close button. */
+:root .ds-modal.transaction .ds-modal-head{padding-top:20px;background:var(--tm-pale);border-bottom-color:var(--tm-edge);box-shadow:inset 0 4px 0 var(--tm-blue)}
+:root .ds-modal.transaction .ds-modal-head h2{font-size:17px;color:var(--tm-heading);margin:0}
+:root .ds-modal.transaction .ds-modal-head p{color:var(--tm-muted);font-size:12px}
+:root .ds-modal.transaction .ds-modal-body{background:var(--tm-bg)}
+:root .ds-modal.transaction .ds-modal-foot{border-top-color:var(--tm-edge)}
+
+/* Close button: 30px, soft hover. */
+:root .ds-modal .ds-modal-head .icon-button,:root .ds-modal.record .ds-modal-head .icon-button,:root .ds-modal.transaction .ds-modal-head .icon-button{
+  width:30px;height:30px;padding:0;border:0;border-radius:6px;background:transparent;color:var(--tm-muted);display:grid;place-items:center}
+:root .ds-modal .ds-modal-head .icon-button:hover:not(:disabled){background:var(--tm-bg);color:var(--tm-text)}
+:root .ds-modal.transaction .ds-modal-head .icon-button{border:1px solid var(--tm-edge);background:var(--tm-surface);color:var(--tm-muted)}
+
+/* Body and footer. */
+:root .ds-modal .ds-modal-body{padding:14px 18px;background:var(--tm-surface);color:var(--tm-text);font-size:12.5px}
+:root .ds-modal.record .ds-modal-body{padding:0}
+:root .ds-modal.transaction .ds-modal-body{padding:18px}
+:root .ds-modal .ds-modal-foot,:root .ds-modal.transaction .ds-modal-foot{gap:8px;padding:12px 18px;background:var(--tm-surface);border-top:1px solid var(--tm-line)}
+
+/* Titled sections inside a dialog. */
+:root .ds-modal .kit-dialog-section{background:var(--tm-surface);border:1px solid var(--tm-line);border-radius:8px;overflow:hidden}
+:root .ds-modal .kit-dialog-section-head{padding:10px 14px;background:var(--tm-pale);border-bottom:1px solid var(--tm-line);border-left:3px solid var(--tm-blue)}
+:root .ds-modal .kit-dialog-section-head h3{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--tm-heading)}
+:root .ds-modal .kit-dialog-section-head p{font-size:11.5px;color:var(--tm-muted)}
+:root .ds-modal .kit-dialog-section-body{padding:14px}
+
+/* Fields and buttons in dialogs. */
+:root .ds-modal :is(input,select,textarea):not([type=checkbox]):not([type=radio]){border-color:var(--tm-input);border-radius:6px;background:var(--tm-surface);color:var(--tm-text)}
+:root .ds-modal :is(input,select,textarea):focus-visible{outline:2px solid var(--tm-blue);outline-offset:1px}
+:root .ds-modal :is(input[type=checkbox],input[type=radio]){accent-color:var(--tm-blue)}
+:root .ds-modal .button{border-radius:7px;min-height:32px;padding:0 14px;font-size:13px;font-weight:600}
+:root .ds-modal .button.secondary{background:var(--tm-surface);border-color:var(--tm-input);color:var(--tm-text)}
+:root .ds-modal .button.secondary:hover:not(:disabled){border-color:var(--tm-blue);color:var(--tm-blue)}
+:root .ds-modal .button:not(.secondary):not(.danger):hover:not(:disabled){background:color-mix(in srgb,var(--blue) 90%,#000)}
+:root .ds-modal .button.danger{background:var(--tm-surface);border-color:#c0392b;color:#c0392b}
+:root .ds-modal .button.danger:hover:not(:disabled){background:#fff1f0}
+:root[data-theme='dark'] .ds-modal .button.danger{border-color:#ff9d91;color:#ff9d91}
+:root[data-theme='dark'] .ds-modal .button.danger:hover:not(:disabled){background:#472c30}
+:root .ds-modal :is(button,a,[tabindex]):focus-visible{outline:2px solid var(--tm-blue);outline-offset:2px}
+
+/* Confirm / info popups follow std-pop: 380px card, 26/24/22 padding. */
+:root .ds-modal.small .ds-modal-body{padding:16px 24px}
+
+@media (max-width:720px){
+  :root .ds-overlay{padding:8px;align-items:flex-end}
+  :root .ds-modal,:root .ds-modal.wide,:root .ds-modal.record,:root .ds-modal.transaction,:root .ds-modal.small{width:100%;max-width:100%;max-height:calc(100dvh - 16px);border-radius:12px}
+  :root .ds-modal .ds-modal-head,:root .ds-modal.record .ds-modal-head,:root .ds-modal.transaction .ds-modal-head{padding:14px}
+  :root .ds-modal .ds-modal-body{padding:14px}
+  :root .ds-modal .ds-modal-foot{padding:12px 14px}
+  :root .ds-modal.small .ds-modal-foot{flex-direction:column-reverse;align-items:stretch}
+}
+@media (prefers-reduced-motion:reduce){:root .ds-modal{animation:none}}

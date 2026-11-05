@@ -1,0 +1,55 @@
+/* The workspace and the reference both use these generic class names. Restore
+   the reference's normal document flow before each feature's scoped rules apply.
+   Feature styles load with their lazy screen and can set their own layout. */
+.slc-ref .app { display: block; min-height: 0; }
+.slc-ref .main { display: block; flex: initial; flex-direction: row; position: static; isolation: auto; width: auto; }
+.slc-ref .content { padding: 0; flex: initial; max-width: none; width: auto; margin: 0; position: static; z-index: auto; overflow-x: visible; }
+.slc-ref .panel { padding: 0; }
+.slc-ref .field { margin-bottom: 0; }
+.slc-ref .table-wrap { max-height: none; }
+.slc-ref .pagination { margin-top: 0; }
+
+/* The workspace already supplies the page gutter and the height of the content area. */
+.slc-ref#alm-fx-ui, .slc-ref#alm-fx-ui > * { min-height: 0; }
+.slc-ref#alm-fx-ui > * { padding: 0; }
+.slc-ref#alm-fx-ui .master-toolbar #filter-panel-body { min-width: 0; flex: 1 1 620px; max-width: 100%; }
+.slc-ref#alm-fx-ui .master-toolbar { flex-wrap: wrap !important; overflow: visible !important; }
+.slc-ref#alm-fx-ui .master-toolbar #filter-panel-body .filter-bar { flex-wrap: wrap !important; min-width: 0 !important; max-width: 100% !important; }
+.slc-ref#alm-fx-ui .table-title-row { flex-wrap: wrap; min-width: 0; }
+.slc-ref#alm-fx-ui .table-heading { min-width: 0; white-space: normal; overflow-wrap: anywhere; flex: 1 1 260px; }
+.slc-ref#alm-fx-ui .table-title-row .table-tools { margin-left: auto; flex-shrink: 0; }
+
+/* The first normal value row supplies the alignment for text, numeric and checkbox columns. */
+.slc-ref#alm-fx-ui :is(table,#mc-table,#fx-table) th[data-ref-align=left] { text-align: left !important; }
+.slc-ref#alm-fx-ui :is(table,#mc-table,#fx-table) th[data-ref-align=right] { text-align: right !important; }
+.slc-ref#alm-fx-ui :is(table,#mc-table,#fx-table) th[data-ref-align=center] { text-align: center !important; }
+.slc-ref#alm-fx-ui :is(table,#mc-table,#fx-table) th[data-ref-align=left] :is(.sort-th,.th-inner) { justify-content: flex-start; text-align: left; }
+.slc-ref#alm-fx-ui :is(table,#mc-table,#fx-table) th[data-ref-align=right] :is(.sort-th,.th-inner) { justify-content: flex-end; text-align: right; }
+.slc-ref#alm-fx-ui th .arrow:empty { display: none; }
+.slc-ref#alm-fx-ui th[data-ref-align=right] .arrow { position: absolute; right: 1px; top: 50%; margin: 0; transform: translateY(-50%); }
+
+@media (max-width: 750px) {
+  .slc-ref#alm-fx-ui .page-head .title-wrap { flex: 1 1 180px !important; }
+  .slc-ref#alm-fx-ui :is(.page-head,.topbar) .page-title { white-space: normal !important; overflow-wrap: anywhere; }
+  .slc-ref#alm-fx-ui .tsf-ndf-fixing .toolbar-right { position: static; }
+  .slc-ref#alm-fx-ui .tsf-ndf-fixing .card-title { height: auto; min-height: 46px; padding: 10px 12px; flex-wrap: wrap; }
+  .slc-ref#alm-fx-ui .tsf-ndf-fixing .card-title .right { flex-basis: 100%; margin-left: 0; }
+  .slc-ref#alm-fx-ui .master-toolbar { align-items: stretch; overflow: visible !important; flex-wrap: wrap !important; }
+  .slc-ref#alm-fx-ui .master-toolbar .search-box { flex: 1 1 100% !important; min-width: 0 !important; max-width: none !important; }
+  .slc-ref#alm-fx-ui .master-toolbar #filter-panel-body { display: flex !important; flex: 1 1 100% !important; width: 100% !important; flex-wrap: wrap !important; }
+  .slc-ref#alm-fx-ui .master-toolbar #filter-panel-body .filter-bar { display: flex !important; flex: 1 1 100% !important; width: 100% !important; min-width: 0 !important; max-width: 100% !important; flex-wrap: wrap !important; }
+  .slc-ref#alm-fx-ui .master-toolbar #filter-panel-body .filter-field { flex: 1 1 130px !important; min-width: 0 !important; }
+  .slc-ref#alm-fx-ui .master-toolbar #filter-panel-body .filter-field select { width: 100% !important; }
+  .slc-ref#alm-fx-ui .master-toolbar #filter-panel-body .filter-field:has(.date-range) { flex-basis: 100% !important; }
+  .slc-ref#alm-fx-ui .master-toolbar #filter-panel-body .common-actions { flex-wrap: wrap !important; min-width: 0; max-width: 100%; margin-left: 0; }
+  .slc-ref#alm-fx-ui .master-toolbar > .filter-bar { flex: 1 1 100% !important; min-width: 0 !important; max-width: 100%; flex-wrap: wrap !important; }
+  .slc-ref#alm-fx-ui .master-toolbar > .filter-bar .filter-field { min-width: 0; flex: 1 1 130px; }
+  .slc-ref#alm-fx-ui .master-toolbar > .filter-bar select { width: 100%; }
+  .slc-ref#alm-fx-ui .common-actions { flex-wrap: wrap !important; min-width: 0; max-width: 100%; }
+  .slc-ref#alm-fx-ui table :is(.sticky-col,.sticky-1,.sticky-2,.sticky-3) { left: auto !important; right: auto !important; }
+}
+@media (max-width: 600px) {
+  .slc-ref#alm-fx-ui .metrics-grid:not(.kpi-hidden) { grid-template-columns: repeat(2,minmax(0,1fr)) !important; gap: 8px; }
+  .slc-ref#alm-fx-ui .metrics-grid .metric-card { min-height: 96px; padding: 16px; }
+  .slc-ref#alm-fx-ui .metrics-grid .metric-val { font-size: 22px; }
+}

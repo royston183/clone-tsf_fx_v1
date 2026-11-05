@@ -1,0 +1,505 @@
+import { requestTask } from '@/ref/shared/request-task'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { BackButton } from '../../auth/BackButton.tsx'
+import { SignOutButton } from '../../auth/SignOutButton.tsx'
+import { isAbort } from '../../shared/fx/mw.ts'
+import { TransactionDetailsDialog } from '../../shared/fx/TransactionDetails.tsx'
+import { ResultQueue, type ResultItem } from '../../shared/ui/ResultQueue.tsx'
+import { loadScreen, type DataSource } from './api.ts'
+import { BlListModal } from './BlListModal.tsx'
+import { ComplianceModal, type ComplianceNote } from './ComplianceModal.tsx'
+import { ConfirmModal } from './ConfirmModal.tsx'
+import { ENTITIES, FX_MODELS, REGIONS, STATUS_OPTIONS } from './data.ts'
+import { DateField } from './DateField.tsx'
+import { DealTable } from './DealTable.tsx'
+import { DiffModal } from './DiffModal.tsx'
+import { HouseBankModal } from './HouseBankModal.tsx'
+import {
+  DEFAULT_FILTERS,
+  amendDealStatusNext,
+  editInvDate as applyEditInvDate,
+  editPrice as applyEditPrice,
+  toggleMark as applyToggleMark,
+  buildCsv,
+  filterDeals,
+  invoiceGenerationCheck,
+  nextSort,
+  sortDeals,
+} from './logic.ts'
+import { McDetailsModal } from './McDetailsModal.tsx'
+import './mo-deal-id-invoicing.legacy.css'
+import { RbillModal } from './RbillModal.tsx'
+import { RemarkModal } from './RemarkModal.tsx'
+// Night mode. Generated from the sheet above by tools/gen-dark-css.mjs; it only restates the
+// colours that change, at a higher specificity, so it must be imported after it.
+import './mo-deal-id-invoicing.dark.css'
+import './mo-deal-id-invoicing.overrides.css'
+import type { Deal, Filters, Sort, SortKey, SubModal, Toast } from './types.ts'
+
+const PAGE_SIZE = 15
+/**
+ * The Deal ID hotspot SUBMITs ZSGTSF_RBILL_ADJUST, which is not in this export: its writes
+ * (BIL_ADJ / INV_REF / DEALID / BL_DASS updates, TRM invoice postings, cover letters) are
+ * unknown, so every action validates as before and then says so, changing nothing.
+ */
+const waitingAction = (what: string): string => `WAITING FOR ACTION API — ${what} (ZSGTSF_RBILL_ADJUST, not in this export) has no API yet. Nothing was posted to SAP.`
+
+/**
+ * MO: View List of Deal IDs for Invoicing (ZSGTSFR008), converted from
+ * legacy/View_List_of_Deal_IDs_for_Invoicing_CALENDAR_FIXED.html.
+ *
+ * The list, the planned / raised invoice legs and the assigned Bills of Lading come from
+ * MySQL through the SLC middleware (api.ts), read-only as in the report. Nothing falls back to
+ * sample data: when the middleware cannot be read the list is empty and says why. The
+ * invoice-generation popup (ZSGTSF_RBILL_ADJUST: generate, reverse, amend status, bank,
+ * de-assign BL, save, letters) is WAITING FOR ACTION API: line ticks and price / date edits
+ * stay as unsaved input, and no action changes the deal.
+ */
+export default function MoDealIdInvoicing() {
+  const [deals, setDeals] = useState<Deal[]>([])
+  /** The deals as loaded: the rbill popup's Refresh / Cancel restore a deal from here. */
+  const seedRef = useRef<Deal[]>([])
+  /** Where the rows came from; 'unavailable' means ZSGTSFTR_DEALID could not be read. */
+  const [source, setSource] = useState<DataSource | 'loading'>('loading')
+  /** Why the list is empty, or which columns / checks wait for an API. */
+  const [notes, setNotes] = useState<string[]>([])
+  const [generation, setGeneration] = useState(0)
+  useEffect(() => {
+    return requestTask(() => {
+    const controller = new AbortController()
+    setSource('loading')
+    loadScreen(controller.signal)
+      .then((loaded) => {
+        seedRef.current = loaded.deals
+        setDeals(loaded.deals.map((d) => ({ ...d })))
+        setSource(loaded.source)
+        setNotes(loaded.notes)
+      })
+      .catch((error: unknown) => {
+        if (!isAbort(error)) console.error('[fx] Deal IDs for invoicing failed to load', error)
+      })
+    return () => controller.abort()
+  
+    })
+  }, [generation])
+
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
+  const [filtersOpen, setFiltersOpen] = useState(true)
+  const [sort, setSort] = useState<Sort>({ key: null, dir: 1 })
+  const [page, setPage] = useState(1)
+
+  const [openDealId, setOpenDealId] = useState<string | null>(null)
+  const [amending, setAmending] = useState(false)
+  const [sub, setSub] = useState<SubModal>(null)
+  const [pendingBlIdx, setPendingBlIdx] = useState<number | null>(null)
+  const [pendingFullMatch, setPendingFullMatch] = useState(false)
+
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const toastId = useRef(0)
+
+  // Outcomes (SAP results, validation, not-yet-wired actions) queue as the standard ResultDialog.
+  const [results, setResults] = useState<ResultItem[]>([])
+  const pushToast = (message: string, kind: Toast['kind'] = '') => {
+    const id = ++toastId.current
+    const tone = kind === 'error' ? 'error' : kind === 'warn' ? 'warning' : kind === 'success' ? 'success' : 'info'
+    const title = tone === 'error' ? 'Error' : tone === 'warning' ? 'Warning' : tone === 'success' ? 'Success' : 'Information'
+    setResults((r) => [...r, { id, tone, title, message }])
+  }
+  // Non-outcome chatter (reload / refresh / mode hints) stays a small auto-fading toast, not a modal.
+  const pushNote = (message: string) => {
+    const id = ++toastId.current
+    setToasts((t) => [...t, { id, message, kind: '' }])
+    window.setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200)
+  }
+
+  const filteredDeals = useMemo(() => filterDeals(deals, filters), [deals, filters])
+  const sortedDeals = useMemo(() => sortDeals(filteredDeals, sort), [filteredDeals, sort])
+  const totalPages = Math.max(1, Math.ceil(sortedDeals.length / PAGE_SIZE))
+  const currentPage = Math.min(page, totalPages)
+  const start = (currentPage - 1) * PAGE_SIZE
+  const pageDeals = sortedDeals.slice(start, start + PAGE_SIZE)
+
+  const openDeal = useMemo(() => deals.find((d) => d.dealId === openDealId) ?? null, [deals, openDealId])
+
+  const updateDeal = (dealId: string, next: (d: (typeof deals)[number]) => (typeof deals)[number]) => {
+    setDeals((all) => all.map((d) => (d.dealId === dealId ? next(d) : d)))
+  }
+
+  const applyFilters = (patch: Partial<Filters>) => {
+    setFilters((f) => ({ ...f, ...patch }))
+    setPage(1)
+  }
+
+  const resetFilters = () => {
+    setFilters(DEFAULT_FILTERS)
+    setSort({ key: null, dir: 1 })
+    setPage(1)
+  }
+
+  const refreshList = () => {
+    setGeneration((g) => g + 1)
+    resetFilters()
+    pushNote('List reloaded from MySQL.')
+  }
+
+  const exportCsv = () => {
+    const csv = buildCsv(sortedDeals)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'deal_id_invoice_list.csv'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    window.setTimeout(() => window.URL.revokeObjectURL(url), 1000)
+    pushToast(`Exported ${sortedDeals.length} row(s) to CSV.`, 'success')
+  }
+
+  // ------------------------------------------------------------------ rbill blotter
+
+  const openDetail = (dealId: string) => {
+    setOpenDealId(dealId)
+    setAmending(false)
+    setSub(null)
+  }
+
+  const closeDetail = () => {
+    setOpenDealId(null)
+    setSub(null)
+  }
+
+  const refreshDeal = () => {
+    if (!openDealId) return
+    const orig = seedRef.current.find((d) => d.dealId === openDealId)
+    if (orig) setDeals((all) => all.map((d) => (d.dealId === openDealId ? { ...orig } : d)))
+    setAmending(false)
+    pushNote(`Deal ${openDealId} refreshed.`)
+  }
+
+  const saveDeal = () => pushToast(waitingAction('Save'), 'warn')
+
+  const amendDealStatus = () => {
+    if (!openDeal) return
+    const next = amendDealStatusNext(openDeal.dealStat)
+    setSub({
+      kind: 'confirm',
+      title: 'Amend Deal Status',
+      text: `Deal ID ${openDeal.dealId} is currently '${openDeal.dealStat}'.\nDo you want to reopen it to status ${next}?`,
+      yesLabel: 'Yes, reopen',
+      onYes: () => pushToast(waitingAction(`Amend Deal Status to ${next}`), 'warn'),
+    })
+  }
+
+  const confirmInvoiceGeneration = () => {
+    if (!openDeal) return
+    const check = invoiceGenerationCheck(openDeal)
+    if (!check.marked.length) {
+      pushToast('Select at least one line (checkbox) before confirming invoice generation.', 'warn')
+      return
+    }
+    const note: ComplianceNote = check.withinTolerance
+      ? { kind: 'ok', message: `Invoice amount ${check.invAmt.toFixed(2)} USD is within 2% tolerance of the FX Deal value ${check.dealAmt.toFixed(2)} USD (diff ${check.diffPct.toFixed(2)}%). Proceed to compliance checklist.` }
+      : {
+          kind: 'warn',
+          message: `Invoice amount ${check.invAmt.toFixed(2)} USD differs from the FX Deal value ${check.dealAmt.toFixed(2)} USD by ${check.diffPct.toFixed(2)}%, which exceeds the 2% tolerance. You may still proceed, but this will be flagged as a Partial invoice.`,
+        }
+    setPendingFullMatch(check.withinTolerance)
+    setSub({ kind: 'compliance', fullMatch: check.withinTolerance, note: note.message })
+  }
+
+  const finaliseInvoice = () => {
+    if (!openDealId) return
+    setSub(null)
+    pushToast(waitingAction(`Confirm Invoice Generation (${pendingFullMatch ? 'full' : 'partial'})`), 'warn')
+  }
+
+  const reverseInvoiceGeneration = () => {
+    if (!openDeal) return
+    setSub({
+      kind: 'confirm',
+      title: 'Reverse Confirm Invoice Generation',
+      text: `This will delete all invoice records for Deal ID ${openDeal.dealId} and reset its status to Booked. Continue?`,
+      yesLabel: 'Yes, reverse',
+      onYes: () => pushToast(waitingAction('Reverse Confirm Invoice Generation'), 'warn'),
+    })
+  }
+
+  const recalcUpdate = () => {
+    if (!openDealId) return
+    pushToast(waitingAction('Re-calculate and Update'), 'warn')
+  }
+
+  const letterAction = (kind: 'Import' | 'Export') => {
+    pushToast(waitingAction(`${kind} cover letter`), 'warn')
+  }
+
+  const [viewTransaction, setViewTransaction] = useState<{ bukrs: string; rfha: string } | null>(null)
+  const viewTxn = (bukrs: string, rfha: string) => setViewTransaction({ bukrs, rfha })
+
+  // ------------------------------------------------------------------ BL de-assign
+
+  const confirmDeAssign = (remark: string) => {
+    if (!openDealId || pendingBlIdx === null) return
+    if (!remark.trim()) {
+      pushToast('Enter a remark before updating.', 'warn')
+      return
+    }
+    setPendingBlIdx(null)
+    setSub(null)
+    pushToast(waitingAction('De-assign BL'), 'warn')
+  }
+
+  const pagerButtons = Array.from({ length: totalPages }, (_, i) => i + 1)
+
+  return (
+    <div className="modiv">
+      <div className="page-head">
+        <BackButton className="fx-back-btn" />
+        <div className="head-flex">
+          <div className="title-wrap">
+            <div className="page-title">View List of Deal IDs for Invoicing</div>
+          </div>
+        </div>
+        <div className="head-actions">
+          <span className="status-live" title="Connected" />
+          <button className="btn-outline-hd" title="Refresh" onClick={refreshList}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M20 11a8 8 0 1 0-2.34 5.66" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M20 5v6h-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Refresh
+          </button>
+          <SignOutButton className="btn-outline-hd" />
+        </div>
+      </div>
+
+      <main>
+        <div className="panel">
+          <div className="panel-title">
+            <div className="panel-title-left">
+              <h2>Deal IDs for Invoicing</h2>
+              <span className="rec-count">{sortedDeals.length} records</span>
+              <SourceNote source={source} notes={notes} />
+            </div>
+            <div className="panel-title-right">
+              <button className="btn-icon" title="Show/hide filters" onClick={() => setFiltersOpen((v) => !v)}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M4 5h16l-6 7v6l-4 2v-8L4 5Z" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+                </svg>
+              </button>
+              <button className="btn-icon" title="Export visible rows to CSV" onClick={exportCsv}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                  <path d="M12 4v11M7 11l5 5 5-5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M5 19h14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+          </div>
+
+          <div className={`master-toolbar${filtersOpen ? '' : ' collapsed'}`}>
+            <div className="search-box toolbar-search">
+              <span className="icon">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="1.9" />
+                  <path d="m16.5 16.5 4 4" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input type="text" placeholder="Search all columns..." value={filters.q} onChange={(e) => applyFilters({ q: e.target.value })} />
+            </div>
+            <div className="filter-bar toolbar-filters">
+              <div className="filter-field">
+                <label>Deal End Date</label>
+                <div className="date-range">
+                  <DateField id="f-date-from" value={filters.dateFrom} ariaLabel="Deal end date from" onChange={(v) => applyFilters({ dateFrom: v })} />
+                  <span>to</span>
+                  <DateField id="f-date-to" value={filters.dateTo} ariaLabel="Deal end date to" onChange={(v) => applyFilters({ dateTo: v })} />
+                </div>
+              </div>
+              <div className="filter-field">
+                <label>Region</label>
+                <select value={filters.region} onChange={(e) => applyFilters({ region: e.target.value })}>
+                  <option value="ALL">All regions</option>
+                  {Object.entries(REGIONS).map(([code, name]) => (
+                    <option key={code} value={code}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-field">
+                <label>Origin Entity</label>
+                <select value={filters.origin} onChange={(e) => applyFilters({ origin: e.target.value })}>
+                  <option value="ALL">All entities</option>
+                  {Object.values(ENTITIES).map((e) => (
+                    <option key={e.code} value={e.code}>
+                      {e.code} - {e.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-field">
+                <label>Model</label>
+                <select value={filters.model} onChange={(e) => applyFilters({ model: e.target.value })}>
+                  <option value="ALL">All models</option>
+                  {Object.values(FX_MODELS).map((m) => (
+                    <option key={m.code} value={m.code}>
+                      {m.code} - {m.desc}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-field">
+                <label>Status</label>
+                <select value={filters.status} onChange={(e) => applyFilters({ status: e.target.value })}>
+                  <option value="ALL">All statuses</option>
+                  {STATUS_OPTIONS.map(([code, label]) => (
+                    <option key={code} value={code}>
+                      {code} - {label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="filter-reset-wrap">
+                <span className="filter-spacer-label">Action</span>
+                <button className="filter-reset" onClick={resetFilters}>
+                  Reset
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <DealTable
+            deals={pageDeals}
+            sort={sort}
+            onSort={(key: SortKey) => {
+              setSort((s) => nextSort(s, key))
+              setPage(1)
+            }}
+            onOpenDetail={openDetail}
+            onOpenMcDetails={(dealId) => setSub({ kind: 'mc', dealId })}
+            emptyText={source === 'unavailable' ? notes.join(' · ') : ''}
+          />
+
+          <div className="pager">
+            <div className="pager-info">
+              {sortedDeals.length ? (
+                <>
+                  Showing <strong>{start + 1}</strong>–<strong>{Math.min(start + PAGE_SIZE, sortedDeals.length)}</strong> of <strong>{sortedDeals.length}</strong>
+                </>
+              ) : (
+                'Showing 0 of 0'
+              )}
+            </div>
+            <div className="pager-controls">
+              <button className="pager-btn" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>
+                &#8249;
+              </button>
+              {pagerButtons.map((p) => (
+                <button key={p} className={`pager-btn${p === currentPage ? ' active' : ''}`} onClick={() => setPage(p)}>
+                  {p}
+                </button>
+              ))}
+              <button className="pager-btn" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>
+                &#8250;
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <ResultQueue items={results} onDismiss={(id) => setResults((r) => r.filter((x) => x.id !== id))} />
+      <div className="toast-wrap">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast show${t.kind ? ` ${t.kind}` : ''}`}>
+            {t.message}
+          </div>
+        ))}
+      </div>
+
+      {sub?.kind === 'mc'
+        ? (() => {
+            const mcDeal = deals.find((d) => d.dealId === sub.dealId)
+            return mcDeal ? <McDetailsModal deal={mcDeal} onClose={() => setSub(null)} /> : null
+          })()
+        : null}
+
+      {openDeal ? (
+        <RbillModal
+          deal={openDeal}
+          amending={amending}
+          onClose={closeDetail}
+          onRefresh={refreshDeal}
+          onSave={saveDeal}
+          onToggleAmendment={(on) => {
+            setAmending(on)
+            if (on) pushNote('Amendment mode: Unit Price and Invoice Date are now editable on lines not yet invoiced.')
+          }}
+          onConfirmAmendment={() => {
+            setAmending(false)
+            pushToast(waitingAction('Confirm Amendment'), 'warn')
+          }}
+          onAmendDealStatus={amendDealStatus}
+          onConfirmInvoiceGeneration={confirmInvoiceGeneration}
+          onReverseInvoiceGeneration={reverseInvoiceGeneration}
+          onRecalc={recalcUpdate}
+          onOpenBlList={() => setSub({ kind: 'bl' })}
+          onOpenDiff={() => setSub({ kind: 'diff' })}
+          onLetter={letterAction}
+          onOpenHouseBank={(idx) => setSub({ kind: 'houseBank', legIdx: idx })}
+          onToggleMark={(idx, checked) => openDealId && updateDeal(openDealId, (d) => applyToggleMark(d, idx, checked))}
+          onEditPrice={(idx, value) => openDealId && updateDeal(openDealId, (d) => applyEditPrice(d, idx, value))}
+          onEditInvDate={(idx, value) => openDealId && updateDeal(openDealId, (d) => applyEditInvDate(d, idx, value))}
+          onViewTxn={viewTxn}
+        />
+      ) : null}
+
+      {viewTransaction ? <TransactionDetailsDialog key={`${viewTransaction.bukrs}/${viewTransaction.rfha}`} bukrs={viewTransaction.bukrs} rfha={viewTransaction.rfha} onClose={() => setViewTransaction(null)} /> : null}
+
+      {sub?.kind === 'bl' && openDeal ? (
+        <BlListModal
+          deal={openDeal}
+          onClose={() => setSub(null)}
+          onDeAssign={(idx) => {
+            setPendingBlIdx(idx)
+            setSub({ kind: 'remark' })
+          }}
+        />
+      ) : null}
+
+      {sub?.kind === 'remark' && openDeal && pendingBlIdx !== null ? <RemarkModal blNo={openDeal.bls[pendingBlIdx]?.blNo ?? ''} onClose={() => setSub({ kind: 'bl' })} onConfirm={confirmDeAssign} /> : null}
+
+      {sub?.kind === 'compliance' && openDeal ? (
+        <ComplianceModal
+          dealId={openDeal.dealId}
+          lineCount={openDeal.inv.filter((r) => r.marked && !r.invoiced).length}
+          note={{ kind: sub.fullMatch ? 'ok' : 'warn', message: sub.note }}
+          onClose={() => setSub(null)}
+          onConfirm={finaliseInvoice}
+        />
+      ) : null}
+
+      {sub?.kind === 'diff' && openDeal ? <DiffModal deal={openDeal} onClose={() => setSub(null)} /> : null}
+
+      {sub?.kind === 'houseBank' && openDeal && openDeal.inv[sub.legIdx] ? (
+        <HouseBankModal
+          deal={openDeal}
+          leg={openDeal.inv[sub.legIdx]!}
+          onClose={() => setSub(null)}
+          onSave={() => {
+            setSub(null)
+            pushToast(waitingAction('Update House Bank / Account ID'), 'warn')
+          }}
+        />
+      ) : null}
+
+      {sub?.kind === 'confirm' ? <ConfirmModal title={sub.title} text={sub.text} yesLabel={sub.yesLabel} onYes={sub.onYes} onClose={() => setSub(null)} /> : null}
+    </div>
+  )
+}
+
+/** Says where the rows came from, and which columns / checks are waiting for an API. */
+function SourceNote({ source, notes }: { source: DataSource | 'loading'; notes: readonly string[] }) {
+  const text = source === 'loading' ? 'Loading from MySQL…' : source === 'sap' ? ['ZSGTSFTR_DEALID · MySQL', ...notes].join(' · ') : notes.join(' · ')
+  return <span style={{ marginLeft: 10, fontSize: 11, fontWeight: 500, opacity: 0.7 }}>{text}</span>
+}

@@ -1,0 +1,408 @@
+/* Component styles. Every value comes from a token in tokens.css — no literal colour here. */
+
+.slc-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ---- Shell ---- */
+.slc-shell {
+  display: grid;
+  grid-template-rows: var(--header-h) minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
+}
+.slc-shell__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.slc-shell__brand {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.slc-shell__mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  flex: none;
+}
+.slc-shell__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.slc-shell__title small {
+  margin-left: 8px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+.slc-shell__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.slc-shell__main {
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ---- Button ---- */
+.slc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: var(--control-h);
+  padding: 0 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-sub);
+  font-weight: 600;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+.slc-btn:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.slc-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.slc-btn--primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+.slc-btn--primary:hover:not(:disabled) {
+  background: var(--blue-hover);
+  border-color: var(--blue-hover);
+  color: #fff;
+}
+.slc-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+}
+.slc-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.slc-btn--danger {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+.slc-btn__spinner {
+  width: 13px;
+  height: 13px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: slc-spin 700ms linear infinite;
+}
+
+/* ---- Spinner ---- */
+.slc-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.slc-spinner__ring {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: slc-spin 700ms linear infinite;
+}
+@keyframes slc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .slc-spinner__ring,
+  .slc-btn__spinner {
+    animation-duration: 2400ms;
+  }
+}
+
+/* ---- Connection indicator ---- */
+.slc-conn__dot {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--green);
+  transition: background var(--transition);
+}
+.slc-conn--unreachable .slc-conn__dot {
+  background: var(--red);
+}
+.slc-conn--unknown .slc-conn__dot {
+  background: var(--border-strong);
+}
+
+/* ---- Toast ---- */
+.slc-toasts {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+  pointer-events: none;
+}
+.slc-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 14px;
+  border-radius: var(--radius);
+  background: var(--text);
+  color: #fff;
+  box-shadow: var(--shadow-overlay);
+  pointer-events: auto;
+}
+.slc-toast--success {
+  background: var(--green);
+}
+.slc-toast--error {
+  background: var(--red);
+}
+.slc-toast__close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+/* ---- Table ---- */
+.slc-table__scroll {
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.slc-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.slc-table th,
+.slc-table td {
+  padding: 8px 11px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.slc-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--surface-2);
+  font-weight: 600;
+  color: var(--text-sub);
+}
+.slc-table td[data-align='end'],
+.slc-table th[data-align='end'] {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.slc-table td[data-align='center'],
+.slc-table th[data-align='center'] {
+  text-align: center;
+}
+.slc-table tbody tr[tabindex]:hover {
+  background: var(--blue-soft);
+  cursor: pointer;
+}
+.slc-table tbody tr.is-selected {
+  background: var(--blue-soft-2);
+}
+.slc-table__status {
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+/* ---- Empty state ---- */
+.slc-empty {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 40px 20px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  text-align: center;
+}
+.slc-empty--error {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+.slc-empty__title {
+  margin: 0;
+  font-weight: 600;
+}
+.slc-empty__detail {
+  margin: 0;
+  color: var(--text-muted);
+  max-width: 60ch;
+}
+.slc-empty__action {
+  margin-top: 8px;
+}
+
+/* ---- Field ---- */
+.slc-field {
+  display: grid;
+  gap: 4px;
+}
+.slc-field__label {
+  font-weight: 600;
+  color: var(--text-sub);
+}
+.slc-field input,
+.slc-field select,
+.slc-field textarea {
+  height: var(--control-h);
+  padding: 0 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  width: 100%;
+}
+.slc-field textarea {
+  height: auto;
+  padding: 7px 9px;
+}
+.slc-field--error input,
+.slc-field--error select,
+.slc-field--error textarea {
+  border-color: var(--red);
+  background: var(--red-soft);
+}
+.slc-field__hint {
+  margin: 0;
+  color: var(--text-muted);
+}
+.slc-field__message {
+  margin: 0;
+  color: var(--red);
+  font-weight: 600;
+}
+
+/* ---- Dialog ---- */
+/* Scoped to [open]: a bare `.slc-dialog { display: grid }` overrides the UA stylesheet's
+   `dialog:not([open]) { display: none }`, which renders every closed dialog inline in the
+   page. Keep the display rule on the open state only. */
+.slc-dialog[open] {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+.slc-dialog {
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-overlay);
+  max-height: calc(100vh - 64px);
+  overflow: hidden;
+}
+.slc-dialog::backdrop {
+  background: rgba(23, 43, 61, 0.48);
+}
+.slc-dialog__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.slc-dialog__title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+.slc-dialog__close {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--text-muted);
+  padding: 0 4px;
+}
+.slc-dialog__close:hover {
+  color: var(--text);
+}
+.slc-dialog__body {
+  padding: 14px 16px;
+  overflow: auto;
+}
+.slc-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 11px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+/* ---- Status pill ---- */
+.slc-pill {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.slc-pill--open {
+  background: var(--green-soft);
+  color: var(--green);
+}
+.slc-pill--pending {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+.slc-pill--done {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+.slc-pill--neutral {
+  background: var(--surface-2);
+  color: var(--text-sub);
+}
+
+/* ---- Amount input ---- */
+.slc-amount {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.slc-amount--invalid {
+  border-color: var(--red);
+  background: var(--red-soft);
+}

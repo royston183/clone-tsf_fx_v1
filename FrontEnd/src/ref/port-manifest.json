@@ -1,0 +1,294 @@
+{
+  "reference": "D:\\SAP Tool\\TSF - FX Application",
+  "ports": [
+    {
+      "id": "limit-management",
+      "ref": "limit-management",
+      "feature": "limit-management/index.tsx",
+      "office": false
+    },
+    {
+      "id": "mo-confirm-master-contract",
+      "ref": "mo-confirm-master-contract",
+      "feature": "mo-confirm-master-contract/index.tsx",
+      "office": false
+    },
+    {
+      "id": "mo-update-mc-expiry",
+      "ref": "mo-update-mc-expiry",
+      "feature": "mo-update-mc-expiry/index.tsx",
+      "office": false
+    },
+    {
+      "id": "fo-mc-error-correction",
+      "ref": "fo-mc-error-correction",
+      "feature": "fo-mc-error-correction/index.tsx",
+      "office": false
+    },
+    {
+      "id": "mo-reject-mc-after-expiry",
+      "ref": "mo-reject-mc-after-expiry",
+      "feature": "mo-reject-mc-after-expiry/index.tsx",
+      "office": false
+    },
+    {
+      "id": "short-straddle-deal-id",
+      "ref": "short-straddle-deal-id",
+      "feature": "short-straddle-deal-id/index.tsx",
+      "office": false
+    },
+    {
+      "id": "fo-fx-error-correction",
+      "ref": "fo-fx-error-correction",
+      "feature": "fo-fx-error-correction/index.tsx",
+      "office": false
+    },
+    {
+      "id": "fo-change-deal-id",
+      "ref": "fo-change-deal-id",
+      "feature": "fo-change-deal-id/index.tsx",
+      "office": false
+    },
+    {
+      "id": "fo-create-deal-id-manually",
+      "ref": "fo-create-deal-id-manually",
+      "feature": "fo-create-deal-id-manually/index.tsx",
+      "office": false
+    },
+    {
+      "id": "fo-early-delivery-unwind-rollover",
+      "ref": "fo-early-delivery-unwind-rollover",
+      "feature": "fo-early-delivery-unwind-rollover/index.tsx",
+      "office": false
+    },
+    {
+      "id": "fo-additional-spot-booking",
+      "ref": "fo-additional-spot-booking",
+      "feature": "fo-additional-spot-booking/index.tsx",
+      "office": false
+    },
+    {
+      "id": "tsf-ndf-fixing",
+      "ref": "tsf-ndf-fixing",
+      "feature": "tsf-ndf-fixing/index.tsx",
+      "office": false
+    },
+    {
+      "id": "fo-ndf-fixing-error-correction",
+      "ref": "fo-ndf-fixing-error-correction",
+      "feature": "fo-ndf-fixing-error-correction/index.tsx",
+      "office": false
+    },
+    {
+      "id": "mo-confirm-ndf-fixing",
+      "ref": "mo-confirm-ndf-fixing",
+      "feature": "mo-confirm-ndf-fixing/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-update-bank-reference",
+      "ref": "mo-update-bank-reference",
+      "feature": "mo-update-bank-reference/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-view-deal-ids-for-confirmation",
+      "ref": "mo-view-deal-ids-for-confirmation",
+      "feature": "mo-view-deal-ids-for-confirmation/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-confirm-fx-deal-id",
+      "ref": "mo-confirm-fx-deal-id",
+      "feature": "mo-confirm-fx-deal-id/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-confirm-fx-deal-id-ss",
+      "ref": "mo-confirm-fx-deal-id-ss",
+      "feature": "mo-confirm-fx-deal-id-ss/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-deal-id-invoice-status",
+      "ref": "mo-deal-id-invoice-status",
+      "feature": "mo-deal-id-invoice-status/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-deal-id-invoice-mark",
+      "ref": "mo-deal-id-invoice-mark",
+      "feature": "mo-deal-id-invoice-mark/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-deal-id-invoicing",
+      "ref": "mo-deal-id-invoicing",
+      "feature": "mo-deal-id-invoicing/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-generate-invoices-deal-id",
+      "ref": "mo-generate-invoices-deal-id",
+      "feature": "mo-generate-invoices-deal-id/index.tsx",
+      "office": true
+    },
+    {
+      "id": "inr-heads-up-reminder",
+      "ref": "inr-heads-up-reminder",
+      "feature": "inr-heads-up-reminder/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-view-deal-id-settlement-list",
+      "ref": "mo-view-deal-id-settlement-list",
+      "feature": "mo-view-deal-id-settlement-list/index.tsx",
+      "office": true
+    },
+    {
+      "id": "mo-bank-settlement-fx-non-flow",
+      "ref": "mo-bank-settlement-fx-non-flow",
+      "feature": "mo-bank-settlement-fx-non-flow/index.tsx",
+      "office": true
+    },
+    {
+      "id": "bo-post-accounting-settlement",
+      "ref": "bo-post-accounting-settlement",
+      "feature": "bo-post-accounting-settlement/index.tsx",
+      "office": true
+    },
+    {
+      "id": "bo-bank-settlement-fx-non-flow",
+      "ref": "bo-bank-settlement-fx-non-flow",
+      "feature": "mo-bank-settlement-fx-non-flow/index.tsx",
+      "office": true
+    },
+    {
+      "id": "view-spot-forward-settlement",
+      "ref": "view-spot-forward-settlement",
+      "feature": "view-spot-forward-settlement/index.tsx",
+      "office": true
+    },
+    {
+      "id": "tbb1-post-flows",
+      "ref": "tbb1-post-flows",
+      "feature": "tbb1-post-flows/index.tsx",
+      "office": true
+    },
+    {
+      "id": "bo-deal-rejection",
+      "ref": "bo-deal-rejection",
+      "feature": "bo-deal-rejection/index.tsx",
+      "office": true
+    },
+    {
+      "id": "fx-ndf-settlement",
+      "ref": "fx-ndf-settlement",
+      "feature": "fx-ndf-settlement/index.tsx",
+      "office": true
+    },
+    {
+      "id": "post-fx-mtm-oil-dmcc",
+      "ref": "post-fx-mtm-oil-dmcc",
+      "feature": "post-fx-mtm-oil-dmcc/index.tsx",
+      "office": true
+    },
+    {
+      "id": "post-fx-mtm-other-origins",
+      "ref": "post-fx-mtm-other-origins",
+      "feature": "post-fx-mtm-other-origins/index.tsx",
+      "office": true
+    },
+    {
+      "id": "fx-mtm-external-tsf-deals",
+      "ref": "fx-mtm-external-tsf-deals",
+      "feature": "fx-mtm-external-tsf-deals/index.tsx",
+      "office": true
+    },
+    {
+      "id": "bo-reverse-fx-mtm-oil-dmcc",
+      "ref": "bo-reverse-fx-mtm-oil-dmcc",
+      "feature": "bo-reverse-fx-mtm-oil-dmcc/index.tsx",
+      "office": true
+    },
+    {
+      "id": "bo-reverse-fx-mtm-other-origins",
+      "ref": "bo-reverse-fx-mtm-other-origins",
+      "feature": "bo-reverse-fx-mtm-other-origins/index.tsx",
+      "office": true
+    },
+    {
+      "id": "bo-reverse-fx-mtm-india",
+      "ref": "bo-reverse-fx-mtm-india",
+      "feature": "bo-reverse-fx-mtm-india/index.tsx",
+      "office": true
+    },
+    {
+      "id": "view-all-transactions",
+      "ref": "view-all-transactions",
+      "feature": "view-all-transactions/index.tsx",
+      "office": false
+    },
+    {
+      "id": "deal-id-details",
+      "ref": "fo-deal-id-details",
+      "feature": "fo-deal-id-details/index.tsx",
+      "office": false
+    }
+  ],
+  "unavailable": [
+    "option-blotter",
+    "view-short-straddle",
+    "bo-settlement-tsf-fx",
+    "option-premium-settlement",
+    "ndo-cash-settlement",
+    "corporate-mtm-rates",
+    "option-premium-deferral"
+  ],
+  "dependencyFolders": [
+    "bo-deal-rejection",
+    "bo-post-accounting-settlement",
+    "bo-reverse-fx-mtm-india",
+    "bo-reverse-fx-mtm-oil-dmcc",
+    "bo-reverse-fx-mtm-other-origins",
+    "fo-additional-spot-booking",
+    "fo-change-deal-id",
+    "fo-create-deal-id-manually",
+    "fo-deal-id-details",
+    "fo-early-delivery-unwind-rollover",
+    "fo-fx-error-correction",
+    "fo-mc-error-correction",
+    "fo-ndf-fixing-error-correction",
+    "fx-blotter",
+    "fx-mtm-external-tsf-deals",
+    "fx-ndf-settlement",
+    "inr-heads-up-reminder",
+    "limit-management",
+    "mo-bank-settlement-fx-non-flow",
+    "mo-confirm-fx-deal-id",
+    "mo-confirm-fx-deal-id-ss",
+    "mo-confirm-master-contract",
+    "mo-confirm-ndf-fixing",
+    "mo-deal-id-invoice-mark",
+    "mo-deal-id-invoice-status",
+    "mo-deal-id-invoicing",
+    "mo-execute-settlement-deal-id",
+    "mo-fx-deal-confirmation",
+    "mo-generate-invoices-deal-id",
+    "mo-reject-mc-after-expiry",
+    "mo-update-bank-reference",
+    "mo-update-mc-expiry",
+    "mo-view-deal-id-settlement-list",
+    "mo-view-deal-ids-for-confirmation",
+    "post-fx-mtm-oil-dmcc",
+    "post-fx-mtm-other-origins",
+    "short-straddle-deal-id",
+    "tbb1-post-flows",
+    "tsf-ndf-fixing",
+    "view-all-transactions",
+    "view-spot-forward-settlement",
+    "view-tsf-deals"
+  ],
+  "files": 593,
+  "dependencyFilesPruned": 22
+}

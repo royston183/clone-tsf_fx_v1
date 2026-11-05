@@ -1,0 +1,98 @@
+/* Night mode for mo-update-bank-reference, derived from mo-update-bank-reference.legacy.css.
+ * Generated — do not hand-edit; re-run `node tools/gen-dark-css.mjs`.
+ *
+ * Only the declarations whose colour changes at night are here; everything else is inherited
+ * from the light stylesheet. Brand and status colours are deliberately absent because they
+ * keep their identity in both themes — see tools/dark-palette.mjs for the rules.
+ */
+:root[data-theme='dark'] .mo-update-bank-reference {
+  color-scheme: dark;
+}
+:root[data-theme='dark'] .mo-update-bank-reference input:not([type='checkbox']):not([type='radio']),
+:root[data-theme='dark'] .mo-update-bank-reference select,
+:root[data-theme='dark'] .mo-update-bank-reference textarea {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference {
+  --bg: #0d1724;
+  --card: #14212f;
+  --text: #e6eef8;
+  --border: #2a3d52;
+  --border-strong: #3d5670;
+  --primary-tint: #17304a;
+  --success-tint: #14321f;
+  --warning-tint: #3a2a12;
+  --error-tint: #3a1b1e;
+  --teal-tint: #113330;
+  --purple-tint: #3a1b1e;
+  --gray-tint: #1b2b3d;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .control {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .control:hover {
+  border-color: #3d5670;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .dd-input {
+  background: #14212f url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1L5 5L9 1" stroke="%23475E75" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>') no-repeat right 12px center;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .dd-input:hover {
+  border-color: #3d5670;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .dd-panel {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .date-popup {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .pill {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .btn-secondary {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .btn-danger {
+  background: #14212f;
+  border-color: #5c2b30;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .icon-btn {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid thead th {
+  border-bottom: 1px solid #2a3d52;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody td {
+  border-bottom: 1px solid #2a3d52;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr:hover td {
+  background: #1b2b3d;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr:hover td.chkcol,
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr:hover td.pin2 {
+  background: #1b2b3d;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr.zebra td {
+  background: #1b2b3d;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr.zebra:hover td {
+  background: #1b2b3d;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr.active-row td {
+  background: #17304a;
+}
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr.active-row td.chkcol,
+:root[data-theme='dark'] .mo-update-bank-reference table.grid tbody tr.active-row td.pin2 {
+  background: #17304a;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .edit-input {
+  background: #1b2b3d;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .edit-input:focus {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .pagination button {
+  background: #14212f;
+}
+:root[data-theme='dark'] .mo-update-bank-reference .modal {
+  background: #14212f;
+}

@@ -1,0 +1,15 @@
+/* Scoped to the MO Execute Settlement page. */
+.tsf-settlement .tsf-sel-input { width: 240px; max-width: 100%; }
+.tsf-settlement .tsf-sel-input input { text-transform: uppercase; }
+.tsf-settlement .tsf-hint { margin: 0; font-size: 11px; color: var(--muted); }
+.tsf-settlement .tsf-green { background: #24a481; border-color: #24a481; color: #fff; }
+.tsf-settlement .tsf-card__head { align-items: center; }
+.tsf-settlement .tsf-toolbar { align-items: flex-end; }
+.tsf-settlement .tsf-facts dd select { width: 100%; min-height: 32px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); padding: 4px 8px; }
+.tsf-settlement .tsf-table .table-wrap { overflow-x: auto; }
+.tsf-check-row { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+:root[data-theme='dark'] .tsf-settlement .tsf-green { background: #1c8a6c; border-color: #1c8a6c; }
+@media (max-width: 720px) {
+  .tsf-settlement .tsf-sel-input { width: 100%; }
+  .tsf-settlement .tsf-head__meta { width: 100%; }
+}

@@ -1,0 +1,116 @@
+/*
+ * SLC design tokens — the single source of colour, spacing and elevation.
+ *
+ * Merged from the :root blocks of the seven legacy pages, which between them defined 74
+ * custom properties under four naming conventions (--blue, --blueDark, --ds-blue,
+ * --blue-dark) with 20 outright conflicts; two files disagreed with themselves across
+ * their own duplicate :root blocks. Conflicts were resolved by majority, which is also
+ * the SAP Fiori palette:
+ *
+ *   --blue    #0a6ed1 (6 files) over #1e88e5 (Menu Path only)
+ *   --text    #1d2d3e (6) over #0d2a4a (Menu Path only)
+ *   --bg      #f5f7f9 (5) over #f0f4f8 (Menu Path only)
+ *   --radius  8px     (6) over 10px    (Menu Path only)
+ *   --shadow  0 1px 3px rgba(34,53,72,.13) (6) over 0 2px 8px rgba(0,0,0,.10)
+ *
+ * Menu Path was the consistent outlier and is normalised here rather than preserved.
+ * Add a token only when two apps need it; an app-specific value belongs in that app.
+ */
+.slc-ref, body.slc-ref-active > :not(#root) {
+  /* Surfaces */
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface-2: #f3f7fc;
+  --surface-sunken: #eaf0f7;
+
+  /* Ink */
+  --text: #22354c;
+  --text-sub: #4a5e76;
+  --text-muted: #67768c;
+
+  /* Lines */
+  --border: #e6ebf2;
+  --border-strong: #8996a1;
+
+  /* Brand */
+  --blue: #1265c8;
+  --blue-hover: #0955b2;
+  --blue-active: #004b93;
+  --blue-soft: #eaf3ff;
+  --blue-soft-2: #dbe7f7;
+
+  /* Status */
+  --green: #107e3e;
+  --green-soft: #e4f5e9;
+  --red: #bb0000;
+  --red-soft: #fdeaea;
+  --orange: #e9730c;
+  --orange-soft: #fff3e8;
+  --teal: #00897b;
+  --teal-soft: #e0f7f4;
+
+  /* Shape and depth */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(34, 53, 72, 0.13);
+  --shadow-hover: 0 3px 10px rgba(34, 53, 72, 0.16);
+  --shadow-overlay: 0 10px 30px rgba(34, 53, 72, 0.22);
+
+  /* Layout */
+  --header-h: 52px;
+  --sidebar-w: 355px;
+  --control-h: 32px;
+
+  /* Type. Inter, loaded by apps/web from @fontsource-variable/inter. It is what the hub's
+     generated menu-path.css has always asked for, and what the sibling DSA app is drawn in,
+     so naming it here puts the login screen and the application chrome on the same face.
+     The rest are the fallbacks the legacy pages used. */
+  --font: 'Inter Variable', Inter, "Segoe UI", Arial, sans-serif;
+  --font-mono: "72 Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --font-size: 13px;
+
+  /* Motion. Honoured by every component; overridden to 0 below for reduced-motion users. */
+  --transition: 140ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slc-ref, body.slc-ref-active > :not(#root) {
+    --transition: 0ms;
+  }
+}
+
+/* Scoped to the ported screens (.slc-ref, set by ref/RefHost.tsx, and the popups they portal into <body>): the reference's
+   global element rules must not restyle the TSF_FX shell. */
+.slc-ref,
+.slc-ref *,
+.slc-ref *::before,
+.slc-ref *::after,
+body.slc-ref-active > :not(#root),
+body.slc-ref-active > :not(#root) *,
+body.slc-ref-active > :not(#root) *::before,
+body.slc-ref-active > :not(#root) *::after {
+  box-sizing: border-box;
+}
+
+.slc-ref {
+  min-height: 100%;
+  font-family: var(--font);
+  font-size: var(--font-size);
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+.slc-ref :is(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+}
+
+.slc-ref button {
+  cursor: pointer;
+}
+
+.slc-ref :focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}

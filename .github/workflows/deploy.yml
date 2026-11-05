@@ -1,0 +1,42 @@
+# Deploys the application to Azure from main, and only from main: every push to main (and a manual run on main)
+# verifies the commit, then builds it and publishes the database schema, the Function App and the website.
+# `npm run deploy` sets it up (the PROVISIONER_KEY secret and the variables below) and waits for its run.
+# Without DEPLOY_FROM_MAIN (the template itself, or a repository not set up by `npm run deploy`) the job is skipped.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-main
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && vars.DEPLOY_FROM_MAIN == 'true'
+    # Windows, like the machines the application is built and verified on.
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install
+        run: npm run install:all
+      - name: Verify
+        run: npm run verify
+      - name: Deploy main to Azure
+        run: node scripts/deploy/index.mjs --ci
+        env:
+          PROVISIONER_KEY: ${{ secrets.PROVISIONER_KEY }}
+          PROVISIONER_BASE_URL: ${{ vars.PROVISIONER_BASE_URL }}
+          PROVISIONER_OWNER: ${{ vars.PROVISIONER_OWNER }}
+          VITE_SAP_CLIENT: ${{ vars.VITE_SAP_CLIENT }}
+          VITE_SAP_SYSTEM_ID: ${{ vars.VITE_SAP_SYSTEM_ID }}
+          VITE_SAP_RELAY_URL: ${{ vars.VITE_SAP_RELAY_URL }}

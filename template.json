@@ -1,0 +1,6 @@
+{
+  "name": "sap-modern-ui",
+  "bundleExclude": ["docs/superpowers/**", "docs/application-log.md", "scripts/codex-sap-mcp-launcher.mjs", "scripts/new-application.ps1", "CLAUDE.md", "AGENTS.md", ".mcp.json", ".codex/**", ".claude/**", "FrontEnd/tests/template/**"],
+  "scaffoldInputs": ["records/_APPLICATION.md", "records/_application-log-row.md"],
+  "driftChecked": ["package.json#scripts", "FrontEnd/package.json#scripts", "BackEnd/package.json#scripts", "scripts/dev.mjs", "scripts/install.mjs", "FrontEnd/vite.config.ts", "FrontEnd/vitest.config.mts", "FrontEnd/vitest.live.config.mts", "FrontEnd/playwright.config.ts", "BackEnd/vitest.config.mts", "BackEnd/scripts/build.mjs"]
+}

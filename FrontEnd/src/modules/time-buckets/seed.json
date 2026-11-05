@@ -1,0 +1,131 @@
+{
+ "$comment": "SAMPLE data for the local Time Buckets store only (used while SAP_TIMEBUCKETS_URL is not set). Copied once to data/timebuckets.json; delete that file to reset. Frequencies use the codes of SAP domain /FS00/ALMDM0001 (01 Day(s), 02 Month(s), 03 Year(s)) for both tables, as on SAP. Not SAP data.",
+ "tables": {
+  "alm1": [
+   {
+    "bucket": "B01",
+    "description": "Day 1",
+    "xbrlCode": "ALM1-B01",
+    "fromNo": "1",
+    "fromFreq": "01",
+    "toNo": "1",
+    "toFreq": "01",
+    "rbiNo": "1",
+    "fromDays": "1",
+    "toDays": "1",
+    "enteredBy": "SAMPLE",
+    "enteredOn": "20260915",
+    "entryTime": "090000",
+    "changedBy": "",
+    "changedOn": "",
+    "changedTime": ""
+   },
+   {
+    "bucket": "B02",
+    "description": "2 to 7 days",
+    "xbrlCode": "ALM1-B02",
+    "fromNo": "2",
+    "fromFreq": "01",
+    "toNo": "7",
+    "toFreq": "01",
+    "rbiNo": "2",
+    "fromDays": "2",
+    "toDays": "7",
+    "enteredBy": "SAMPLE",
+    "enteredOn": "20260915",
+    "entryTime": "090100",
+    "changedBy": "",
+    "changedOn": "",
+    "changedTime": ""
+   },
+   {
+    "bucket": "B03",
+    "description": "Over 1 month and up to 2 months",
+    "xbrlCode": "ALM1-B03",
+    "fromNo": "1",
+    "fromFreq": "02",
+    "toNo": "2",
+    "toFreq": "02",
+    "rbiNo": "5",
+    "fromDays": "",
+    "toDays": "",
+    "enteredBy": "SAMPLE",
+    "enteredOn": "20260915",
+    "entryTime": "090200",
+    "changedBy": "",
+    "changedOn": "",
+    "changedTime": ""
+   }
+  ],
+  "alm2": [
+   {
+    "bucket": "S01",
+    "description": "Up to 1 month",
+    "xbrlCode": "ALM2-S01",
+    "fromNo": "0",
+    "fromFreq": "01",
+    "toNo": "1",
+    "toFreq": "02",
+    "fromDays": "",
+    "toDays": "30",
+    "enteredBy": "SAMPLE",
+    "enteredOn": "20260916",
+    "entryTime": "100000",
+    "changedBy": "",
+    "changedOn": "",
+    "changedTime": ""
+   },
+   {
+    "bucket": "S02",
+    "description": "Over 1 year and up to 3 years",
+    "xbrlCode": "ALM2-S02",
+    "fromNo": "1",
+    "fromFreq": "03",
+    "toNo": "3",
+    "toFreq": "03",
+    "fromDays": "",
+    "toDays": "",
+    "enteredBy": "SAMPLE",
+    "enteredOn": "20260916",
+    "entryTime": "100100",
+    "changedBy": "",
+    "changedOn": "",
+    "changedTime": ""
+   }
+  ]
+ },
+ "lookups": {
+  "freqDomain": [
+   {
+    "field": "ZFR_TP",
+    "value": "01",
+    "text": "Day(s)"
+   },
+   {
+    "field": "ZFR_TP",
+    "value": "02",
+    "text": "Month(s)"
+   },
+   {
+    "field": "ZFR_TP",
+    "value": "03",
+    "text": "Year(s)"
+   },
+   {
+    "field": "ZTO_TP",
+    "value": "01",
+    "text": "Day(s)"
+   },
+   {
+    "field": "ZTO_TP",
+    "value": "02",
+    "text": "Month(s)"
+   },
+   {
+    "field": "ZTO_TP",
+    "value": "03",
+    "text": "Year(s)"
+   }
+  ]
+ }
+}

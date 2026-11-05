@@ -1,0 +1,22 @@
+/* A data row stays a single line; wide datasets scroll inside their own table area. */
+.kit-data-table { table-layout: fixed !important; width: var(--kit-table-width, max-content) !important; max-width: none !important; }
+.kit-data-table :is(th,td) { white-space: nowrap !important; overflow-wrap: normal !important; word-break: normal !important; min-width: 0 !important; max-width: none !important; vertical-align: middle; }
+.kit-data-table td :is(span,small,a,strong,b) { white-space: nowrap !important; overflow-wrap: normal !important; max-width: none !important; }
+.kit-data-table td textarea { height: 32px !important; min-height: 32px !important; max-height: 32px !important; resize: none; white-space: pre; }
+.kit-data-table td :is(div,p) { display: inline-flex !important; flex-direction: row !important; flex-wrap: nowrap !important; align-items: center; gap: 6px; margin-block: 0; white-space: nowrap !important; }
+.kit-data-table td :is(small,.cell-sub,.secondary,.subtext) { display: inline !important; margin-left: 6px; white-space: nowrap !important; }
+.kit-data-table td br { display: none; }
+.kit-data-table :is(th,td)[data-table-align=left] { text-align: left !important; }
+.kit-data-table :is(th,td)[data-table-align=right] { text-align: right !important; }
+.kit-data-table :is(th,td)[data-table-align=center] { text-align: center !important; }
+.kit-data-table :is(th,td)[class*=sticky] { position: static !important; }
+.kit-data-table th :is(.sort-th,.ds-sort) { white-space: nowrap !important; }
+.kit-data-table .kit-table-sort { display: inline-flex; align-items: center; justify-content: inherit; gap: 6px; padding: 0; background: transparent; border: 0; color: inherit; font: inherit; width: 100%; }
+.kit-data-table th[data-table-align=right] .kit-table-sort { justify-content: flex-end; }
+.kit-data-table .kit-table-sort:has(.arrow:not(:empty),.sort-ind:not(:empty),.sort-arrow:not(:empty)) > svg { display: none !important; }
+.kit-table-heading { display: inline-flex; align-items: center; gap: 6px; }
+.kit-table-heading > .kit-table-sort { width: auto; }
+.kit-table-tools { position: sticky; left: 0; display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 6px 10px; background: var(--surface, #fff); border-bottom: 1px solid var(--line, #d9e2ec); max-width: 100%; }
+.kit-table-tools .button { white-space: nowrap; }
+.kit-states > .ds-grid { overflow-x: auto; min-width: 0; max-width: 100%; padding: 8px 12px; }
+@media (max-width: 600px) { .kit-table-tools { justify-content: flex-start; flex-wrap: wrap; } }

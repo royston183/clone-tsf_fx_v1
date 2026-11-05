@@ -1,0 +1,31 @@
+# Local credentials and SAP GUI audit data.
+.claude/settings.local.json
+.env
+.env.local
+logs/
+
+# MCP configuration is generated from the source project's setup.
+.mcp.json
+
+# Node, and the builds the deployment pipeline picks up (FrontEnd/dist, BackEnd/dist)
+node_modules/
+dist/
+*.tsbuildinfo
+
+# The SQLite database is built from DB/schema (never committed), and test output
+DB/*.db
+DB/*.db-*
+test-results/
+playwright-report/
+.e2e-data/
+.claude/worktrees/
+.codex/
+.superpowers/
+.playwright-mcp/
+
+# Application records: run records and live-SAP screenshots can hold business data (pattern from
+# SAP-Testing-Automation). Only their templates are committed.
+/records/results/*
+!/records/results/_TEMPLATE.md
+/records/evidence/*
+!/records/evidence/.gitkeep

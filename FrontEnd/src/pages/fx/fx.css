@@ -1,0 +1,71 @@
+/* Shared layout of the TSF FX custom pages (scoped to .tsf-page). Colours come from the workspace tokens. */
+.tsf-page { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; min-width: 0; }
+.tsf-page > * { min-width: 0; }
+.tsf-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.tsf-head h1 { margin: 0 0 4px; font-size: 24px; }
+.tsf-head p { margin: 0; color: var(--muted); font-size: 12px; }
+.tsf-head__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tsf-tcode { font-size: 10px; letter-spacing: 1px; color: var(--muted); border: 1px solid var(--line); border-radius: 5px; padding: 6px 9px; }
+.tsf-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tsf-actions .tsf-sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+.tsf-actions .tsf-push { margin-left: auto; }
+.button.danger { background: #c62828; border-color: #c62828; color: #fff; }
+.button.secondary.danger-outline { color: #c62828; border-color: #f0c4bf; }
+.tsf-card { padding: 20px 22px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+.tsf-card > *, .tsf-table, .tsf-table .table-wrap { min-width: 0; max-width: 100%; }
+.tsf-card > h2 { margin: 0; }
+.tsf-card__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tsf-card__head h2 { margin: 0; }
+.tsf-card__head p { margin: 2px 0 0; font-size: 11px; color: var(--muted); }
+.tsf-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tsf-toolbar .search { width: 280px; max-width: 100%; }
+.tsf-count { font-size: 11px; color: var(--muted); margin-left: auto; }
+.tsf-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.tsf-seg button { border: 0; background: var(--surface); padding: 7px 12px; font-size: 11px; color: var(--muted); }
+.tsf-seg button + button { border-left: 1px solid var(--line); }
+.tsf-seg button[aria-pressed='true'] { background: var(--pale); color: var(--blue); font-weight: 600; }
+.tsf-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); gap: 12px; align-items: start; }
+.tsf-fields > :is(.tsf-field,label) { min-width: 0; margin: 0; }
+.tsf-fields label, .tsf-field { display: grid; gap: 6px; font-size: 11px; font-weight: 600; }
+.tsf-fields input, .tsf-fields select, .tsf-field input, .tsf-field select, .tsf-field textarea {
+  min-height: 36px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); font-weight: 400; width: 100%;
+}
+.tsf-field textarea { min-height: 72px; resize: vertical; }
+.tsf-field input[readonly] { background: var(--bg); color: var(--muted); }
+.tsf-field .tsf-err, .tsf-err { color: #c62828; font-size: 11px; font-weight: 500; }
+.tsf-field input[aria-invalid='true'], .tsf-field select[aria-invalid='true'] { border-color: #c62828; }
+.tsf-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.tsf-kpi { display: grid; gap: 4px; width: 100%; text-align: left; text-transform: none; font: inherit; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid var(--blue); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow); }
+button.tsf-kpi:hover { border-color: var(--blue); }
+.tsf-kpi.is-active { background: var(--pale); }
+.tsf-kpi--green { border-left-color: #24a481; } .tsf-kpi--amber { border-left-color: #d08a00; } .tsf-kpi--red { border-left-color: #c62828; }
+.tsf-kpi--grey { border-left-color: #a5b1bd; } .tsf-kpi--purple { border-left-color: #7c4dff; }
+.tsf-kpi__label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; font-weight: 700; }
+.tsf-kpi__value { font-size: 22px; font-weight: 750; color: var(--heading, var(--text)); }
+.tsf-kpi__note { font-size: 11px; color: var(--muted); }
+.tsf-table .ds-table tbody tr { cursor: pointer; }
+.tsf-table .ds-table tbody tr.is-reversed td { text-decoration: line-through; color: var(--muted); }
+.tsf-table .ds-table tbody tr.is-draft td { background: color-mix(in srgb, #fff3cd 35%, transparent); }
+.tsf-link { border: 0; background: none; padding: 0; color: var(--blue); font: inherit; font-weight: 600; text-decoration: underline; text-underline-offset: 2px; }
+.tsf-chip { display: inline-block; font-size: 10px; font-weight: 700; border-radius: 5px; padding: 3px 7px; background: var(--pale); color: var(--blue); }
+.tsf-chip--grey { background: var(--bg); color: var(--muted); }
+.tsf-facts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 18px; margin: 0; }
+.tsf-facts div { min-width: 0; }
+.tsf-facts dt { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+.tsf-facts dd { margin: 3px 0 0; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
+.tsf-check { padding: 10px 12px; border-radius: 8px; font-size: 12px; border: 1px solid #b7e1cf; background: #e9f7f1; color: #1d6b4d; }
+.tsf-check.warn { border-color: #f0d49a; background: #fff8e6; color: #8a5a00; }
+.tsf-check.bad { border-color: #f0c4bf; background: #fff1f0; color: #a13730; }
+.tsf-sample { font-size: 11px; color: var(--muted); display: inline-flex; gap: 6px; align-items: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 720px) {
+  .tsf-toolbar .search { width: 100%; }
+  .tsf-count { margin-left: 0; }
+  .tsf-actions .tsf-push { margin-left: 0; }
+}
+:root[data-theme='dark'] .tsf-table .ds-table tbody tr.is-draft td { background: color-mix(in srgb, #8a6d00 18%, transparent); }
+/* Keep DataTable's fitted width inside modals too (workbench.css sets .ds-modal .ds-table { width: auto }, which squeezes
+   wide tables into the dialog). Template candidate: apply --kit-table-width in modals as well. */
+.tsf-table .ds-table.kit-data-table { width: var(--kit-table-width, 100%); min-width: 100%; }
+.tsf-table td .button { white-space: nowrap; }
+.tsf-fields + .tsf-field, :not(.tsf-fields) > .tsf-field + .tsf-field { margin-top: 12px; }

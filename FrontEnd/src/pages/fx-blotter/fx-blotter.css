@@ -1,0 +1,46 @@
+/* Scoped styles of the FX Blotter page. */
+.tsf-blotter .bl-actions { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+.tsf-blotter .bl-context { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.tsf-blotter .bl-search { position: relative; display: inline-flex; align-items: center; }
+.tsf-blotter .bl-search svg { position: absolute; left: 9px; color: var(--muted); pointer-events: none; }
+.tsf-blotter .bl-search input { padding-left: 28px; }
+.tsf-blotter .bl-wrap { overflow: auto; max-height: 68vh; border: 1px solid var(--line); border-radius: 8px; }
+.tsf-blotter .bl-grid { min-width: 3200px; }
+.tsf-blotter .bl-grid thead th { position: sticky; top: 0; z-index: 3; background: var(--surface); white-space: nowrap; }
+.tsf-blotter .bl-grid td, .tsf-blotter .bl-grid th { white-space: nowrap; vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+.tsf-blotter .bl-grid .bl-s1, .tsf-blotter .bl-grid .bl-s2, .tsf-blotter .bl-grid .bl-s3 { position: sticky; z-index: 2; background: var(--surface); }
+.tsf-blotter .bl-grid thead .bl-s1, .tsf-blotter .bl-grid thead .bl-s2, .tsf-blotter .bl-grid thead .bl-s3 { z-index: 4; }
+.tsf-blotter .bl-grid .bl-s1 { left: 0; width: 44px; min-width: 44px; max-width: 44px; }
+.tsf-blotter .bl-grid .bl-s2 { left: 44px; width: 110px; min-width: 110px; max-width: 110px; }
+.tsf-blotter .bl-grid .bl-s3 { left: 154px; width: 140px; min-width: 140px; max-width: 140px; box-shadow: 2px 0 0 var(--line); }
+.tsf-blotter .bl-grid tbody tr.is-draft td.bl-s1, .tsf-blotter .bl-grid tbody tr.is-draft td.bl-s2, .tsf-blotter .bl-grid tbody tr.is-draft td.bl-s3 { background: color-mix(in srgb, #fff3cd 55%, var(--surface)); }
+.tsf-blotter .bl-grid tbody tr.checked td { background: var(--pale); }
+.tsf-blotter .bl-grid tbody tr.is-reversed td { text-decoration: line-through; color: var(--muted); }
+.tsf-blotter .bl-grid tbody tr.bl-blank td { opacity: .9; }
+.tsf-blotter .bl-in { width: 100%; min-width: 96px; max-width: 220px; font-size: 12px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--text); }
+.tsf-blotter .bl-in:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.tsf-blotter .bl-type { display: inline-flex; align-items: center; gap: 6px; }
+.tsf-blotter .bl-ro { font-size: 12px; }
+.tsf-blotter .bl-row-actions { display: inline-flex; gap: 6px; }
+.tsf-blotter .kit-amount-cell input { min-width: 120px; }
+.tsf-blotter .bl-grid .kit-num, .tsf-blotter .bl-grid .kit-num .bl-ro { text-align: right; }
+
+:root[data-theme='dark'] .tsf-blotter .bl-grid tbody tr.is-draft td.bl-s1,
+:root[data-theme='dark'] .tsf-blotter .bl-grid tbody tr.is-draft td.bl-s2,
+:root[data-theme='dark'] .tsf-blotter .bl-grid tbody tr.is-draft td.bl-s3 { background: color-mix(in srgb, #8a6d00 30%, var(--surface)); }
+
+/* Popups render in a portal, so these classes are global but prefixed. */
+.bl-radios { display: flex; gap: 18px; flex-wrap: wrap; font-size: 12px; }
+.bl-radios label, .tsf-check-row { display: inline-flex; gap: 8px; align-items: center; font-size: 12px; }
+.bl-notes { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+.bl-pick { display: flex; gap: 8px; align-items: center; }
+.bl-pick input { flex: 1; min-width: 0; }
+
+@media (max-width: 720px) {
+  .tsf-blotter .bl-actions .tsf-sep { display: none; }
+  .tsf-blotter .bl-wrap { max-height: 60vh; }
+  .tsf-blotter .bl-grid .bl-s2, .tsf-blotter .bl-grid .bl-s3 { position: static; box-shadow: none; }
+  .tsf-blotter .bl-grid .bl-s1 { width: 40px; min-width: 40px; }
+}
+
+.tsf-blotter .bl-hint { margin: 4px 0 0; font-size: 11px; color: var(--muted); }

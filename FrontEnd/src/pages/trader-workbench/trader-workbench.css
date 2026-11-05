@@ -1,0 +1,16 @@
+/* Trader Workbench: scoped to .tsf-workbench (popup bodies reuse the shared tsf-* classes of fx.css). */
+.tsf-workbench .tsf-fields { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+.tsf-workbench .tsf-toolbar { margin-bottom: 2px; }
+.tsf-workbench .tsf-table .table-wrap { max-width: 100%; overflow-x: auto; }
+.tsf-wb-stack { display: grid; gap: 14px; min-width: 0; }
+.tsf-wb-h { margin: 4px 0 0; font-size: 13px; }
+.tsf-wb-why { font-size: 11px; color: var(--muted); flex: 1 1 220px; }
+.tsf-wb-outcome { margin: 10px 0 0; }
+.tsf-wb-hint { margin: 8px 0 0; font-size: 11px; color: var(--muted); }
+.tsf-wb-stack .tsf-toolbar button:disabled { opacity: .55; cursor: not-allowed; }
+:root[data-theme='dark'] .tsf-wb-why, :root[data-theme='dark'] .tsf-wb-hint { color: var(--muted); }
+@media (max-width: 720px) {
+  .tsf-workbench .tsf-fields { grid-template-columns: 1fr; }
+  .tsf-workbench .tsf-toolbar > * { flex: 1 1 100%; }
+  .tsf-workbench .tsf-head__meta { width: 100%; }
+}

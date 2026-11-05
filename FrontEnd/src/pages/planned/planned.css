@@ -1,0 +1,9 @@
+.tsf-planned { display: grid; gap: 16px; padding: 20px 24px; }
+.tsf-planned__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.tsf-planned__head h2 { margin: 2px 0 0; }
+.tsf-planned__path { margin: 0; font-size: 12px; color: var(--muted, #64748b); }
+.tsf-planned__facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 0; }
+.tsf-planned__facts div { border: 1px solid var(--line, #e2e8f0); border-radius: 10px; padding: 10px 12px; }
+.tsf-planned__facts dt { font-size: 12px; color: var(--muted, #64748b); }
+.tsf-planned__facts dd { margin: 4px 0 0; font-weight: 600; }
+.tsf-planned__note { margin: 0; color: var(--muted, #64748b); }

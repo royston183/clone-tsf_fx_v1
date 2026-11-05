@@ -1,0 +1,7 @@
+[
+  {
+    "key": "slc-middleware",
+    "title": "SLC middleware",
+    "base": "https://slc-middleware-c3d8g8cteug0c6e6.centralindia-01.azurewebsites.net/api/v1"
+  }
+]

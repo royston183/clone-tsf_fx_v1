@@ -1,0 +1,22 @@
+{
+  "frontend": {
+    "path": "FrontEnd",
+    "apiUrlEnv": "VITE_API_BASE_URL"
+  },
+  "backend": {
+    "path": "BackEnd",
+    "runtime": "node",
+    "version": "22",
+    "artifact": "dist/function.zip"
+  },
+  "database": {
+    "source": "sqlite",
+    "path": "DB/app.db",
+    "engine": "mysql"
+  },
+  "mobile": {
+    "origins": [
+      "https://localhost"
+    ]
+  }
+}

@@ -1,0 +1,11 @@
+# Every checkout keeps LF line endings, also on Windows: the Deploy workflow runs on windows-latest, whose Git would
+# otherwise turn LF into CRLF, and tests that read source files (styles.test.ts) then fail there though they pass here.
+* text=auto eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+# Byte-identical copies of ALM stylesheets (styles.test.ts compares their bytes): never converted.
+FrontEnd/src/styles/manualdata.css -text
+FrontEnd/src/styles/trmrepay.css -text
+FrontEnd/src/styles/tbdata.css -text
+FrontEnd/src/styles/trmdeal.css -text
+FrontEnd/src/styles/overview.css -text
