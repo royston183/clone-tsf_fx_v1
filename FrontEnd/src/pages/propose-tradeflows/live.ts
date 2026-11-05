@@ -62,11 +62,17 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 export function liveProposeData(): ProposeData {
   let ratesCache: Promise<Record<string, string>> | null = null;
-  let dealCurrencies: string[] = [];
+  let dealsCache: Promise<Deal[]> | null = null;
+  // The Deal IDs are read once; the rates wait for them, so every deal currency gets its rate.
+  const deals = () => (dealsCache ??= (async () => {
+    const [list, mcs] = await Promise.all([all('tsf-deal-id', 'dealIds', 500), all('master-contract', 'contracts', 100)]);
+    const byNo = new Map(mcs.map(m => [str(m.mcNo), { commodity: str(m.commodity), commodityDesc: str(m.commodityDesc) }]));
+    return list.filter(d => Number(d.dealAmount) > 0).map(d => toDeal(d, byNo));
+  })());
   const rates = () => (ratesCache ??= (async () => {
     const out: Record<string, string> = {};
-    const tfs = await all('tradeflow', 'tradeflows', 200);
-    const wanted = [...new Set([...dealCurrencies, ...tfs.map(t => str(t.currency))].filter(c => c && c !== 'USD'))];
+    const [tfs, dealList] = await Promise.all([all('tradeflow', 'tradeflows', 200), deals()]);
+    const wanted = [...new Set([...dealList.map(d => d.currency), ...tfs.map(t => str(t.currency))].filter(c => c && c !== 'USD'))];
     await Promise.all(wanted.map(async cur => {
       const direct = usdPerUnit(await loadExchangeRate(cur, 'USD', today(), 'M').catch(() => null), false);
       const rate = direct ?? usdPerUnit(await loadExchangeRate('USD', cur, today(), 'M').catch(() => null), true);
@@ -76,13 +82,7 @@ export function liveProposeData(): ProposeData {
   })());
   return {
     sample: false,
-    async deals() {
-      const [deals, mcs] = await Promise.all([all('tsf-deal-id', 'dealIds', 500), all('master-contract', 'contracts', 100)]);
-      const byNo = new Map(mcs.map(m => [str(m.mcNo), { commodity: str(m.commodity), commodityDesc: str(m.commodityDesc) }]));
-      const list = deals.filter(d => Number(d.dealAmount) > 0).map(d => toDeal(d, byNo));
-      dealCurrencies = [...new Set(list.map(d => d.currency))];
-      return list;
-    },
+    deals,
     async bls() {
       const [view, tfs, r] = await Promise.all([moduleView('bl-assign'), all('tradeflow', 'tradeflows', 200), rates()]);
       return blsWithUsd(view.tables.bls ?? [], tfs, r);

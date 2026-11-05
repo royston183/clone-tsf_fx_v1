@@ -85,19 +85,24 @@ test('Manage Tradeflows locks a BL that carries a Deal ID', async ({ page }) => 
   await expect(page.getByRole('button', { name: 'Delete BL 4000000004' })).toBeDisabled();
 });
 
-test('Propose Tradeflow lists Deal IDs with what is left and assigns a proposal', async ({ page }) => {
+test('Propose Tradeflow shows proposals for the chosen Deal ID and assigns one from its detail', async ({ page }) => {
   await page.goto('/trade-flows/propose-tradeflow');
   const deals = page.locator('.tsf-propose__deals');
-  await expect(deals).toContainText('7000000160');
-  await expect(deals.locator('tr', { hasText: '7000000160' })).toContainText('No USD rate');
-  await deals.getByRole('button', { name: '7000000142' }).click();
-  await expect(page.locator('.tsf-propose__facts')).toContainText('2,83,800.00 USD');
-  await page.getByRole('button', { name: 'Find proposals' }).click();
+  await page.getByLabel('Open only').uncheck();
+  await expect(deals.getByRole('button', { name: 'Deal 7000000160' })).toContainText('No USD rate');
+  await deals.getByRole('button', { name: 'Deal 7000000142' }).click();
+  await expect(page.locator('.tsf-propose__hero')).toContainText('2,83,800.00 USD');
   const cards = page.locator('.tsf-propose__card');
-  await expect(cards.first()).toBeVisible();
-  await expect(cards.first()).toContainText('AI is not configured. Ranked by closeness.');
-  await cards.first().getByRole('button', { name: 'Accept' }).click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Assign' }).click();
+  await expect(cards.first()).toContainText('Best match');
+  await expect(page.locator('.tsf-propose__fallback')).toContainText('AI is not configured. Ranked by closeness.');
+  await page.getByRole('button', { name: 'At most 2 BLs' }).click();
+  await expect(page.locator('.tsf-propose__rule')).toContainText('at most 2 BLs');
+  await page.getByRole('button', { name: 'At most 2 BLs' }).click();
+  await cards.first().click();
+  const modal = page.getByRole('dialog', { name: /Proposal 1 for 7000000142/ });
+  await expect(modal).toContainText('Effect on the deal');
+  await expect(modal.getByRole('table', { name: 'BLs in the proposal' })).toBeVisible();
+  await modal.getByRole('button', { name: /Assign 3 BLs to 7000000142/ }).click();
   await expect(page.locator('.ds-toast')).toContainText('assigned to 7000000142');
-  await expect(deals.locator('tr', { hasText: '7000000142' })).toContainText('Filled');
+  await expect(deals.getByRole('button', { name: 'Deal 7000000142' })).toContainText('Filled');
 });

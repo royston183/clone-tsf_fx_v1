@@ -23,7 +23,8 @@ function sets(): Record<string, MockSet> {
   const { tables } = tradeflowSeed();
   let tf = 3000000010;
   return {
-    Commodity: { key: 'Commodity', rows: [{ Commodity: 'ALMOND', Description: 'Almonds', Unit: 'LBS', Currency: 'USD' }] },
+    Commodity: { key: 'Commodity', rows: [{ Commodity: 'ALMOND', Description: 'Almonds', Unit: 'LBS', Currency: 'USD', TsfCommodity: 'C001' }] },
+    TsfCommodity: { key: 'Commodity', rows: [{ Commodity: 'C001', Description: 'Multiple Commodities' }] },
     CommodityPrice: { key: 'Commodity', keys: ['Commodity', 'EffectiveFrom'], rows: [{ Commodity: 'ALMOND', EffectiveFrom: '2026-11-01', Price: 2.15, Currency: 'USD' }] },
     TradeFlow: {
       key: 'TfNo', keys: ['TfNo', 'TfDate'], rows: tables.tradeflows.map(toSap),
