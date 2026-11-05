@@ -19,6 +19,7 @@ import { commodity } from './commodity/definition';
 import { commodityPrice } from './commodity-price/definition';
 import { tradeflow } from './tradeflow/definition';
 import { tradeflowUpload } from './tradeflow-upload/definition';
+import { tradeflowManage } from './tradeflow-manage/definition';
 
 // Definitions differ only in their lookup type; the Workbench and planner are generic over it.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- heterogeneous lookup types in one registry
@@ -44,6 +45,7 @@ export const MODULES: Record<string, AnyModuleDef> = {
   'commodity-price': commodityPrice,
   tradeflow,
   'tradeflow-upload': tradeflowUpload,
+  'tradeflow-manage': tradeflowManage,
   'sample-deals': deals,
   'sample-monthly': monthly,
   'sample-budget': budget,

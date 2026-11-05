@@ -34,6 +34,8 @@ import { contract as tradeflowContract } from './tradeflow/contract';
 import { tradeflowSeed } from './tradeflow/seed';
 import { contract as tradeflowUploadContract } from './tradeflow-upload/contract';
 import { tradeflowUploadSeed } from './tradeflow-upload/seed';
+import { contract as tradeflowManageContract } from './tradeflow-manage/contract';
+import { tradeflowManageSeed } from './tradeflow-manage/seed';
 import { contract as dealsContract } from './samples/deals/contract';
 import { dealsSeed } from './samples/deals/seed';
 import { contract as monthlyContract } from './samples/monthly/contract';
@@ -108,6 +110,8 @@ export const SERVER_MODULES: Record<string, ModuleData> = {
   'commodity-price': { def: MODULES['commodity-price'], contract: commodityPriceContract, seed: commodityPriceSeed, source: 'sap' },
   tradeflow: { def: MODULES.tradeflow, contract: tradeflowContract, seed: tradeflowSeed, source: 'sap' },
   'tradeflow-upload': { def: MODULES['tradeflow-upload'], contract: tradeflowUploadContract, seed: tradeflowUploadSeed, source: 'sap' },
+  // Manage Tradeflows: on sample data until its UI is approved and SAP has TradeFlow → BillOfLading [0..*].
+  'tradeflow-manage': { def: MODULES['tradeflow-manage'], contract: tradeflowManageContract, seed: tradeflowManageSeed },
   'sample-deals': { def: MODULES['sample-deals'], contract: dealsContract, seed: () => dealsSeed(), source: 'app' },
   'sample-monthly': { def: MODULES['sample-monthly'], contract: monthlyContract, seed: monthlySeed },
   'sample-budget': { def: MODULES['sample-budget'], contract: budgetContract, seed: budgetSeed },
