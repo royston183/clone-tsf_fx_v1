@@ -12,7 +12,7 @@ export const CONFLICT_MESSAGE = 'This entry was changed by someone else. Refresh
 export const NO_SAP_ACCOUNT = 'No SAP account is set. Enter your SAP user in Settings → SAP Connection.';
 
 /** Where an object lives: its header table and keys, and per items tab the item table, keys and navigation. */
-export interface ObjectSpec { table: string; keys: string[]; items: { tab: string; table: string; keys: string[]; navigation: string }[] }
+export interface ObjectSpec { table: string; keys: string[]; items: { tab: string; table: string; keys: string[]; navigation: string; keyBySap?: boolean }[] }
 /** An object as stored: the header (with __etag) and the rows of each items tab. */
 export interface StoredObject { header: Row; items: Record<string, Row[]> }
 /** One object write. `header`: every field on create, only the changed ones on update; `items`: per item, by own key. */

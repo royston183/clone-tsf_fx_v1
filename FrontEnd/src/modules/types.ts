@@ -51,7 +51,11 @@ export interface FieldGroupDef<L> { title: string; columns?: 1 | 2; fields: Fiel
 export type ObjectTab<L> =
   | { kind: 'fields'; id: string; label: string; groups: FieldGroupDef<L>[] }
   /** `keys`: the header keys, then the item's own keys (['deal', 'seq']). */
-  | { kind: 'items'; id: string; label: string; table: string; keys: string[]; grid: FieldDef<L>[]; columns: Column[]; editable?: boolean }
+  /**
+   * `keyBySap`: SAP assigns the item's own keys on create (early numbering). A new row leaves them empty; each such row is
+   * its own create, and the empty key fields are not sent.
+   */
+  | { kind: 'items'; id: string; label: string; table: string; keys: string[]; grid: FieldDef<L>[]; columns: Column[]; editable?: boolean; keyBySap?: boolean }
   | { kind: 'custom'; id: string; label: string; component: ComponentType<ObjectTabProps> };
 export type ItemsTab<L> = Extract<ObjectTab<L>, { kind: 'items' }>;
 export interface ObjectAction {

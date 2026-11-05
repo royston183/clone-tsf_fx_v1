@@ -64,6 +64,9 @@ export function odataBackend({ service, settings }: SapTarget, def: AnyModuleDef
   const tables = moduleTables(def);
   const { prop, toApp, valueOut, numbers } = tableCodec(contract, tables);
   const bodyOf = (table: string, data: Row) => Object.fromEntries(Object.entries(data).map(([f, v]) => [prop(table, f), valueOut(table, f, v)]));
+  /** An item create: keys SAP assigns (keyBySap) are left out while empty. */
+  const itemBody = (i: { table: string; keys: string[]; keyBySap?: boolean }, data: Row) =>
+    bodyOf(i.table, i.keyBySap ? Object.fromEntries(Object.entries(data).filter(([f, v]) => !(i.keys.includes(f) && !v))) : data);
   const keyPath = (table: string, key: Row) => entityPath(
     contract.tables[table].entitySet,
     Object.fromEntries(Object.entries(key).map(([f, v]) => [prop(table, f), v])),
@@ -194,7 +197,7 @@ export function odataBackend({ service, settings }: SapTarget, def: AnyModuleDef
       if (w.op === 'create') {
         const body = bodyOf(spec.table, w.header);
         // Deep insert: the items travel inside their header.
-        for (const i of spec.items) body[i.navigation] = w.items.filter(c => c.tab === i.tab).map(c => bodyOf(i.table, c.data));
+        for (const i of spec.items) body[i.navigation] = w.items.filter(c => c.tab === i.tab).map(c => itemBody(i, c.data));
         ops.push({ method: 'POST', path: contract.tables[spec.table].entitySet, body });
       } else if (w.op === 'delete') {
         // RAP deletes the items with their header.
@@ -208,7 +211,7 @@ export function odataBackend({ service, settings }: SapTarget, def: AnyModuleDef
           // Per tab: deletes before updates before creates (a freed key can be used again in the same save).
           for (const c of w.items.filter(x => x.tab === i.tab).sort((a, b) => ORDER[a.op] - ORDER[b.op])) {
             // Item POSTs never carry If-Match; item PATCH/DELETE send the item's ETag from the fresh server read ('own').
-            if (c.op === 'create') ops.push({ method: 'POST', path: `${headerPath(spec, key)}/${i.navigation}`, body: bodyOf(i.table, c.data) });
+            if (c.op === 'create') ops.push({ method: 'POST', path: `${headerPath(spec, key)}/${i.navigation}`, body: itemBody(i, c.data) });
             else ops.push({ method: c.op === 'update' ? 'PATCH' : 'DELETE', path: keyPath(i.table, pick({ ...key, ...c.key }, i.keys)), body: c.op === 'update' ? bodyOf(i.table, c.data) : undefined, etag: conditional(c.etag) });
           }
         }

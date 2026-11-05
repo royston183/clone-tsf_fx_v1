@@ -121,7 +121,10 @@ export function diffObject(def: AnyObjectDef, before: ObjectData, after: ObjectD
     const values = valueFields(t.grid).map(d => d.field).filter(f => !own.includes(f));
     const keyOfRow = (r: Row) => own.map(f => r[f] ?? '').join('~');
     const stored = new Map((before.items[t.id] ?? []).map(r => { const row = cleanValues(t.grid, r); return [keyOfRow(row), { row, etag: r.__etag }] as const; }));
-    const sent = new Map((after.items[t.id] ?? []).map(r => { const row = cleanValues(t.grid, r); return [keyOfRow(row), row] as const; }));
+    // keyBySap: a new row has no key yet; give each its own placeholder so two new rows never merge into one create.
+    let fresh = 0;
+    const sentKey = (row: Row) => (t.keyBySap && own.every(f => !row[f]) ? `__new${++fresh}` : keyOfRow(row));
+    const sent = new Map((after.items[t.id] ?? []).map(r => { const row = cleanValues(t.grid, r); return [sentKey(row), row] as const; }));
     const c = { created: 0, updated: 0, deleted: 0 };
     for (const [k, row] of sent) {
       const s = stored.get(k);

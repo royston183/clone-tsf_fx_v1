@@ -22,7 +22,7 @@ export function objectSpec(def: AnyObjectDef, contract: ODataContract): ObjectSp
     items: itemsTabs(def).map(t => {
       const navigation = contract.object?.items[t.id]?.navigation ?? '';
       if (contract.object && !navigation) throw new HttpError(500, `The contract of ${def.id} names no navigation for the items tab ${t.id}.`);
-      return { tab: t.id, table: t.table, keys: t.keys, navigation };
+      return { tab: t.id, table: t.table, keys: t.keys, navigation, ...(t.keyBySap ? { keyBySap: true } : {}) };
     })
   };
 }

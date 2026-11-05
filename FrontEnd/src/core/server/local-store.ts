@@ -7,6 +7,7 @@ import { contractOf, moduleTables, seedOf, type TableInfo } from '@/modules/tabl
 import type { ModuleSeed } from '@/modules/types';
 import type { LayoutStore, StoredLayout, StoreState } from '../platform';
 import type { Backend, ObjectSpec, StoredObject } from './backend';
+import type { ItemChange } from '@/lib/object/object';
 import { applyQuery } from './list-query';
 import { applyLocal, type PlanOp } from '@/lib/planner';
 
@@ -105,7 +106,19 @@ export function localBackend(moduleId: string, store: StateStore, tables: Record
       for (const i of spec.items) {
         const rows = tables[i.table] ?? [];
         if (w.op === 'delete') { tables[i.table] = rows.filter(r => !sameObject(spec, r, key)); continue; }
-        const ops: PlanOp[] = w.items.filter(c => c.tab === i.tab).map(c => ({ op: c.op, id: '', key: { ...key, ...c.key }, data: { ...c.data, ...key, ...c.key } }));
+        // keyBySap items: sample data numbers a new row's empty keys itself (a date key gets today, others the next number).
+        const assigned = (c: ItemChange): Row => {
+          if (!i.keyBySap || c.op !== 'create') return c.key;
+          const out: Row = { ...c.key };
+          for (const k of i.keys) if (!out[k] && !Object.hasOwn(key, k)) out[k] = /date$/i.test(k) ? new Date().toISOString().slice(0, 10) : nextNumber([...rows, ...pending], k);
+          return out;
+        };
+        const pending: Row[] = [];
+        const ops: PlanOp[] = w.items.filter(c => c.tab === i.tab).map(c => {
+          const own = assigned(c);
+          pending.push(own);
+          return { op: c.op, id: '', key: { ...key, ...own }, data: { ...c.data, ...key, ...own } };
+        });
         tables[i.table] = applyLocal({ keys: i.keys }, undefined, rows, ops, actor.username);
       }
       await save({ ...st, tables });
