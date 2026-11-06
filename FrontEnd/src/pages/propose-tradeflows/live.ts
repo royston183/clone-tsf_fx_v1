@@ -9,6 +9,7 @@ import { rankByCloseness, toUsd } from '@/lib/propose/match';
 import { valueOf } from '@/modules/tradeflow/pricing';
 import { loadExchangeRate } from '@/ref/shared/fx/exchange-rate-api';
 import type { AiAnswer, Deal, ProposeData } from './data';
+import { checkAssignment } from './logic';
 
 /** The deal amount's currency: the first one of the deal currency chain ("USD-USD-INR" → USD). */
 export const dealCurrency = (chain: string): string => (/^([A-Z]{3})/.exec(str(chain).toUpperCase())?.[1] ?? '');
@@ -89,8 +90,10 @@ export function liveProposeData(): ProposeData {
     },
     async commodities() { return (await moduleView('commodity')).tables.commodities ?? []; },
     rates,
-    async assign(dealId, usdByBl) {
+    async assign(dealId, usdByBl, guard) {
+      // The latest rows from SAP, not the screen's copy: another user may have assigned a BL since the proposal was made.
       const bls = (await moduleView('bl-assign')).tables.bls ?? [];
+      if (guard) { const problem = checkAssignment(guard, dealId, usdByBl, bls); if (problem) throw new Error(problem); }
       const rows = bls.filter(b => usdByBl[b.blNo] !== undefined).map(b => ({ ...b, dealId, assignedUsd: usdByBl[b.blNo] }));
       await moduleChange('bl-assign', 'bls', 'update', rows);
     },

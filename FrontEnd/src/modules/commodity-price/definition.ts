@@ -42,7 +42,9 @@ export const commodityPrice: ModuleDef<PriceLookups> = {
       col('unit', 'Per Unit')
     ],
     search: r => [r.commodity, r.commodityText],
-    filters: [{ id: 'commodity', all: 'All Commodities', options: (_rows, lk) => lk.options, match: (r, v) => r.commodity === v }],
+    // Effective Date: a calendar picker matching the Effective From day exactly. The value is YYYY-MM-DD; the row's
+    // date is cut to its first ten characters so a timestamp suffix from the service cannot shift the day.
+    filters: [{ id: 'effectiveFrom', kind: 'date', all: 'Effective Date', options: () => [], match: (r, v) => str(r.effectiveFrom).slice(0, 10) === v }],
     grid: [
       { field: 'commodity', label: 'Commodity *', type: 'select', options: lk => lk.options, key: true, required: true },
       { field: 'effectiveFrom', label: 'Effective From *', type: 'date', key: true, required: true },

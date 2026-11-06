@@ -26,9 +26,57 @@ const Input = z.object({
 const Output = z.object({
   ranked: z.array(z.object({ index: z.number().int(), reason: z.string() })),
   rules: z.array(z.object({ kind: z.string(), values: z.array(z.string()), number: z.number().nullable() })),
+  /** Filters on the data (deal level or BL level); the app normalises and applies them, Claude only reads the request. */
+  criteria: z.array(z.object({ scope: z.string(), field: z.string(), op: z.string(), value: z.string() })),
+  /** True only when the person explicitly asks to search across deals instead of the chosen one. */
+  acrossDeals: z.boolean(),
   notUnderstood: z.array(z.string())
 });
+/** Older answers (and test doubles) may lack the two new fields. */
+const Answer = Output.extend({ criteria: Output.shape.criteria.optional(), acrossDeals: z.boolean().optional() });
 type Output = z.infer<typeof Output>;
+
+export type Scope = 'deal' | 'bl';
+export type Op = 'gt' | 'gte' | 'lt' | 'lte' | 'eq' | 'ne';
+/** A filter the app applies to the real data: always deterministic, never a value the AI computed. */
+export interface Criterion { scope: Scope; field: string; op: Op; value: string }
+const NUMERIC = { deal: ['amount', 'remaining'], bl: ['amount', 'quantity'] } as const;
+const DATES = { deal: [] as string[], bl: ['tfDate', 'blDate'] };
+const TEXT = { deal: ['commodity', 'dealId'], bl: ['commodity', 'tfNo', 'blNo'] };
+const OPS: Op[] = ['gt', 'gte', 'lt', 'lte', 'eq', 'ne'];
+
+/** "50K" → 50000, "1.5M" → 1500000, "50,000" → 50000; a trailing "+" means "or more" (>=). Null when it is not a number. */
+export function parseAmount(raw: string): { value: string; plus: boolean } | null {
+  const m = /^\s*(\d{1,3}(?:,\d{3})+|\d*\.?\d+)\s*([kKmMbB]?)\s*(\+?)\s*$/.exec(raw);
+  if (!m) return null;
+  const mult = { '': 1, k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase() as '' | 'k' | 'm' | 'b'];
+  // Decimal-exact: scale the digits instead of multiplying floats.
+  const n = Math.round(Number(m[1].replace(/,/g, '')) * mult * 100) / 100;
+  return Number.isFinite(n) && n >= 0 ? { value: n.toFixed(2), plus: m[3] === '+' } : null;
+}
+
+/** The criteria Claude returned, kept only when valid for their scope; the rest is reported back. */
+export function toCriteria(raw: { scope: string; field: string; op: string; value: string }[]): { criteria: Criterion[]; rejected: string[] } {
+  const criteria: Criterion[] = [], rejected: string[] = [];
+  for (const c of raw.slice(0, 10)) {
+    const label = `${c.scope} ${c.field} ${c.op} ${c.value}`.slice(0, 100);
+    const scope = c.scope as Scope, op = c.op as Op;
+    if ((scope !== 'deal' && scope !== 'bl') || !OPS.includes(op)) { rejected.push(label); continue; }
+    if ((NUMERIC[scope] as readonly string[]).includes(c.field)) {
+      const n = parseAmount(c.value);
+      if (!n) { rejected.push(label); continue; }
+      criteria.push({ scope, field: c.field, op: n.plus && (op === 'gt' || op === 'eq') ? 'gte' : op, value: n.value });
+    } else if (DATES[scope].includes(c.field)) {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(c.value.trim()) || Number.isNaN(Date.parse(c.value.trim()))) { rejected.push(label); continue; }
+      criteria.push({ scope, field: c.field, op, value: c.value.trim() });
+    } else if (TEXT[scope].includes(c.field)) {
+      const value = c.value.trim();
+      if (!/^[A-Za-z0-9 .&-]{1,30}$/.test(value) || (op !== 'eq' && op !== 'ne')) { rejected.push(label); continue; }
+      criteria.push({ scope, field: c.field, op, value });
+    } else rejected.push(label);
+  }
+  return { criteria, rejected };
+}
 
 export interface Rules { [kind: string]: number | boolean | string[] | undefined }
 /** The part of the Anthropic client this route uses (a stand-in in tests). */
@@ -49,6 +97,12 @@ const SYSTEM = [
   `preferences into rules of these kinds only: ${RULE_KINDS.join(', ')}.`,
   'maxBls/minBls/tolerancePct use "number"; includeTf/excludeTf/includeBl/excludeBl use "values" (TF or BL numbers);',
   'preferOlder/preferNewer/preferFewerTfs need neither. Put anything you cannot express as such a rule in notUnderstood, in the person\'s words.',
+  'Also read any conditions on the data into "criteria": {scope, field, op, value} with scope "deal" or "bl", op one of gt, gte, lt, lte, eq, ne.',
+  'Deal fields: amount (the deal amount in USD), remaining (USD still open), commodity, dealId. BL fields: amount (the BL USD value), quantity, commodity,',
+  'tfDate and blDate (value YYYY-MM-DD), tfNo, blNo. Never turn a deal condition into a BL condition or the reverse: "deals with an amount greater than 50K"',
+  'is scope deal; "BLs worth more than 50K" is scope bl. Copy numbers as the person wrote them ("50K", "50K+"); the app converts them. "greater than" is gt, "at least" or "50K+" is gte.',
+  'Every BL shown is already unassigned and active, so never emit an availability criterion. Set acrossDeals true only when the person explicitly asks to search across',
+  'all deals; otherwise the chosen deal stays the context. Today is given in the request for relative dates.',
   'Never invent amounts, BLs or trade flows; refer to combinations only by their index. Rank at most 5.'
 ].join(' ');
 
@@ -89,10 +143,11 @@ export function aiProposals(req: Request, cfg: AppConfig, deps: AiDeps): Promise
         deal: input.deal,
         combinations: input.candidates.map((c, index) => ({ index, ...c })),
         bls: input.bls,
+        today: new Date().toISOString().slice(0, 10),
         preferences: input.preferences
       }) }]
     });
-    const out = Output.safeParse(response.parsed_output);
+    const out = Answer.safeParse(response.parsed_output);
     if (response.stop_reason === 'refusal' || !out.success) throw new HttpError(502, 'The AI gave no usable answer; the proposals are ranked by closeness instead.');
     const seen = new Set<number>();
     const ranked = out.data.ranked
@@ -100,6 +155,10 @@ export function aiProposals(req: Request, cfg: AppConfig, deps: AiDeps): Promise
       .slice(0, 5)
       .map(r => ({ index: r.index, reason: r.reason.trim().slice(0, 300) }));
     const { rules, rejected } = toRules(out.data.rules);
-    return json({ ranked, rules, notUnderstood: [...out.data.notUnderstood.map(n => n.slice(0, 200)), ...rejected], model: AI_MODEL });
+    const parsedCriteria = toCriteria(out.data.criteria ?? []);
+    return json({
+      ranked, rules, criteria: parsedCriteria.criteria, acrossDeals: out.data.acrossDeals === true,
+      notUnderstood: [...out.data.notUnderstood.map(n => n.slice(0, 200)), ...rejected, ...parsedCriteria.rejected], model: AI_MODEL
+    });
   });
 }

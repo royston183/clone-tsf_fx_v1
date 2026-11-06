@@ -2,6 +2,7 @@
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { candidates, findCombinations, remaining, toUsd, TOLERANCE_PCT, type Combination, type Rules } from '@/lib/propose/match';
+import { filterBls, type Criterion } from '@/lib/propose/query';
 import type { Deal } from './data';
 
 export interface DealRow extends Deal {
@@ -29,9 +30,34 @@ export function dealRows(deals: Deal[], bls: Row[], rates: Record<string, string
 }
 
 /** The BL combinations for what is left of a Deal ID (none without a USD rate or once it is filled). */
-export function proposalsFor(deal: DealRow, bls: Row[], commodities: Row[], rules: Rules): Combination[] {
+export function proposalsFor(deal: DealRow, bls: Row[], commodities: Row[], rules: Rules, criteria: Criterion[] = []): Combination[] {
   if (deal.status !== 'Open') return [];
-  return findCombinations(candidates(bls, deal.tsfCommodity, commodities, rules), deal.remainingUsd, rules);
+  const text = (code: string) => str(commodities.find(c => str(c.commodity) === code)?.description);
+  return findCombinations(candidates(filterBls(bls, criteria, text), deal.tsfCommodity, commodities, rules), deal.remainingUsd, rules);
+}
+
+/**
+ * The assignment checked against the LATEST BL rows, just before it is written: every BL still exists, is active, is
+ * unassigned (so one BL can never go to two deals, and accepting the same proposal twice is refused), is of the deal's
+ * commodity, and the deal's assigned total after this assignment stays within the tolerance of its USD amount.
+ * Returns the first problem, or '' when the assignment is valid.
+ */
+export function checkAssignment(guard: { dealUsd: string; tsfCommodity: string; commodities: Row[] }, dealId: string, usdByBl: Record<string, string>, fresh: Row[]): string {
+  const nos = Object.keys(usdByBl);
+  if (!nos.length) return 'Nothing to assign.';
+  const mine = new Set(guard.commodities.filter(c => str(c.tsfCommodity) && str(c.tsfCommodity) === guard.tsfCommodity).map(c => str(c.commodity)));
+  for (const no of nos) {
+    const b = fresh.find(r => str(r.blNo) === no);
+    if (!b || str(b.deletedFlag) === 'X') return `BL ${no} no longer exists or was deleted. Refresh and propose again.`;
+    if (str(b.dealId)) return str(b.dealId) === dealId ? `BL ${no} is already assigned to ${dealId}.` : `BL ${no} was just assigned to ${str(b.dealId)}. Refresh and propose again.`;
+    if (!mine.has(str(b.commodity))) return `BL ${no} is not of the commodity of ${dealId}.`;
+    if (!(cents(usdByBl[no]) > 0)) return `BL ${no} has no USD value.`;
+  }
+  const already = fresh.filter(b => str(b.dealId) === dealId && str(b.deletedFlag) !== 'X').reduce((s, b) => s + cents(str(b.assignedUsd) || '0'), 0);
+  const adding = nos.reduce((s, no) => s + cents(usdByBl[no]), 0);
+  const limit = cents(guard.dealUsd) + Math.round(cents(guard.dealUsd) * TOLERANCE_PCT / 100);
+  if (already + adding > limit) return `Assigning these BLs would exceed ${dealId} (already assigned ${money(already)} USD, adding ${money(adding)} USD, deal ${guard.dealUsd} USD).`;
+  return '';
 }
 
 /** What accepting a proposal stores: each BL with the USD value it was matched with. */

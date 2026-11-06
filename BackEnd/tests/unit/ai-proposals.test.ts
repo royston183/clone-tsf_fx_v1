@@ -92,3 +92,38 @@ describe('the BackEnd routes /api/ai/proposals', () => {
     expect(res.statusCode).toBe(503);
   });
 });
+
+describe('criteria read from the question', () => {
+  it('converts 50K to 50000 and 50K+ to "or more"; only valid criteria survive', async () => {
+    const { client } = fake({
+      ranked: [], rules: [], acrossDeals: true, notUnderstood: [],
+      criteria: [
+        { scope: 'deal', field: 'amount', op: 'gt', value: '50K' },
+        { scope: 'deal', field: 'amount', op: 'gt', value: '50K+' },
+        { scope: 'bl', field: 'amount', op: 'lt', value: '1,500' },
+        { scope: 'bl', field: 'tfDate', op: 'gte', value: '2026-10-01' },
+        { scope: 'bl', field: 'commodity', op: 'eq', value: 'rubber' },
+        { scope: 'deal', field: 'quantity', op: 'gt', value: '5' },
+        { scope: 'bl', field: 'amount', op: 'gt', value: 'lots' },
+        { scope: 'bl', field: 'tfDate', op: 'gt', value: 'last week' }
+      ]
+    });
+    const res = await aiProposals(request(body), cfg(), { client });
+    const out = await res.json();
+    expect(out.acrossDeals).toBe(true);
+    expect(out.criteria).toEqual([
+      { scope: 'deal', field: 'amount', op: 'gt', value: '50000.00' },
+      { scope: 'deal', field: 'amount', op: 'gte', value: '50000.00' },
+      { scope: 'bl', field: 'amount', op: 'lt', value: '1500.00' },
+      { scope: 'bl', field: 'tfDate', op: 'gte', value: '2026-10-01' },
+      { scope: 'bl', field: 'commodity', op: 'eq', value: 'rubber' }
+    ]);
+    expect(out.notUnderstood).toHaveLength(3);
+  });
+  it('answers without criteria for an answer that has none', async () => {
+    const { client } = fake({ ranked: [], rules: [], notUnderstood: [] });
+    const out = await (await aiProposals(request(body), cfg(), { client })).json();
+    expect(out.criteria).toEqual([]);
+    expect(out.acrossDeals).toBe(false);
+  });
+});

@@ -17,6 +17,7 @@ import { SortIcon } from '@/components/ui/SortTh';
 import { Toast, useToast } from '@/components/ui/Toast';
 import { ColumnFilter } from './ColumnFilter';
 import { DeleteConfirm } from './DeleteConfirm';
+import { DateFilter } from './DateFilter';
 import { FilterCombo } from './FilterCombo';
 import { entries, GridEditor, gridRow, type SavedView } from './GridEditor';
 
@@ -145,7 +146,9 @@ export default function Workbench({ def }: { def: AnyModule }) {
             onRowDoubleClick={tab.editable ? r => openEditRows([r]) : undefined} />
         : <>
         <div className="ds-filters">
-          {tab.filters.map(f => <FilterCombo key={f.id} all={f.all} options={f.options(rows, lk)} value={state.filters[f.id] ?? ''} onChange={v => patch(s => ({ filters: { ...s.filters, [f.id]: v } }))} />)}
+          {tab.filters.map(f => f.kind === 'date'
+            ? <DateFilter key={f.id} label={f.all} value={state.filters[f.id] ?? ''} onChange={v => patch(s => ({ filters: { ...s.filters, [f.id]: v } }))} />
+            : <FilterCombo key={f.id} all={f.all} options={f.options(rows, lk)} value={state.filters[f.id] ?? ''} onChange={v => patch(s => ({ filters: { ...s.filters, [f.id]: v } }))} />)}
           <label className="search ds-search"><Search size={15} /><input aria-label="Search" placeholder="Search…" value={state.search} onChange={e => patch({ search: e.target.value })} />{state.search && <button aria-label="Clear search" onClick={() => patch({ search: '' })}>×</button>}</label>
         </div>
         <div className="table-wrap ds-table-wrap">

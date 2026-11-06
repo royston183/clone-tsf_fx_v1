@@ -2023,3 +2023,8 @@
     animation: none;
   }
 }
+
+/* Effective Date filter (Update Price): calendar input with a clear button */
+[data-app-theme='normal'] .ds-filters .ds-date-filter { position: relative; display: inline-flex; align-items: center; }
+[data-app-theme='normal'] .ds-filters .ds-date-filter input { width: 100%; padding-right: 26px; }
+[data-app-theme='normal'] .ds-filters .ds-date-filter button { position: absolute; right: 24px; top: 50%; transform: translateY(-50%); display: inline-flex; border: 0; background: transparent; color: var(--text-tertiary); cursor: pointer; padding: 0; }

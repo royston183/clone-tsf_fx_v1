@@ -14,6 +14,7 @@ import { formatAmount, formatDate } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import type { Combination, Rules } from '@/lib/propose/match';
+import { criteriaChips, dealMatches, NO_MATCH, type Criterion } from '@/lib/propose/query';
 import { fmtQty } from '@/pages/manage-tradeflows/logic';
 import { sampleProposeData, type ProposeData } from './data';
 import { liveProposeData } from './live';
@@ -23,7 +24,7 @@ import { contributions, kpis, matchPct, orderByRules, progressPct, QUICK, quickR
 import './propose.css';
 
 interface Loaded { deals: DealRow[]; bls: Row[]; commodities: Row[] }
-export interface Proposal { combo: Combination; reason: string }
+export interface Proposal { combo: Combination; reason: string; deal: DealRow }
 const usd = (v: string | null) => (v === null || v === '' ? '—' : `${formatAmount(v)} USD`);
 const STATUS_TONE = { Open: 'amber', Filled: 'green', 'No USD rate': 'red' } as const;
 
@@ -110,7 +111,8 @@ export default function ProposeTradeflowsPage() {
               </div>
             )}
             {deal && <DealPanel key={deal.dealId} deal={deal} loaded={loaded} data={data}
-              onChanged={text => { notify(text, 'success'); setReload(r => r + 1); }} onError={text => notify(text, 'error')} />}
+              onChanged={text => { notify(text, 'success'); setReload(r => r + 1); }} onError={text => notify(text, 'error')}
+              onStale={text => { notify(text, 'error'); setReload(r => r + 1); }} />}
           </div>
         </div>
       )}
@@ -119,13 +121,17 @@ export default function ProposeTradeflowsPage() {
   );
 }
 
-function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; loaded: Loaded; data: ProposeData; onChanged: (t: string) => void; onError: (t: string) => void }) {
+function DealPanel({ deal, loaded, data, onChanged, onError, onStale }: { deal: DealRow; loaded: Loaded; data: ProposeData; onChanged: (t: string) => void; onError: (t: string) => void; onStale: (t: string) => void }) {
   const [chips, setChips] = useState<string[]>([]);
   const [typed, setTyped] = useState('');
   const [sent, setSent] = useState('');
   const [aiRules, setAiRules] = useState<Rules>({});
+  // What the question was read into: filters on the deals and BLs, and whether it asked for a search across deals.
+  const [criteria, setCriteria] = useState<Criterion[]>([]);
+  const [across, setAcross] = useState(false);
+  const [queryFailed, setQueryFailed] = useState(false);
+  const [askNotes, setAskNotes] = useState<string[]>([]);
   const [proposals, setProposals] = useState<Proposal[] | null>(null);
-  const [notUnderstood, setNotUnderstood] = useState<string[]>([]);
   const [model, setModel] = useState('');
   const [fallback, setFallback] = useState('');
   const [busy, setBusy] = useState(false);
@@ -136,11 +142,26 @@ function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; 
   const note = commodityNote(deal, loaded.commodities);
   const rules = useMemo(() => ({ ...aiRules, ...quickRules(chips) }), [aiRules, chips]);
 
-  // Proposals as soon as the deal is chosen, and again whenever the preferences change.
+  // Proposals as soon as the deal is chosen, and again whenever the preferences or the question's filters change.
+  // The filters apply to the real deals and BLs here; the AI only reads the question and ranks what is found.
   useEffect(() => {
-    if (deal.status !== 'Open') return;
     let live = true;
-    const pool = orderByRules(proposalsFor(deal, loaded.bls, loaded.commodities, rules), rules, byNo).slice(0, 20);
+    const reading = sent !== '';   // the question is being read: the first answer carries its filters, not proposals
+    const targets = across ? loaded.deals.filter(d => d.status === 'Open' && dealMatches(d, criteria))
+      : deal.status === 'Open' && dealMatches(deal, criteria) ? [deal] : [];
+    if (across && !reading) {
+      // Across deals every deal gets its own deterministic proposals; no AI ranking, no mixing of deals.
+      const merged: Proposal[] = targets.flatMap(t => orderByRules(proposalsFor(t, loaded.bls, loaded.commodities, rules, criteria), rules, byNo).slice(0, 3).map(combo => ({ combo, reason: '', deal: t })))
+        .sort((a, b) => Math.abs(a.combo.diffPct) - Math.abs(b.combo.diffPct) || a.combo.bls.length - b.combo.bls.length).slice(0, 12);
+      void Promise.resolve().then(() => { if (live) { setProposals(merged); setModel(''); setFallback(''); } });
+      return () => { live = false; };
+    }
+    if (!reading && !targets.length) {
+      void Promise.resolve().then(() => { if (live) { setProposals([]); setFallback(''); } });
+      return () => { live = false; };
+    }
+    if (deal.status !== 'Open') return;
+    const pool = orderByRules(proposalsFor(deal, loaded.bls, loaded.commodities, rules, reading ? [] : criteria), rules, byNo).slice(0, 20);
     const used = [...new Set(pool.flatMap(c => c.bls))].map(no => byNo.get(no) ?? {});
     void Promise.resolve().then(() => { if (live) setBusy(true); });
     data.ai({
@@ -150,27 +171,36 @@ function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; 
     }).then(answer => {
       if (!live) return;
       const ai = answer.model !== 'none';
-      const ranked = ai ? answer.ranked.filter(r => pool[r.index]).map(r => ({ combo: pool[r.index], reason: r.reason }))
-        : pool.slice(0, 6).map(c => ({ combo: c, reason: '' }));
+      setModel(answer.model);
+      if (reading) {
+        setAskNotes(answer.notUnderstood);
+        if (!ai) { setProposals([]); setQueryFailed(true); return; }
+        // The question's filters and rules apply from now on; the next round proposes under them.
+        setQueryFailed(false);
+        setAiRules(answer.rules); setCriteria(answer.criteria ?? []); setAcross(answer.acrossDeals === true);
+        setSent('');
+        if (!Object.keys(answer.rules).length && !(answer.criteria ?? []).length && answer.acrossDeals !== true) setProposals(pool.slice(0, 6).map(c => ({ combo: c, reason: '', deal })));
+        return;
+      }
+      const ranked = ai ? answer.ranked.filter(r => pool[r.index]).map(r => ({ combo: pool[r.index], reason: r.reason, deal }))
+        : pool.slice(0, 6).map(c => ({ combo: c, reason: '', deal }));
       setProposals(ranked.slice(0, 6));
       setFallback(ai ? '' : answer.ranked[0]?.reason ?? '');
-      setModel(answer.model);
-      setNotUnderstood(answer.notUnderstood);
-      // The AI's rules apply once: the next round runs under them (and the preferences it already read).
-      if (ai && Object.keys(answer.rules).length && sent) { setAiRules(answer.rules); setSent(''); }
     }, (e: Error) => { if (live) onError(e.message); }).finally(() => { if (live) setBusy(false); });
     return () => { live = false; };
-  }, [deal, loaded, data, rules, byNo, sent, onError]);
+  }, [deal, loaded, data, rules, criteria, across, byNo, sent, onError]);
 
   const toggle = (id: string) => setChips(list => (list.includes(id) ? list.filter(c => c !== id)
     : [...list.filter(c => !(id === 'oneBl' && c === 'fewest') && !(id === 'fewest' && c === 'oneBl')), id]));
   const accept = async (p: Proposal) => {
+    if (busy) return;   // a second click while the first is still writing
     setBusy(true);
     try {
-      await data.assign(deal.dealId, acceptPlan(p.combo, loaded.bls));
+      // The write re-reads the BLs from SAP and refuses a BL that is no longer free, a wrong commodity or an over-allocation.
+      await data.assign(p.deal.dealId, acceptPlan(p.combo, loaded.bls), { dealUsd: p.deal.usd ?? '', tsfCommodity: p.deal.tsfCommodity, commodities: loaded.commodities });
       setOpen(null);
-      onChanged(`${p.combo.bls.length} BL${p.combo.bls.length > 1 ? 's' : ''} assigned to ${deal.dealId}`);
-    } catch (e) { onError((e as Error).message); } finally { setBusy(false); }
+      onChanged(`${p.combo.bls.length} BL${p.combo.bls.length > 1 ? 's' : ''} assigned to ${p.deal.dealId}`);
+    } catch (e) { setOpen(null); onStale((e as Error).message); } finally { setBusy(false); }
   };
   const doUnassign = async (b: Row) => {
     setBusy(true);
@@ -208,21 +238,25 @@ function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; 
               {QUICK.map(c => <button key={c.id} className={`tsf-propose__chip${chips.includes(c.id) ? ' on' : ''}`} aria-pressed={chips.includes(c.id)} onClick={() => toggle(c.id)}>{c.label}</button>)}
             </div>
           </div>
-          <form className="tsf-propose__ask" onSubmit={e => { e.preventDefault(); if (typed.trim()) { setAiRules({}); setSent(typed.trim()); } }}>
+          <form className="tsf-propose__ask" onSubmit={e => { e.preventDefault(); if (typed.trim() && !busy) { setAiRules({}); setCriteria([]); setAcross(false); setQueryFailed(false); setAskNotes([]); setProposals(null); setSent(typed.trim()); } }}>
             <Wand2 size={15} />
             <input className="input" value={typed} onChange={e => setTyped(e.target.value)} aria-label="Preferences"
-              placeholder="Tell the AI what you prefer, e.g. keep trade flow 3000000016 out, prefer October shipments" />
+              placeholder="Ask the AI, e.g. deals with an amount greater than 50K, or keep trade flow 3000000016 out" />
             <button className="button small" disabled={busy || !typed.trim()}>Ask AI</button>
           </form>
-          {(ruleChips(rules).length > 0 || notUnderstood.length > 0) && (
-            <div className="tsf-propose__understood">
+          {(ruleChips(rules).length > 0 || criteria.length > 0 || across || askNotes.length > 0) && (
+            <div className="tsf-propose__understood" aria-label="Applied criteria">
+              {criteriaChips(criteria, across).map(c => <span key={c} className="tsf-propose__rule">{c}</span>)}
               {ruleChips(rules).map(c => <span key={c} className="tsf-propose__rule">{c}</span>)}
-              {notUnderstood.map(n => <span key={n} className="tsf-propose__muted">Not applied: {n}</span>)}
+              {askNotes.map(n => <span key={n} className="tsf-propose__muted">Not applied: {n}</span>)}
             </div>
           )}
+          {queryFailed && <Notice kind="warn">{askNotes[0] || 'The AI is not available.'} Your question was not applied, so no proposals are shown for it.</Notice>}
           {fallback && proposals && proposals.length > 0 && <p className="tsf-propose__fallback"><Sparkles size={13} />{fallback}</p>}
-          {busy && !proposals && <Loading text="Finding combinations…" />}
-          {proposals && !proposals.length && <Notice kind="warn">No combination of free BLs comes within 1% of {usd(deal.remainingUsd)}{ruleChips(rules).length ? ' under these preferences' : ''}.</Notice>}
+          {(busy || sent) && !proposals && <Loading text={sent ? 'Reading your question…' : 'Finding combinations…'} />}
+          {proposals && !proposals.length && !queryFailed && (criteria.length > 0 || across
+            ? <Notice kind="warn">{NO_MATCH}</Notice>
+            : <Notice kind="warn">No combination of free BLs comes within 1% of {usd(deal.remainingUsd)}{ruleChips(rules).length ? ' under these preferences' : ''}.</Notice>)}
           {proposals && proposals.length > 0 && (
             <ol className={`tsf-propose__grid${busy ? ' busy' : ''}`}>
               {proposals.map((p, i) => {
@@ -230,14 +264,14 @@ function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; 
                 const parts = contributions(rows.map(b => ({ blNo: str(b.blNo), usdValue: str(b.usdValue) })));
                 const oldest = rows.map(r => str(r.tfDate)).sort()[0] ?? '';
                 return (
-                  <li key={p.combo.bls.join('+')}>
+                  <li key={`${p.deal.dealId}:${p.combo.bls.join('+')}`}>
                     <button className={`tsf-propose__card${i === 0 ? ' best' : ''}`} onClick={() => setOpen(p)} aria-label={`Proposal ${i + 1}: ${p.combo.bls.length} BLs, ${p.combo.totalUsd} USD`}>
                       <span className="tsf-propose__card-top">
-                        <span className="tsf-propose__rank">{i === 0 ? 'Best match' : `Option ${i + 1}`}</span>
+                        <span className="tsf-propose__rank">{across ? p.deal.dealId : i === 0 ? 'Best match' : `Option ${i + 1}`}</span>
                         <span className={`tsf-propose__match${Math.abs(p.combo.diffPct) <= 0.1 ? ' exact' : ''}`}>{matchPct(p.combo.diffPct)}</span>
                       </span>
                       <span className="tsf-propose__total">{formatAmount(p.combo.totalUsd)} <small>USD</small></span>
-                      <span className="tsf-propose__diff">{p.combo.diffPct > 0 ? '+' : ''}{p.combo.diffPct.toFixed(2)}% against {formatAmount(deal.remainingUsd)} USD left</span>
+                      <span className="tsf-propose__diff">{p.combo.diffPct > 0 ? '+' : ''}{p.combo.diffPct.toFixed(2)}% against {formatAmount(p.deal.remainingUsd)} USD left</span>
                       <span className="tsf-propose__stack" aria-hidden="true">{parts.map((s, k) => <span key={s.blNo} className={`c${k % 6}`} style={{ width: `${Math.max(s.pct, 2)}%` }} />)}</span>
                       <span className="tsf-propose__meta"><b>{p.combo.bls.length}</b> BL{p.combo.bls.length > 1 ? 's' : ''} · <b>{p.combo.tfs}</b> trade flow{p.combo.tfs > 1 ? 's' : ''}{oldest ? ` · oldest ${formatDate(oldest)}` : ''}</span>
                       {p.reason && <span className="tsf-propose__reason"><Sparkles size={12} />{p.reason}</span>}
@@ -248,7 +282,7 @@ function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; 
               })}
             </ol>
           )}
-          {model && model !== 'none' && <p className="tsf-propose__muted">Ranked and explained by {model}. Every amount is calculated by the app.</p>}
+          {model && model !== 'none' && !across && <p className="tsf-propose__muted">Ranked and explained by {model}. Every amount is calculated by the app.</p>}
         </div>
       )}
 
@@ -265,7 +299,7 @@ function DealPanel({ deal, loaded, data, onChanged, onError }: { deal: DealRow; 
         </DataTable>}
       </div>
 
-      {open && <ProposalModal proposal={open} rank={(proposals ?? []).indexOf(open) + 1} deal={deal} bls={byNo} busy={busy} onClose={() => setOpen(null)} onAccept={() => accept(open)} />}
+      {open && <ProposalModal proposal={open} rank={(proposals ?? []).indexOf(open) + 1} deal={open.deal} bls={byNo} busy={busy} onClose={() => setOpen(null)} onAccept={() => accept(open)} />}
       {unassign && <ConfirmDialog title={`Unassign BL ${str(unassign.blNo)}?`} busy={busy} confirmLabel="Unassign"
         message={`The BL leaves ${deal.dealId} and can be proposed again; ${usd(str(unassign.assignedUsd))} becomes open on the deal.`}
         onClose={() => setUnassign(null)} onConfirm={() => doUnassign(unassign)} />}

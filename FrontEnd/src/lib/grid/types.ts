@@ -34,6 +34,8 @@ export type GridColumn<L> = FieldDef<L>;
 
 export interface FilterDef<L> {
   id: string;
+  /** 'date' renders a calendar picker (value = YYYY-MM-DD) instead of the type-ahead list. */
+  kind?: 'select' | 'date';
   all: string;
   options: (rows: Row[], lk: L) => Option[];
   match: (row: Row, value: string) => boolean;
