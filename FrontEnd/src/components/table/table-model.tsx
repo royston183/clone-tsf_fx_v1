@@ -39,7 +39,11 @@ export function compareCellValues(a: string, b: string): number {
 }
 
 /** React owns the rows and cells throughout sorting/reordering; controls keep their keys and handlers. */
-export function renderTableParts(nodes: ReactNode, order: number[], sort: TableSort | null, renderHeader: (cell: CellElement, index: number) => CellElement): CellElement[] {
+/**
+ * `hidden`: data rows a column filter leaves out. They stay in the DOM (hidden), so their values can still be read and a
+ * cleared filter shows them again; summary rows (totals, group labels) are never hidden.
+ */
+export function renderTableParts(nodes: ReactNode, order: number[], sort: TableSort | null, renderHeader: (cell: CellElement, index: number) => CellElement, hidden?: (rowId: string) => boolean): CellElement[] {
   const count = headerCells(nodes).length;
   return elements(nodes).filter(section => section.type !== 'colgroup').map((section, sectionIndex) => {
     if (!['thead', 'tbody', 'tfoot'].includes(String(section.type))) return section;
@@ -68,7 +72,8 @@ export function renderTableParts(nodes: ReactNode, order: number[], sort: TableS
         }
       }
       // Spanning group/total rows stay in place and retain their group semantics.
-      return cloneElement(row, { key: row.key ?? rowIndex, 'data-table-row': rowId, 'data-table-regular': regular ? 'true' : undefined }, regular ? visible : spanned.length ? spanned : transformed);
+      const filteredOut = section.type === 'tbody' && regular && hidden ? hidden(rowId) : false;
+      return cloneElement(row, { key: row.key ?? rowIndex, 'data-table-row': rowId, 'data-table-regular': regular ? 'true' : undefined, ...(filteredOut ? { hidden: true } : {}) }, regular ? visible : spanned.length ? spanned : transformed);
     });
     if (section.type === 'tbody' && sort) {
       // Sort each contiguous detail group separately; never move totals/group labels into data.

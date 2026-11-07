@@ -35,13 +35,13 @@ describe('upload on SAP', () => {
 
   it('checks every row and compares the keys with SAP in one query', async () => {
     const check = await uploadService(cfg, 'sample-budget').check(user, { rows: ROWS });
-    expect(check.counts).toEqual({ create: 1, update: 1, invalid: 3 });
+    expect(check.counts).toEqual({ create: 1, update: 1, invalid: 2, duplicate: 1 });
     expect(check.lines.map(l => [l.row, l.status, l.problems])).toEqual([
       [1, 'create', []],
       [2, 'update', []],
       [3, 'invalid', ["GL Account '999999' is not in the list."]],
       [4, 'invalid', ['Budget amounts must not be negative.']],
-      [5, 'invalid', ['Same key as row 1.']]
+      [5, 'duplicate', ['Same key as row 1.']]
     ]);
     expect(check.lines[1].values.amount).toBe('99000.00');
     expect(sap.log.filter(r => r.method === 'GET' && r.rel === 'BudgetLine')).toHaveLength(1);
@@ -49,7 +49,7 @@ describe('upload on SAP', () => {
 
   it('posts the valid rows in one $batch changeset after checking them again', async () => {
     const out = await uploadService(cfg, 'sample-budget').post(user, { rows: ROWS });
-    expect(out).toEqual({ created: 1, updated: 1, invalid: 3 });
+    expect(out).toEqual({ created: 1, updated: 1, invalid: 2, duplicate: 1 });
     const batches = sap.log.filter(r => r.rel === '$batch');
     expect(batches).toHaveLength(1);
     expect(batches[0].body).toContain('POST BudgetLine HTTP/1.1');
@@ -63,9 +63,15 @@ describe('upload on SAP', () => {
     expect(sap.log.some(r => r.rel === '$batch')).toBe(false);
   });
 
-  it('create mode: a key that exists is invalid', async () => {
+  it('create mode: a key that exists is a duplicate, not invalid', async () => {
     const check = await uploadService(cfg, 'test-budget-create').check(user, { rows: [line('400100', 'CC10', '1')] });
-    expect(check.lines[0]).toMatchObject({ status: 'invalid', problems: ['400100 / CC10 / 04 / 2026 already exists.'] });
+    expect(check.lines[0]).toMatchObject({ status: 'duplicate', problems: ['400100 / CC10 / 04 / 2026 already exists.'] });
+  });
+
+  it('create mode: a stored key that also fails another check stays invalid, with both problems', async () => {
+    const check = await uploadService(cfg, 'test-budget-create').check(user, { rows: [line('400100', 'CC10', '-5')] });
+    expect(check.lines[0]).toMatchObject({ status: 'invalid', problems: ['Budget amounts must not be negative.', '400100 / CC10 / 04 / 2026 already exists.'] });
+    expect(check.counts).toMatchObject({ invalid: 1, duplicate: 0 });
   });
 
   it('refuses an empty upload and more rows than allowed', async () => {
@@ -78,8 +84,8 @@ describe('upload on the mock store', () => {
   it('checks and posts', async () => {
     const cfg = freshConfig();
     const svc = uploadService(cfg, 'sample-budget');
-    expect((await svc.check(actingAs(), { rows: ROWS })).counts).toEqual({ create: 1, update: 1, invalid: 3 });
-    expect(await svc.post(actingAs(), { rows: ROWS })).toEqual({ created: 1, updated: 1, invalid: 3 });
+    expect((await svc.check(actingAs(), { rows: ROWS })).counts).toEqual({ create: 1, update: 1, invalid: 2, duplicate: 1 });
+    expect(await svc.post(actingAs(), { rows: ROWS })).toEqual({ created: 1, updated: 1, invalid: 2, duplicate: 1 });
     expect((await svc.check(actingAs(), { rows: [ROWS[0]] })).lines[0].status).toBe('update');
   });
 });

@@ -47,7 +47,7 @@ test('formatted report: nothing runs until Run; row styles, zero rows, the hide 
   await expect(statement(page).locator('tr[data-row="C"]')).toHaveClass('qr-mismatch');
   await expect(statement(page).locator('tr[data-row="E"]')).toHaveClass('qr-percent');
   await expect(statement(page).locator('tr[data-row="E"] td').nth(4)).toHaveText('-17.54 %');
-  await expect(statement(page).locator('tr[data-row="A:01:01"] td').nth(2)).toHaveText('13,20,000.00');
+  await expect(statement(page).locator('tr[data-row="A:01:01"] td').nth(2)).toHaveText('1,320,000.00');
   // Only non-zero amounts drill; percent rows and rows the module maps to none never do.
   await expect(statement(page).locator('tr[data-row="E"] td.qr-drillable')).toHaveCount(0);
   await expect(statement(page).locator('tr[data-row="E"] button.qr-drill')).toHaveCount(0);
@@ -68,7 +68,7 @@ test('breakdown: drill, drill again, Back closes one level; a deep link reopens 
   await statement(page).getByRole('button', { name: 'A', exact: true }).click();
   const first = page.getByRole('dialog', { name: 'A · A. Outflows' });
   await expect(first.locator('tbody tr')).toHaveCount(1);
-  await expect(first.locator('tfoot')).toContainText('2,46,00,000.00');
+  await expect(first.locator('tfoot')).toContainText('24,600,000.00');
   await expect(page).toHaveURL(/drill=/);
   await first.getByRole('button', { name: 'A:01', exact: true }).click();
   const second = page.getByRole('dialog', { name: 'A:01 · Borrowings' });

@@ -11,7 +11,7 @@ const milli = (v: string): bigint => {
 };
 const qty = (n: bigint): string => `${n < 0n ? '-' : ''}${(n < 0n ? -n : n) / 1000n}.${String((n < 0n ? -n : n) % 1000n).padStart(3, '0')}`;
 
-const QTY = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const QTY = new Intl.NumberFormat('en-US', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 /** A quantity as the screens show it: grouped, 3 decimals ('' stays ''). */
 export const fmtQty = (v: string): string => (str(v) === '' || Number.isNaN(Number(v)) ? str(v) : QTY.format(Number(v)));
 

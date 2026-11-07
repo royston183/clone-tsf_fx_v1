@@ -22,11 +22,11 @@ test('totals per currency update while typing; F4 in a grid cell; save after rev
   const totals = grid.locator('tfoot tr');
   await expect(totals).toHaveCount(2);
   await expect(totals.nth(0)).toContainText('INR');
-  await expect(totals.nth(0)).toContainText('1,25,402.00');
+  await expect(totals.nth(0)).toContainText('125,402.00');
   await expect(totals.nth(1)).toContainText('USD');
   await expect(totals.nth(1)).toContainText('62,600.50');
   await grid.getByLabel('Amount *, row 1', { exact: true }).fill('12600.00');
-  await expect(totals.nth(0)).toContainText('1,25,401.50');
+  await expect(totals.nth(0)).toContainText('125,401.50');
   await expect(totals.nth(1)).toContainText('62,600.50');
 
   await page.getByRole('button', { name: 'Add Row' }).click();
@@ -40,7 +40,7 @@ test('totals per currency update while typing; F4 in a grid cell; save after rev
   await expect(gl).toHaveValue('600100');
   await grid.getByLabel('Amount *, row 6', { exact: true }).fill('1000');
   await grid.getByLabel('Currency *, row 6', { exact: true }).fill('INR');
-  await expect(totals.nth(0)).toContainText('1,26,401.50');
+  await expect(totals.nth(0)).toContainText('126,401.50');
 
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   const review = page.getByRole('dialog', { name: 'Save Monthly Amounts' });

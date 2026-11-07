@@ -5,6 +5,8 @@ import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import type { Combination, Rules } from '@/lib/propose/match';
 import { rankByCloseness } from '@/lib/propose/match';
+import { readConditions, type Reading } from '@/lib/propose/query';
+import { assignmentProblems, type AssignTarget } from './logic';
 import { tradeflowManageSeed } from '@/modules/tradeflow-manage/seed';
 import { valueOf } from '@/modules/tradeflow/pricing';
 
@@ -18,6 +20,17 @@ export interface AiRequest {
   preferences: string;
 }
 export interface AiAnswer { ranked: { index: number; reason: string }[]; rules: Rules; notUnderstood: string[]; model: string }
+/** A question about the proposals shown (the same fields as AiRequest, plus the question and the earlier turns). */
+export interface AskRequest extends Omit<AiRequest, 'preferences'> { question: string; history: { question: string; answer: string }[] }
+export interface AskAnswer { answer: string; rules: Rules; notUnderstood: string[]; model: string }
+/** Typed conditions as criteria: read by the app, or (for what it could not read) by the AI, validated. */
+export interface Interpretation extends Reading { model: string }
+/** What the AI may know to read the conditions: the chosen deal and the commodity master (no names, no references). */
+export interface InterpretContext {
+  deal: { dealId: string; tsfCommodity: string } | null; commodities: Row[]; today: string;
+  /** The notify parties and contracts the deal's free BLs carry (so a name typed alone is understood). */
+  known?: { notifyParty?: string[]; contractRef?: string[] };
+}
 
 export interface ProposeData {
   /** True while the page runs on its sample data. */
@@ -29,10 +42,16 @@ export interface ProposeData {
   commodities(): Promise<Row[]>;
   /** USD per unit of each currency (rate type M, today). */
   rates(): Promise<Record<string, string>>;
-  /** Gives the BLs the Deal ID, each storing the USD it was matched with. */
-  assign(dealId: string, usdByBl: Record<string, string>): Promise<void>;
-  unassign(blNo: string): Promise<void>;
+  /**
+   * Gives the BLs the Deal ID, each storing the USD it was matched with. The BLs are read again first and the
+   * acceptance is refused when any rule fails on them (assignmentProblems); the write carries their ETags.
+   */
+  assign(target: AssignTarget, usdByBl: Record<string, string>, values: Record<string, string>): Promise<void>;
+  /** Typed conditions → criteria. */
+  interpret(text: string, context: InterpretContext): Promise<Interpretation>;
   ai(request: AiRequest): Promise<AiAnswer>;
+  /** Answers a question about the proposals; it may also return rules to apply. */
+  ask(request: AskRequest): Promise<AskAnswer>;
 }
 
 export const AI_OFFLINE = 'AI not connected (sample data): ranked by closeness to the amount left.';
@@ -62,13 +81,18 @@ export function sampleProposeData(): ProposeData {
     bls: async () => bls.map(b => ({ ...b })),
     commodities: async () => commodities.map(c => ({ ...c })),
     rates: async () => ({ INR: '0.0120' }),
-    assign: async (dealId, usdByBl) => { bls = bls.map(b => (usdByBl[b.blNo] !== undefined ? { ...b, dealId, assignedUsd: usdByBl[b.blNo] } : b)); },
-    unassign: async blNo => { bls = bls.map(b => (b.blNo === blNo ? { ...b, dealId: '', assignedUsd: '' } : b)); },
+    assign: async (target, usdByBl, values) => {
+      const problems = assignmentProblems(target, usdByBl, Object.keys(usdByBl), bls, values);
+      if (problems.length) throw new Error(`Not assigned: ${problems.join(' ')}`);
+      bls = bls.map(b => (usdByBl[b.blNo] !== undefined ? { ...b, dealId: target.dealId, assignedUsd: usdByBl[b.blNo] } : b));
+    },
+    interpret: async (text, context) => ({ ...readConditions(text, context.commodities, { known: context.known, today: context.today }), model: 'none' }),
     ai: async request => ({
       ranked: rankByCloseness(request.candidates).slice(0, 5).map(c => ({ index: request.candidates.indexOf(c), reason: AI_OFFLINE })),
       rules: {},
       notUnderstood: request.preferences.trim() ? ['AI not connected: preferences are applied once Claude is connected.'] : [],
       model: 'none'
-    })
+    }),
+    ask: async () => ({ answer: 'AI not connected (sample data): questions are answered once Claude is connected.', rules: {}, notUnderstood: [], model: 'none' })
   };
 }

@@ -145,8 +145,8 @@ describe('object pages on SAP', () => {
 
   it('creates header and items in one deep insert and returns the key SAP assigned', async () => {
     const created = await objectService(cfg, 'sample-deals').create(user, {
-      header: { name: 'New deal', product: '51A', counterparty: 'CP001', amount: '50,00,000', currency: 'INR', start: '2026-04-01', end: '2031-03-31', rate: '7.5', remarks: '' },
-      items: { flows: [{ seq: '1', payDate: '2026-10-01', flowType: 'INT', amount: '1,87,500', currency: 'INR' }] }
+      header: { name: 'New deal', product: '51A', counterparty: 'CP001', amount: '5,000,000', currency: 'INR', start: '2026-04-01', end: '2031-03-31', rate: '7.5', remarks: '' },
+      items: { flows: [{ seq: '1', payDate: '2026-10-01', flowType: 'INT', amount: '187,500', currency: 'INR' }] }
     });
     expect(batches(sap)).toHaveLength(1);
     const body = batches(sap)[0].body;

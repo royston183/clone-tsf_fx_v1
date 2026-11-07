@@ -4,17 +4,17 @@
 export const trimmed = (v: unknown): string => (v == null ? '' : String(v).trim());
 
 /**
- * Digits of a whole-number text that may carry thousands grouping: '1,234', '1,23,456', '12,34,567'.
+ * Digits of a whole-number text that may carry thousands grouping: '1,234', '123,456', '1,234,567'.
  * Plain digits pass through; null when a comma is not grouping ('12,5', '1,2345') or the text is not digits.
  */
 export function stripGrouping(t: string): string | null {
   if (!t.includes(',')) return /^\d+$/.test(t) ? t : null;
-  // Western (1,234,567) or Indian (1,23,456) groups, the last one always three digits.
+  // Western (1,234,567) or Indian (123,456) groups, the last one always three digits.
   return /^\d{1,3}(,\d{2,3})*,\d{3}$/.test(t) ? t.replace(/,/g, '') : null;
 }
 
 /**
- * '1,23,456.5', '(1,234.50)', '1234.5-' (SAP trailing minus), '-12' → canonical with `scale` decimals.
+ * '123,456.5', '(1,234.50)', '1234.5-' (SAP trailing minus), '-12' → canonical with `scale` decimals.
  * '' stays ''. null when the text is not a number, has a comma that is not thousands grouping,
  * or has non-zero digits beyond `scale`.
  */
@@ -73,10 +73,12 @@ export function parseAmountInput(value: unknown, scale: number): string | null {
   return parsed === null || parsed === '' ? parsed : shiftAmount(parsed, power, scale);
 }
 
-/** 1234567 → 12,34,567 (ALM formats amounts with en-IN grouping). */
-export function groupIndian(int: string): string {
-  if (int.length <= 3) return int;
-  return `${int.slice(0, -3).replace(/\B(?=(\d{2})+(?!\d))/g, ',')},${int.slice(-3)}`;
+/**
+ * 1234567 → 1,234,567: thousands, millions and billions read at a glance (requested 2026-11-07; the app used en-IN
+ * lakh/crore grouping before). Typed amounts are still read in either grouping.
+ */
+export function groupThousands(int: string): string {
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
 /** Canonical amount for display; anything else is returned as is. */
@@ -84,7 +86,18 @@ export function formatAmount(v: string): string {
   if (!/^-?\d+(\.\d+)?$/.test(v)) return v;
   const negative = v.startsWith('-');
   const [whole, fraction] = v.replace('-', '').split('.');
-  return `${negative ? '-' : ''}${groupIndian(whole)}${fraction !== undefined ? `.${fraction}` : ''}`;
+  return `${negative ? '-' : ''}${groupThousands(whole)}${fraction !== undefined ? `.${fraction}` : ''}`;
+}
+
+/** An amount in short: 23,924,000 → 23.9M, 500,000 → 500K, 1,250,000,000 → 1.25B (below 1,000 as it is). */
+export function formatCompact(v: string | number): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return String(v);
+  const a = Math.abs(n), sign = n < 0 ? '-' : '';
+  const [div, unit] = a >= 1e9 ? [1e9, 'B'] : a >= 1e6 ? [1e6, 'M'] : a >= 1e3 ? [1e3, 'K'] : [1, ''];
+  const x = a / div;
+  const digits = !unit ? 2 : x >= 100 ? 0 : x >= 10 ? 1 : 2;
+  return `${sign}${Number(x.toFixed(digits)).toString()}${unit}`;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');

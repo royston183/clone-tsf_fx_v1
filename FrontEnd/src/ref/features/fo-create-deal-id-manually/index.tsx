@@ -487,7 +487,7 @@ function WorkbenchScreen({
                           onClick={() => r.rfha && setSelectedFxIndex(idx)}
                         >
                           <td className="check-cell">
-                            <input className="row-check" type="checkbox" disabled={!r.rfha} checked={selected} onChange={() => r.rfha && setSelectedFxIndex(idx)} onClick={(e) => e.stopPropagation()} />
+                            <input className="row-check" type="checkbox" disabled={!r.rfha} checked={selected} onChange={() => r.rfha && setSelectedFxIndex(cur => (cur === idx ? -1 : idx))} onClick={(e) => e.stopPropagation()} />
                           </td>
                           <td className="deal-type-accent">{r.dealType}</td>
                           <td>{r.bukrs}</td>

@@ -33,7 +33,7 @@ test('an amount formats on blur and is right-aligned', async ({ page }) => {
   const amount = page.locator('[data-gallery-id="F-amount"] input').first();
   await amount.fill('1234567.5');
   await amount.blur();
-  await expect(amount).toHaveValue('12,34,567.50');
+  await expect(amount).toHaveValue('1,234,567.50');
   await expect(amount).toHaveCSS('text-align', 'right');
 });
 
@@ -103,7 +103,7 @@ test('review dialog lists only changed fields', async ({ page }) => {
   await page.getByRole('button', { name: 'Review' }).click();
   const rows = page.getByRole('dialog', { name: 'Confirm Update' }).locator('tbody tr');
   await expect(rows).toHaveCount(2);
-  await expect(rows.first()).toContainText('30,00,000.00');
+  await expect(rows.first()).toContainText('3,000,000.00');
 });
 
 test('confirm posts and shows a toast', async ({ page }) => {

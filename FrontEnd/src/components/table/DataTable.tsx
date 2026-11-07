@@ -1,5 +1,6 @@
 import { cloneElement, useEffect, useLayoutEffect, useRef, useState, type Ref, type TableHTMLAttributes } from 'react';
-import { ArrowDown, ArrowUp, ArrowUpDown, Download } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, Download, Filter } from 'lucide-react';
+import { ColumnFilter } from '@/components/workbench/ColumnFilter';
 import { fitTableColumns, type MeasuredColumn, type TableColumn, type TableKind } from '@/lib/grid/table-layout';
 import { elements, hasHandler, headerCells, nodeText, renderTableParts, type CellElement, type TableSort } from './table-model';
 import { LayoutControls } from '@/components/report/LayoutControls';
@@ -17,6 +18,10 @@ export function DataTable({ columns, children, className = '', nativeLayout = fa
   const labels = heads.map((head, index) => (nodeText(head.props.children) || String(head.props.label ?? '')).replace(/[▲▼↑↓]/g, '').trim() || (columns?.[index]?.kind === 'flag' || index === 0 ? 'Selection' : `Column ${index + 1}`));
   const storageKey = `app-table-layout:v2:${typeof location === 'undefined' ? '/' : location.pathname}:${props.id ?? props['aria-label'] ?? labels.join('|')}`;
   const [sort, setSort] = useState<TableSort | null>(null);
+  // Excel-style column filters: per column the values kept, and each row's value read when the filter was set.
+  const [filters, setFilters] = useState<{ column: number; allowed: string[]; values: Record<string, string> }[]>([]);
+  const [filterAt, setFilterAt] = useState<{ column: number; anchor: HTMLElement; values: string[] } | null>(null);
+  const closeFilter = () => setFilterAt(null);
   const captureValues = (column: number) => {
     const values: Record<string, string> = {};
     for (const row of ref.current?.querySelectorAll<HTMLTableRowElement>('tbody tr[data-table-row]') ?? []) {
@@ -46,9 +51,13 @@ export function DataTable({ columns, children, className = '', nativeLayout = fa
         const values = captureValues(current.column);
         return JSON.stringify(values) === JSON.stringify(current.values) ? current : { ...current, values };
       });
+      if (filters.length) setFilters(current => {
+        const next = current.map(f => ({ ...f, values: captureValues(f.column) }));
+        return JSON.stringify(next) === JSON.stringify(current) ? current : next;
+      });
     });
     return () => cancelAnimationFrame(frame);
-  }, [children, sort, layoutSort]);
+  }, [children, sort, layoutSort, filters.length]);
   const renderHeader = (head: CellElement, index: number) => {
     if (head.type === 'td') return head;
     if (hasHandler(head)) {
@@ -72,9 +81,22 @@ export function DataTable({ columns, children, className = '', nativeLayout = fa
         if (!nativeLayout) alv.change({ ...alv.layout, sort: [{ col: String(index), desc: descending }] });
         setSort({ column: index, descending, values });
       }}>{!interactive && head.props.children}{active ? sort.descending ? <ArrowDown size={12} /> : <ArrowUp size={12} /> : <ArrowUpDown size={12} />}</button>;
-    return cloneElement(head, { 'aria-sort': active ? sort.descending ? 'descending' : 'ascending' : 'none' }, interactive ? <span className="kit-table-heading">{head.props.children}{control}</span> : control);
+    const filtered = filters.some(f => f.column === index);
+    const funnel = <button type="button" className={`kit-table-filter${filtered ? ' on' : ''}`} aria-label={`Filter ${text}`} aria-pressed={filtered} title={`Filter ${text}`}
+      onClick={event => {
+      event.stopPropagation();
+      const anchor = event.currentTarget;
+      const values = [...new Set(Object.values(captureValues(index)).map(v => v.trim()))].sort((a, b) => a.localeCompare(b, 'en', { numeric: true }));
+      setFilterAt(f => (f?.column === index ? null : { column: index, anchor, values }));
+    }}><Filter size={11} /></button>;
+    return cloneElement(head, { 'aria-sort': active ? sort.descending ? 'descending' : 'ascending' : 'none' }, <span className="kit-table-heading">{interactive ? <>{head.props.children}{control}</> : control}{funnel}</span>);
   };
-  const parts = renderTableParts(children, order, sort, renderHeader);
+  const hidden = filters.length ? (rowId: string) => filters.some(f => f.values[rowId] !== undefined && !f.allowed.includes(f.values[rowId].trim())) : undefined;
+  const parts = renderTableParts(children, order, sort, renderHeader, hidden);
+  const applyFilter = (column: number, selected: string[]) => {
+    setFilters(current => [...current.filter(f => f.column !== column), ...(selected.length ? [{ column, allowed: selected, values: captureValues(column) }] : [])]);
+    setFilterAt(null);
+  };
   useLayoutEffect(() => {
     const table = ref.current, group = cols.current;
     if (!table || !group) return;
@@ -211,5 +233,7 @@ export function DataTable({ columns, children, className = '', nativeLayout = fa
     }} ref={element => { ref.current = element; if (typeof forwardedRef === 'function') forwardedRef(element); else if (forwardedRef) forwardedRef.current = element; }} className={`${className} kit-data-table`.trim()}>
       <colgroup ref={cols} />{parts}
     </table>
+    {filterAt && <ColumnFilter key={filterAt.column} anchor={filterAt.anchor} values={filterAt.values} active={filters.find(f => f.column === filterAt.column)?.allowed ?? []}
+      onApply={selected => applyFilter(filterAt.column, selected)} onClose={closeFilter} />}
   </>;
 }

@@ -10,7 +10,7 @@ export function Badge({ tone, children }: { tone: 'neutral' | 'green' | 'amber' 
   return tone === 'neutral' || tone === 'info' ? <span className="pill">{children}</span> : <TrafficLightTag tone={tone}>{children}</TrafficLightTag>;
 }
 
-const STATUS = { create: 'New', update: 'Update', invalid: 'Invalid', rejected: 'Rejected' } as const;
+const STATUS = { create: 'New', update: 'Update', invalid: 'Invalid', duplicate: 'Duplicate', rejected: 'Rejected' } as const;
 /** Upload/preview row status (ALM .tb-status). */
 export function StatusBadge({ status }: { status: keyof typeof STATUS }) {
   return <TrafficLightTag tone={status === 'create' ? 'green' : status === 'update' ? 'amber' : 'red'}>{STATUS[status]}</TrafficLightTag>;

@@ -160,6 +160,8 @@ export async function checkService(settings: SapSettings, conn: SapConnection, s
   const r = await sapRequest(settings, conn, service, { path: '$metadata' });
   if (r.status === 401) throw new HttpError(401, 'SAP rejected the user name or password.');
   if (r.status === 403) throw new HttpError(403, 'Your SAP user is not authorized for this service.');
+  // 404: this binding is not published on this system (it says nothing about the account).
+  if (r.status === 404) throw new HttpError(404, `SAP returned HTTP 404 for the service metadata of ${service.key}: the service binding is not published on this system.`);
   if (r.status >= 400) throw new HttpError(502, `SAP returned HTTP ${r.status} for the service metadata. Check that the service binding is published.`);
   if (!/<(?:\w+:)?Edmx[\s>]/i.test(r.text)) throw new HttpError(502, 'SAP did not return OData metadata. Check the service URL.');
   return { service: service.key, connected: true as const, checkedAt: new Date().toISOString() };

@@ -31,7 +31,7 @@ export function tickDecimals(ticks: number[], divisor = 1): number {
   return 2;
 }
 
-/** An axis label: the tick in the unit (`divisor`) with the decimals its step needs and en-IN grouping. */
+/** An axis label: the tick in the unit (`divisor`) with the decimals its step needs and thousands grouping. */
 export const axisLabel = (t: number, ticks: number[], divisor = 1): string => formatAmount(clean(t / divisor).toFixed(tickDecimals(ticks, divisor)));
 
 /** Value → y pixel: the last tick at `top`, the first at `top + height`. */

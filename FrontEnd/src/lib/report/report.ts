@@ -11,7 +11,7 @@ import { DEFAULT_MAX_ROWS, type ColumnType, type FormattedReport, type ReportCol
 import { formatInUnit, formatPercent, inUnit, isZero } from './units';
 
 export const maxRowsOf = (def: AnyReportDef): number => def.report.maxRows ?? DEFAULT_MAX_ROWS;
-export const tooManyRows = (max: number): string => `Too many rows (more than ${max.toLocaleString('en-IN')}). Narrow the selection.`;
+export const tooManyRows = (max: number): string => `Too many rows (more than ${max.toLocaleString('en-US')}). Narrow the selection.`;
 
 // Codes, percents and integers keep SAP's text; amounts and dates convert by type (OData codec, list-query builder).
 const FIELD_TYPE: Record<ColumnType, AnyField['type']> = { text: 'text', code: 'text', amount: 'amount', percent: 'text', date: 'date', integer: 'text', rate: 'text' };

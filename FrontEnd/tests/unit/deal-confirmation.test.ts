@@ -194,16 +194,24 @@ describe('the queue', () => {
     expect(q.warning).toBe('');
   });
 
-  it('passes one company and the trader to SAP, cuts a company range here, and leaves reversed deals out', async () => {
+  it('passes one company to SAP, cuts a company range here, and leaves reversed deals out', async () => {
     const seen: Row[] = [];
     const rows = [row({ companyCode: 'AE11' }), row({ companyCode: 'IN11', rfha: '2' }), row({ companyCode: 'SG03', rfha: '3' }), row({ companyCode: 'IN11', rfha: '4', reversed: 'X' })];
     const io: QueueIo = { report: async sel => { seen.push(sel); return { rows: sel.txnStatus === '03' ? rows : [] } as never; }, dealIds: async () => ({ rows: [], total: 0, page: 1, pageSize: 500 }) };
     await loadQueue({ from: 'IN11', to: '', upto: '2026-11-04', trader: 'C27' }, io);
-    expect(seen[0]).toMatchObject({ companyCode: 'IN11', trader: 'C27' });
+    expect(seen[0]).toMatchObject({ companyCode: 'IN11' });
+    expect(seen[0].trader).toBeUndefined();
     seen.length = 0;
     const q = await loadQueue({ from: 'AE13', to: 'IN11', upto: '2026-11-04', trader: '' }, io);
     expect(seen[0].companyCode).toBeUndefined();
     expect(q.deals.map(d => d.key)).toEqual(['IN11-2']);
+  });
+
+  it('filters the trader here and keeps released deals that carry no trader code', async () => {
+    const rows = [row({ rfha: '1', trader: 'C27' }), row({ rfha: '2', trader: 'D11' }), row({ rfha: '3', trader: '' })];
+    const io: QueueIo = { report: async sel => ({ rows: sel.txnStatus === '03' ? rows : [] }) as never, dealIds: async () => ({ rows: [], total: 0, page: 1, pageSize: 500 }) };
+    const q = await loadQueue({ from: '', to: '', upto: '2026-11-06', trader: 'C27' }, io);
+    expect(q.deals.map(d => d.transaction)).toEqual(['1', '3']);
   });
 
   it('flags the Deal IDs over their limit, reading them 50 at a time, and warns (without losing the queue) when the check fails', async () => {

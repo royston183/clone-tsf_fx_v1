@@ -14,7 +14,7 @@ import { Toast, useToast } from '@/components/ui/Toast';
 import { postedRows, UploadDialog, type UploadLine } from '@/components/ui/UploadDialog';
 
 interface CheckLine { row: number; status: UploadLine['status']; problems: string[]; values: Row }
-interface PostResult { created: number; updated: number; invalid: number }
+interface PostResult { created: number; updated: number; invalid: number; duplicate?: number }
 const titleCase = (s: string) => s.replace(/\b\w/g, c => c.toUpperCase());
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 
@@ -50,7 +50,7 @@ export default function UploadWorkbench({ def }: { def: AnyUploadDef }) {
     setBusy(true);
     try {
       const r: PostResult = await uploadPost(def.id, { rows });
-      const text = `${r.created} created, ${r.updated} updated${r.invalid ? `, ${r.invalid} invalid ${r.invalid === 1 ? 'row' : 'rows'} left out` : ''}`;
+      const text = `${r.created} created, ${r.updated} updated${r.duplicate ? `, ${r.duplicate} duplicate ${r.duplicate === 1 ? 'row' : 'rows'} left out` : ''}${r.invalid ? `, ${r.invalid} invalid ${r.invalid === 1 ? 'row' : 'rows'} left out` : ''}`;
       setResult(text);
       setOpen(false);
       notify(text, 'success');
@@ -79,7 +79,7 @@ export default function UploadWorkbench({ def }: { def: AnyUploadDef }) {
       {result && <Notice><CheckCircle2 size={16} />Posted: {result}.</Notice>}
       <EmptyState icon={<FileSpreadsheet size={28} />} title="Choose an Excel or CSV file"
         text={`Download the template, fill in one row per ${def.noun[0]} (${templateHeadings(def.columns).join(', ')}) and upload it. Every row is checked first; nothing is stored until you post.`} />
-      <p className="panel-note">.xlsx (first worksheet) or .csv · at most {maxRows.toLocaleString('en-IN')} rows · {def.strict ? 'posted only when every row is valid' : 'invalid rows are left out'}{def.mode === 'create' ? ' · existing entries are refused' : ''}.</p>
+      <p className="panel-note">.xlsx (first worksheet) or .csv · at most {maxRows.toLocaleString('en-US')} rows · {def.strict ? 'posted only when every row is valid' : 'invalid rows are left out'}{def.mode === 'create' ? ' · existing entries are refused' : ''}.</p>
       {open && <UploadDialog title={`Upload ${titleCase(def.noun[1])}`} accept={['.xlsx', '.csv']} maxBytes={maxBytes} busy={busy}
         columns={fields.map(d => ({ field: d.field, label: labelOf(d), align: alignOf(d.field, fields), type: typeOf(d) === 'amount' ? 'amount' : undefined, scale: d.scale }))} parse={parse} onPost={(_valid, all) => void post(postedRows(all))} onClose={() => setOpen(false)} />}
       <Toast toast={toast} />

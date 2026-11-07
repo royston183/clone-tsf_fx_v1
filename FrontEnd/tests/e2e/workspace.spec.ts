@@ -29,7 +29,8 @@ test.beforeEach(async ({ page }) => {
 test('opens the workspace after sign-in', async ({ page }) => {
   await page.goto('/');
   await expect(page.getByRole('heading', { level: 1, name: 'Overview' })).toBeVisible();
-  await expect(page.locator('.connection-chip')).toHaveText('SAP not tested');
+  // The account is checked once by itself after sign-in (the e2e relay answers like SAP).
+  await expect(page.locator('.connection-chip')).toHaveText('SAP connected');
   await page.getByRole('link', { name: 'All applications ↗' }).click();
   await expect(page.getByRole('link', { name: /FX Blotter/ })).toBeVisible();
 });

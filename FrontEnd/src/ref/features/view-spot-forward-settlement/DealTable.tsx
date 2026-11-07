@@ -38,7 +38,8 @@ export function DealTable({ rows, emptyText, selected, sort, onSort, onToggleRow
             <th className="sticky-col sticky-1">
               <input
                 type="checkbox"
-                checked={allPageSelected(selected, rows)}
+                checked={rows.length > 0 && allPageSelected(selected, rows)}
+                disabled={!rows.length}
                 onChange={(e) => onToggleAll(e.target.checked)}
                 title="Select all visible rows"
               />

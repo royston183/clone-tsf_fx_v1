@@ -320,9 +320,9 @@ export default function MoDealIdInvoiceStatus() {
                   </tr>
                 ) : (
                   pageRows.map((row) => (
-                    <tr key={row.dealId} className={openDealId === row.dealId ? 'selected' : ''} onClick={() => setOpenDealId(row.dealId)}>
+                    <tr key={row.dealId} className={openDealId === row.dealId ? 'selected' : ''} onClick={() => setOpenDealId(cur => (cur === row.dealId ? null : row.dealId))}>
                       <td className="sel-col">
-                        <input className="row-check" type="checkbox" readOnly checked={openDealId === row.dealId} aria-label={`Select ${row.dealId}`} onClick={(e) => e.stopPropagation()} />
+                        <input className="row-check" type="checkbox" readOnly checked={openDealId === row.dealId} aria-label={`Select ${row.dealId}`} />
                       </td>
                       {COLUMNS.map((col) => {
                         const { text, empty } = cellDisplay(row, col)

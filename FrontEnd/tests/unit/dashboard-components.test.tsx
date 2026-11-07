@@ -33,7 +33,7 @@ describe('KpiTile', () => {
     // A scaled amount names its unit (246.00 INR in Lakhs would read as 246 rupees); Absolute needs no name.
     expect(tileValue({ label: 'Outflows', value: '24600000.00', type: 'amount', currency: 'INR' }, LAKHS)).toBe('246.00 Lakhs INR');
     expect(tileValue({ label: 'Outflows', value: '24600000.00', type: 'amount', currency: 'INR' }, CRORES)).toBe('2.46 Crores INR');
-    expect(tileValue({ label: 'Outflows', value: '24600000.00', type: 'amount', currency: 'INR' }, ABSOLUTE)).toBe('2,46,00,000.00 INR');
+    expect(tileValue({ label: 'Outflows', value: '24600000.00', type: 'amount', currency: 'INR' }, ABSOLUTE)).toBe('24,600,000.00 INR');
     expect(tileValue({ label: 'Lines', value: '20', type: 'count' }, ABSOLUTE)).toBe('20');
     expect(tileValue({ label: 'Gap', value: '', type: 'percent' }, ABSOLUTE)).toBe('—');
     const linked = renderToStaticMarkup(<KpiTile tile={{ label: 'Lines', value: '20', type: 'count', drill: { kind: 'screen', module: 'sample-deals', filters: {}, label: 'Open' } }} unit={ABSOLUTE} onOpen={() => {}} />);

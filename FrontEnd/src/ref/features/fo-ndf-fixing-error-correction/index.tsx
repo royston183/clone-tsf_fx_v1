@@ -340,7 +340,7 @@ export default function FoNdfFixingErrorCorrection() {
                       key={r.rfha}
                       draggable
                       className={selected ? 'selected' : ''}
-                      onClick={() => selectRow(r.rfha)}
+                      onClick={() => setSelectedId(cur => (cur === r.rfha ? null : r.rfha))}
                       onDoubleClick={() => setDetailId(r.rfha)}
                       onDragStart={(e) => {
                         selectRow(r.rfha)
@@ -354,7 +354,7 @@ export default function FoNdfFixingErrorCorrection() {
                       }}
                     >
                       <td className="cell-check">
-                        <input className="row-check" type="checkbox" checked={selected} readOnly onClick={(e) => e.stopPropagation()} />
+                        <input className="row-check" type="checkbox" checked={selected} readOnly aria-label={`Select ${r.rfha}`} />
                       </td>
                       <td>
                         <button

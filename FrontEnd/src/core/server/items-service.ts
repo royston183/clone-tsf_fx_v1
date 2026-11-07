@@ -26,7 +26,7 @@ export function itemsService(cfg: AppConfig, id: string) {
     if (first) throw new HttpError(400, first, Object.entries(problems).map(([field, message]) => ({ field, message })));
     // Built by the list-query builder from the checked selection: eq filters, escaped values, one page of max + 1.
     const page = await backend.query(actor, def.entity, list, { filters: selectionFilters(def, selection), page: 1, pageSize: max + 1 });
-    if (page.total > max) throw new HttpError(400, `More than ${max.toLocaleString('en-IN')} rows match this selection. Narrow your selection.`);
+    if (page.total > max) throw new HttpError(400, `More than ${max.toLocaleString('en-US')} rows match this selection. Narrow your selection.`);
     return { selection, rows: page.rows };
   }
 

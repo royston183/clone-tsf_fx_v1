@@ -45,3 +45,14 @@
   .tsf-manage__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .tsf-split__table input.num { width: 110px; }
 }
+
+/* Master–detail (requested 2026-11-07): the trade flows on the left, the open one with its BLs on the right. */
+.tsf-manage__md { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; align-items: start; }
+.tsf-manage__md.is-open { grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr); }
+.tsf-manage__md:not(.is-open) .tsf-manage__detail { display: none; }
+.tsf-manage__list { margin: 0; min-width: 0; }
+.tsf-manage__detail { min-width: 0; }
+.tsf-manage__detail > .panel, .tsf-manage__detail > section, .tsf-manage__detail > div { margin: 0; }
+.tsf-manage__pick { padding: 40px 24px; text-align: center; color: var(--muted, #64748b); }
+.tsf-manage__md.is-open .tsf-manage__title h2 { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; }
+@media (max-width: 1200px) { .tsf-manage__md.is-open { grid-template-columns: minmax(0, 1fr); } }

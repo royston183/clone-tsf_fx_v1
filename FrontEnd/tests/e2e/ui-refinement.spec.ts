@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
 import { expect, test } from '@playwright/test';
 import { signIn } from './support';
 
@@ -26,9 +28,21 @@ test('returning to Overview reuses the result, while Refresh reads current data'
 
 test('Auto-create Deals keeps amount and other first-row fields aligned in both themes', async ({ page }) => {
   await signIn(page);
+  // The dialog reads the middleware masters (fixture of DS4 rows) and the contracts' usage in SAP (none here).
+  const masters = JSON.parse(readFileSync(path.resolve('tests/fixtures/fx-masters.json'), 'utf8')) as Record<string, unknown[]>;
+  await page.route('**/api/ref/middleware/data/**', route => {
+    const resource = new URL(route.request().url()).pathname.split('/').pop() ?? '';
+    const rows = masters[resource] ?? [];
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, resource, rows, total: rows.length }) });
+  });
+  await page.route(/TrmFxApp|FxTransaction/, route => route.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify({ value: [] }) }));
   await page.goto('/fx-structure/front-office/fx-blotter');
   await page.getByRole('button', { name: 'Auto-create Deals', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Auto-create Deals', exact: true });
+  await dialog.getByLabel('Origin Entity').selectOption('OSIPL');
+  await dialog.getByRole('button', { name: 'Select', exact: true }).click();
+  await page.getByRole('dialog', { name: 'View Master Contracts' }).getByRole('cell', { name: '2000000040', exact: true }).click();
+  await expect(dialog.getByRole('textbox', { name: 'Deal 1 Amount 1', exact: true })).toBeVisible();
   for (const theme of ['light', 'dark']) {
     await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
     for (const index of [1, 2]) {
@@ -44,7 +58,7 @@ test('Auto-create Deals keeps amount and other first-row fields aligned in both 
   await amount.scrollIntoViewIfNeeded();
   await amount.fill('2Cr');
   await amount.press('Tab');
-  await expect(amount).toHaveValue('2,00,00,000.00');
+  await expect(amount).toHaveValue('20,000,000.00');
   await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
 });
 

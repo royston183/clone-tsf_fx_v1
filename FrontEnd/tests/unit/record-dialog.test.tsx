@@ -27,10 +27,10 @@ describe('the record pop-up', () => {
   it('shows an empty value as a muted dash, in the facts and in a field list', () => {
     expect(renderToStaticMarkup(<DisplayValue>{''}</DisplayValue>)).toBe('<span class="kit-empty">—</span>');
     expect(renderToStaticMarkup(<DisplayValue>10.25%</DisplayValue>)).toBe('10.25%');
-    const html = renderToStaticMarkup(<ObjectDialog eyebrow="Drawdown" title="1000 / 4100000231" subtitle="Ravi Kumar" facts={[{ label: 'Amount', value: '25,00,000', num: true }, { label: 'Purpose', value: '' }]}
+    const html = renderToStaticMarkup(<ObjectDialog eyebrow="Drawdown" title="1000 / 4100000231" subtitle="Ravi Kumar" facts={[{ label: 'Amount', value: '2,500,000', num: true }, { label: 'Purpose', value: '' }]}
       tabs={[{ id: 'details', label: 'Details', content: <p>Body</p> }]} footer={<button>Close</button>} onClose={() => {}} />);
     expect(html).toContain('<dt>Purpose</dt><dd><span class="kit-empty">—</span></dd>');
-    expect(html).toContain('<dd class="kit-num">25,00,000</dd>');
+    expect(html).toContain('<dd class="kit-num">2,500,000</dd>');
   });
   it('names the dialog by its eyebrow and key, with a compact record header and no nested frames', () => {
     const html = renderToStaticMarkup(<ObjectDialog eyebrow="Drawdown" title="4100000231" status={<span className="kit-tag">Disbursed</span>}

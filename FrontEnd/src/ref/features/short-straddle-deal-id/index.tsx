@@ -397,9 +397,9 @@ function Workbench({ onRefresh }: { onRefresh: () => void }) {
             <div
               key={c.key}
               className={`metric-card${statusFilter === c.key ? ' active' : ''}`}
-              onClick={() => setFilter('status', c.key)}
+              onClick={() => setFilter('status', statusFilter === c.key ? noFilters().status : c.key)}
               role="button" tabIndex={0} aria-pressed={statusFilter === c.key}
-              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFilter('status', c.key) } }}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setFilter('status', statusFilter === c.key ? noFilters().status : c.key) } }}
             >
               <div className="metric-inner">
                 <div className="metric-val">{c.val}</div>

@@ -26,15 +26,15 @@ import {
   type DealContext,
 } from './api.ts'
 import { BankModal } from './BankModal.tsx'
-import { BlModal } from './BlModal.tsx'
 import { middlewarePorts, loadFinalisationSellers } from './ports.ts'
 import { DEAL_INVOICE_STATUS, canReverseInvoice, isFinalInvoiceStatus, type InvoiceFinalStatus } from './invoice-status.ts'
-import { amendDealStatus, confirmInvoiceGeneration, deassignBls, pcMismatches, reconcileInvoicePc, reverseInvoiceConfirmation, type WorkflowResult } from './workflow.ts'
+import { amendDealStatus, confirmInvoiceGeneration, pcMismatches, reconcileInvoicePc, reverseInvoiceConfirmation, type WorkflowResult } from './workflow.ts'
 import { ComplianceModal } from './ComplianceModal.tsx'
 import { ConfirmModal } from './ConfirmModal.tsx'
 import { setStatusTexts } from './data.ts'
 import { DateCell } from './DateCell.tsx'
 import { DealLookupModal } from './DealLookupModal.tsx'
+import { AssignedBlsModal, DealBlsPanel, InvoiceReviewModal, useDealBls } from './DealBls.tsx'
 import { DiffModal } from './DiffModal.tsx'
 import { money, parseNum, statusText, validDMY } from './format.ts'
 import {
@@ -51,7 +51,6 @@ import {
   searchRows,
   sortRows,
 } from './logic.ts'
-import { RemarkModal } from './RemarkModal.tsx'
 import { TxnModal } from './TxnModal.tsx'
 import type { ConfirmDialogState, Deal, DealListRow, FxRow, InvRow, Sort, Toast } from './types.ts'
 
@@ -158,9 +157,9 @@ export default function MoGenerateInvoicesDealId() {
   const [pendingInvoiceStatus, setPendingInvoiceStatus] = useState<InvoiceFinalStatus>(DEAL_INVOICE_STATUS.INVOICE_CREATED)
   const [busy, setBusy] = useState(false)
   const [complianceOpen, setComplianceOpen] = useState(false)
+  // The invoice review (BLs, amounts, confirm) that comes before the compliance check.
+  const [review, setReview] = useState<{ message: string; status: InvoiceFinalStatus } | null>(null)
   const [blOpen, setBlOpen] = useState(false)
-  const [blVersion, setBlVersion] = useState(0)
-  const [remarkBlIndex, setRemarkBlIndex] = useState(-1)
   const [diffOpen, setDiffOpen] = useState(false)
   const [bankRow, setBankRow] = useState(-1)
   // House bank accounts (HouseBankAccount) and each entity's company code (ZSGTSFTR_COMP) for the bank popup.
@@ -322,6 +321,7 @@ export default function MoGenerateInvoicesDealId() {
   const amendable = deal ? isFinalInvoiceStatus(deal.status) : false
   // 04 starts a finalisation; at 05 / 07 a row still without its BL invoice type means a finalisation stopped part-way.
   const finalisationPending = !!deal && isFinalInvoiceStatus(deal.status) && deal.inv.some((r) => !r.locked)
+  const dealBls = useDealBls(deal?.dealId ?? '')
   const canConfirmInvoice = !!deal && !deal.dm && !busy && (deal.status === DEAL_INVOICE_STATUS.INVOICE_REVERSED || finalisationPending)
   const pcStale = deal && ctx ? pcMismatches(deal.status, ctx.bilAdj).length : 0
   const rollover = hasRollover(deal)
@@ -388,19 +388,9 @@ export default function MoGenerateInvoicesDealId() {
     const fresh = { ...deal, inv: deal.inv.map(recalcInvoiceRow) }
     setDeal(fresh)
     const { status, message } = computeInvoiceConfirmation(fresh)
-    const dealAmt = getDealUsdAmount(fresh)
-    const invAmt = getInvoiceUsdAmount(fresh)
     setPendingInvoiceStatus(status)
-    setConfirmState({
-      title: 'Generate Invoice',
-      text: message,
-      note: `FX Deal Amount: USD ${money(dealAmt, 2)} • Invoice Amount: USD ${money(invAmt, 2)}`,
-      yesLabel: 'Yes',
-      onYes: () => {
-        setConfirmState(null)
-        setComplianceOpen(true)
-      },
-    })
+    // The BLs first, then the amounts, then the confirmation (then the compliance check, as before).
+    setReview({ message, status })
   }
 
   /** 9002 YES -> FORM save_data: number range, Z-table updates and the invoice e-mail. */
@@ -548,19 +538,6 @@ export default function MoGenerateInvoicesDealId() {
     toast('House Bank / Partner Bank updated in the grid.')
   }
 
-  const openDeassign = (index: number) => setRemarkBlIndex(index)
-  /** 9003 UPDATE: Z-table updates plus the BL e-mail — no API for the e-mail and the delete. */
-  const saveRemark = (remark: string) => {
-    const raw = ctx?.bls[remarkBlIndex]
-    setRemarkBlIndex(-1)
-    if (!deal || !ctx || !raw) return
-    setBlOpen(false)
-    void runWorkflow(
-      () => deassignBls({ deal, dealRows: ctx.dealRows, allBls: ctx.bls, selected: [raw], remark }, middlewarePorts),
-      deal.dealId,
-      () => setBlVersion((v) => v + 1),
-    )
-  }
 
   const nextFxSort = (key: keyof FxRow) => setFxSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 }))
   const nextInvSort = (key: string) => setInvSort((s) => (s.key === key ? { key, dir: s.dir === 1 ? -1 : 1 } : { key, dir: 1 }))
@@ -766,6 +743,11 @@ export default function MoGenerateInvoicesDealId() {
               </div>
             </div>
           </section>
+
+          {deal ? (
+            <DealBlsPanel dealId={deal.dealId} bls={dealBls} canConfirm={canConfirmInvoice} onReview={initiateInvoiceConfirmation}
+              why={deal.dm ? 'This Deal ID is invoiced through its Deal Monitor, not here.' : busy ? '' : `The invoice can be generated once the Deal ID is at status 04 (${statusText('04')}); it is now at ${statusText(deal.status)}.`} />
+          ) : null}
 
           <div className="tables">
             <section className="card table-card">
@@ -1013,9 +995,14 @@ export default function MoGenerateInvoicesDealId() {
       ) : null}
       {txnRow ? <TxnModal row={txnRow} onClose={() => setTxnRow(null)} /> : null}
       {confirmState ? <ConfirmModal state={confirmState} onClose={() => setConfirmState(null)} /> : null}
+      {review && deal ? (
+        <InvoiceReviewModal dealId={deal.dealId} bls={dealBls} dealUsd={getDealUsdAmount(deal)} invoiceUsd={getInvoiceUsdAmount(deal)} tolerancePct={deal.tolerance ?? 0}
+          message={review.message} partial={review.status === DEAL_INVOICE_STATUS.PARTIAL_INVOICE_CREATED} busy={busy}
+          onClose={() => setReview(null)} onConfirm={() => { setReview(null); setComplianceOpen(true) }} />
+      ) : null}
       {complianceOpen && deal ? <ComplianceModal resultingStatus={pendingInvoiceStatus} onClose={() => setComplianceOpen(false)} onProceed={() => void saveInvoice()} /> : null}
-      {blOpen && deal ? <BlModal key={blVersion} rows={deal.bl} reason={deal.blReason} onClose={() => setBlOpen(false)} onDeassign={openDeassign} /> : null}
-      {remarkBlIndex >= 0 ? <RemarkModal onClose={() => setRemarkBlIndex(-1)} onUpdate={saveRemark} /> : null}
+      {/* View BLs: the BLs assigned to the Deal ID in Propose Tradeflow (no de-assign: an assignment is final). */}
+      {blOpen && deal ? <AssignedBlsModal dealId={deal.dealId} bls={dealBls} dealUsd={getDealUsdAmount(deal)} tolerancePct={deal.tolerance ?? 0} onClose={() => setBlOpen(false)} /> : null}
       {diffOpen && deal ? <DiffModal rows={deal.diff} fxReason={deal.fxReason} onClose={() => setDiffOpen(false)} /> : null}
       {bankRow >= 0 && deal ? (
         <BankModal

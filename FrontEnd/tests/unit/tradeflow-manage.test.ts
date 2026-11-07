@@ -15,7 +15,7 @@ describe('split arithmetic', () => {
     expect(openQuantity('100', [{ quantity: '100' }])).toBe('0.000');
   });
   it('refuses a source with a Deal ID, a total above the limit, and empty quantities', () => {
-    expect(splitProblems({ blNo: '4000000012', dealId: 'DL1' }, '0', ['50', '50'])).toEqual(['BL 4000000012 has Deal ID DL1: unassign it in Propose Tradeflows first.']);
+    expect(splitProblems({ blNo: '4000000012', dealId: 'DL1' }, '0', ['50', '50'])).toEqual(['BL 4000000012 has Deal ID DL1: an assigned BL cannot be split.']);
     expect(splitProblems({ blNo: '4000000012', dealId: '', quantity: '100' }, '0', ['60', '50'])).toEqual(['The BLs add up to 110.000, more than the 100.000 available.']);
     expect(splitProblems(null, '40', ['30', '20'])).toEqual(['The BLs add up to 50.000, more than the 40.000 available.']);
     expect(splitProblems(null, '40', ['30', '0'])).toEqual(['Each BL needs a quantity greater than zero.']);

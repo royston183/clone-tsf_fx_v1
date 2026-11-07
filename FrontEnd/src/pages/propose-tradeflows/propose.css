@@ -1,141 +1,275 @@
-/* Propose Tradeflows (scoped to .tsf-propose and the proposal modal .tsf-proposal). ALM tokens; light and dark. */
-.tsf-propose { display: flex; flex-direction: column; gap: 14px; }
+/* Propose Tradeflows (scoped to .tsf-propose and the proposal modal .tsf-proposal). ALM tokens; light and dark.
+   One type scale (11 / 12 / 13 / 14 / 18 px), one accent (blue); green only for an exact match, amber only outside 1%. */
+.tsf-propose { display: flex; flex-direction: column; gap: 12px; font-size: 13px; }
 .tsf-propose .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tsf-propose .actions { text-align: right; }
-.tsf-propose__muted { color: var(--muted); font-size: 12.5px; margin: 0; }
-.tsf-propose__eyebrow { margin: 0; font-size: 11px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+.tsf-propose__muted { color: var(--muted); font-size: 12px; margin: 0; }
+.tsf-propose__link { display: inline-flex; align-items: center; gap: 3px; border: 0; background: none; color: var(--blue); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; padding: 0 2px; }
+.tsf-propose__link:focus-visible, .tsf-propose__opt:focus-visible, .tsf-propose__filter button:focus-visible, .tsf-propose__deal-bls:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+/* Cards are buttons: their data keeps its own case (the theme capitalises button text). */
+.tsf-propose__card, .tsf-propose__card *, .tsf-propose__deal, .tsf-propose__deal *, .tsf-propose__deal-bls, .tsf-propose__deal-bls * { text-transform: none; }
+.tsf-propose__card .tsf-propose__rank { text-transform: uppercase; }
+.tsf-propose__nowrap { white-space: nowrap; }
 
 /* Header: source and the four figures. */
-.tsf-propose__top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; }
-.tsf-propose__source { display: flex; gap: 10px; align-items: center; color: var(--muted); font-size: 12.5px; }
-.tsf-propose__kpis { display: grid; grid-template-columns: repeat(4, minmax(130px, auto)); gap: 10px; margin: 0; }
-.tsf-propose__kpis div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; box-shadow: var(--shadow); }
-.tsf-propose__kpis dt { display: flex; gap: 6px; align-items: center; font-size: 11.5px; color: var(--muted); }
-.tsf-propose__kpis dt svg { color: var(--blue); }
-.tsf-propose__kpis dd { margin: 4px 0 0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tsf-propose__kpis small { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.tsf-propose__top { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.tsf-propose__kpis { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; }
+.tsf-propose__kpis div { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 6px 12px; }
+.tsf-propose__kpis dt { font-size: 11px; color: var(--muted); }
+.tsf-propose__kpis dd { margin: 1px 0 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsf-propose__kpis small { font-size: 11px; font-weight: 500; color: var(--muted); }
 
-.tsf-propose__layout { display: grid; grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; }
-.tsf-propose__main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.tsf-propose__layout { display: grid; grid-template-columns: minmax(260px, 310px) minmax(0, 1fr); gap: 12px; align-items: start; }
+.tsf-propose__main { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
 .tsf-propose .panel { margin: 0; }
 
 /* Deal list. */
 .tsf-propose__deals { padding: 0; position: sticky; top: 12px; max-height: calc(100vh - 140px); display: flex; flex-direction: column; overflow: hidden; }
-.tsf-propose__deals-head { padding: 14px 14px 10px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
-.tsf-propose__deals-head h2 { margin: 0; font-size: 15px; }
-.tsf-propose__deals-head h2 span { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+.tsf-propose__deals-head { padding: 12px 12px 10px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.tsf-propose__deals-head h2 { margin: 0; font-size: 14px; }
+.tsf-propose__deals-head h2 span { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 4px; }
 .tsf-propose__search { display: flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 8px; padding: 0 8px; background: var(--bg); color: var(--muted); }
-.tsf-propose__search .input { border: 0; background: transparent; box-shadow: none; padding: 7px 0; width: 100%; }
-.tsf-propose__toggle { display: inline-flex; gap: 6px; align-items: center; font-size: 12.5px; color: var(--muted); }
+.tsf-propose__search .input { border: 0; background: transparent; box-shadow: none; padding: 6px 0; width: 100%; font-size: 12px; }
+.tsf-propose__filter { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; align-self: flex-start; }
+.tsf-propose__filter button { border: 0; background: var(--surface); color: var(--muted); font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer; }
+.tsf-propose__filter button + button { border-left: 1px solid var(--line); }
+.tsf-propose__filter button.on { background: var(--pale); color: var(--blue); font-weight: 600; }
+.tsf-propose__scoped { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 11.5px; color: var(--blue); }
 .tsf-propose__deal-list { list-style: none; margin: 0; padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-.tsf-propose__deal { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; font: inherit; transition: border-color .12s, box-shadow .12s; }
+.tsf-propose__deal-list li { display: flex; flex-direction: column; }
+.tsf-propose__deal { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); color: var(--text); cursor: pointer; font: inherit; font-size: 12px; transition: border-color .12s; }
+.tsf-propose__deal b { font-size: 13px; }
 .tsf-propose__deal:hover { border-color: var(--blue); }
 .tsf-propose__deal:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .tsf-propose__deal.selected { border-color: var(--blue); background: var(--pale); box-shadow: inset 3px 0 0 var(--blue); }
 .tsf-propose__deal-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.tsf-propose__deal-desc { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tsf-propose__commodity { font-size: 11.5px; padding: 1px 7px; border-radius: 999px; background: var(--pale); color: var(--blue); white-space: nowrap; }
+.tsf-propose__deal-desc { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tsf-propose__commodity { font-size: 11px; padding: 1px 6px; border-radius: 999px; background: var(--pale); color: var(--blue); white-space: nowrap; }
 .tsf-propose__deal-left { font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tsf-propose__bar { height: 4px; border-radius: 999px; background: var(--line); overflow: hidden; }
-.tsf-propose__bar span { display: block; height: 100%; background: var(--ov-c3, #1f8a5b); }
+.tsf-propose__bar { height: 3px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.tsf-propose__bar span { display: block; height: 100%; background: var(--blue); }
+.tsf-propose__deal-bls { display: flex; align-items: center; gap: 6px; margin: -3px 6px 0; padding: 6px 9px 4px; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 8px 8px; background: var(--bg); color: var(--blue); font: inherit; font-size: 11.5px; cursor: pointer; text-align: left; }
+.tsf-propose__deal-bls span { flex: 1; font-variant-numeric: tabular-nums; }
+.tsf-propose__deal-bls:hover { background: var(--pale); }
 
-.tsf-propose__empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+.tsf-propose__empty { text-align: center; padding: 40px 24px; color: var(--muted); }
 .tsf-propose__empty svg { color: var(--blue); }
-.tsf-propose__empty h3 { color: var(--text); margin: 10px 0 6px; }
-.tsf-propose__empty p { max-width: 460px; margin: 0 auto; }
+.tsf-propose__empty h3 { color: var(--text); margin: 8px 0 4px; font-size: 14px; }
+.tsf-propose__empty p { max-width: 440px; margin: 0 auto; font-size: 12.5px; }
 
-/* Deal header. */
-.tsf-propose__hero { padding: 16px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 24px; align-items: center; }
-.tsf-propose__hero-title h2 { margin: 2px 0 2px; font-size: 20px; display: flex; gap: 10px; align-items: center; }
-.tsf-propose__hero-figures { display: flex; gap: 10px; }
-.tsf-propose__hero-figures div { display: flex; flex-direction: column; padding: 8px 12px; border-radius: 10px; background: var(--bg); min-width: 140px; }
+/* Deal header: one slim row. */
+.tsf-propose__hero { padding: 12px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 20px; align-items: center; }
+.tsf-propose__hero-title h2 { margin: 0 0 2px; font-size: 16px; display: flex; gap: 8px; align-items: center; }
+.tsf-propose__hero-figures { display: flex; gap: 8px; margin: 0; }
+.tsf-propose__hero-figures div { padding: 5px 12px; border-radius: 8px; background: var(--bg); min-width: 120px; }
 .tsf-propose__hero-figures div.accent { background: var(--pale); }
-.tsf-propose__hero-figures span { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
-.tsf-propose__hero-figures b { font-size: 15px; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tsf-propose__hero-figures .accent b { color: var(--blue); }
-.tsf-propose__hero-figures small { font-size: 11.5px; color: var(--muted); white-space: nowrap; }
-.tsf-propose__progress { grid-column: 1 / -1; position: relative; height: 8px; border-radius: 999px; background: var(--line); }
-.tsf-propose__progress span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--ov-c3, #1f8a5b), var(--ov-c1, #2f78c8)); }
-.tsf-propose__progress em { position: absolute; right: 0; top: 10px; font-style: normal; font-size: 11.5px; color: var(--muted); }
+.tsf-propose__hero-figures dt { font-size: 11px; color: var(--muted); }
+.tsf-propose__hero-figures dd { margin: 1px 0 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsf-propose__hero-figures .accent dd { color: var(--blue); }
+.tsf-propose__hero-figures small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.tsf-propose__progress { grid-column: 1 / -1; height: 4px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.tsf-propose__progress span { display: block; height: 100%; background: var(--blue); }
 
-/* Proposals. */
-.tsf-propose__proposals { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
-.tsf-propose__proposals-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
-.tsf-propose__proposals-head h3 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 16px; }
-.tsf-propose__proposals-head h3 svg { color: var(--blue); }
-.tsf-propose__proposals-head h3 span { font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 999px; background: var(--pale); color: var(--blue); }
-.tsf-propose__chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.tsf-propose__chip { font: inherit; font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--text); cursor: pointer; }
-.tsf-propose__chip:hover { border-color: var(--blue); }
-.tsf-propose__chip.on { background: var(--blue); border-color: var(--blue); color: #fff; }
-.tsf-propose__ask { display: flex; gap: 8px; align-items: center; padding: 6px 6px 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--blue); }
-.tsf-propose__ask .input { flex: 1; border: 0; background: transparent; box-shadow: none; }
-.tsf-propose__understood { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
-.tsf-propose__rule { font-size: 12px; padding: 2px 9px; border-radius: 999px; background: var(--pale); color: var(--blue); }
-.tsf-propose__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; transition: opacity .15s; }
-.tsf-propose__grid.busy { opacity: .55; }
-.tsf-propose__card { width: 100%; height: 100%; text-align: left; font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 8px; cursor: pointer; box-shadow: var(--shadow); transition: transform .12s, border-color .12s, box-shadow .12s; }
-.tsf-propose__card:hover { border-color: var(--blue); transform: translateY(-1px); box-shadow: 0 6px 18px rgba(23, 105, 196, .12); }
-.tsf-propose__card:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
-.tsf-propose__card.best { border-color: var(--ov-c3, #1f8a5b); box-shadow: inset 0 3px 0 var(--ov-c3, #1f8a5b); }
-.tsf-propose__card-top { display: flex; justify-content: space-between; align-items: center; }
-.tsf-propose__rank { font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
-.tsf-propose__card.best .tsf-propose__rank { color: var(--ov-c3, #1f8a5b); }
-.tsf-propose__match { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: var(--pale); color: var(--blue); }
-.tsf-propose__match.exact { background: rgba(31, 138, 91, .14); color: var(--ov-c3, #1f8a5b); }
-.tsf-propose__total { font-size: 21px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.tsf-propose__total small { font-size: 12px; color: var(--muted); font-weight: 500; }
-.tsf-propose__diff { font-size: 12px; color: var(--muted); margin-top: -4px; }
-.tsf-propose__stack, .tsf-proposal__stack { display: flex; height: 8px; border-radius: 999px; overflow: hidden; gap: 2px; background: var(--line); }
-.tsf-propose__stack span, .tsf-proposal__stack span { display: block; height: 100%; }
-.tsf-propose .c0, .tsf-proposal .c0 { background: var(--ov-c1, #2f78c8); }
-.tsf-propose .c1, .tsf-proposal .c1 { background: var(--ov-c3, #1f8a5b); }
-.tsf-propose .c2, .tsf-proposal .c2 { background: var(--ov-c2, #b7791f); }
-.tsf-propose .c3, .tsf-proposal .c3 { background: var(--ov-c4, #7b5cc4); }
-.tsf-propose .c4, .tsf-proposal .c4 { background: var(--ov-c5, #c2543f); }
-.tsf-propose .c5, .tsf-proposal .c5 { background: var(--muted); }
-.tsf-propose__meta { font-size: 12px; color: var(--muted); }
-.tsf-propose__meta b { color: var(--text); }
-.tsf-propose__reason { display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; line-height: 1.4; padding: 8px 10px; border-radius: 8px; background: var(--bg); }
+/* Proposals: options, conditions, cards. */
+.tsf-propose__proposals { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+.tsf-propose__options { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.tsf-propose__options [role=group] { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tsf-propose__options [role=group] > span { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin-right: 2px; }
+.tsf-propose__opt { border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--text); padding: 4px 11px; font: inherit; font-size: 12px; cursor: pointer; }
+.tsf-propose__opt:hover { border-color: var(--blue); }
+.tsf-propose__opt.on { background: var(--blue); border-color: var(--blue); color: #fff; }
+.tsf-propose__ask { display: flex; gap: 6px; align-items: center; padding: 4px 4px 4px 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--bg); color: var(--blue); }
+.tsf-propose__ask:focus-within { border-color: var(--blue); }
+.tsf-propose__ask .input { flex: 1; border: 0; background: transparent; box-shadow: none; font-size: 12.5px; padding: 6px 2px; }
+.tsf-propose__understood { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tsf-propose__rule { font-size: 11.5px; padding: 2px 9px; border-radius: 999px; background: var(--pale); color: var(--blue); }
+.tsf-propose__not { font-size: 11.5px; color: var(--muted); font-style: italic; }
+.tsf-propose__none { margin: 0; padding: 12px 14px; border-radius: 9px; border: 1px dashed var(--line); color: var(--text); font-size: 12.5px; }
+.tsf-propose__hint { margin: 0; font-size: 12px; color: var(--muted); }
+.tsf-propose__grid { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.tsf-propose__card { width: 100%; height: 100%; text-align: left; display: flex; flex-direction: column; gap: 5px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); cursor: pointer; font: inherit; font-size: 12px; transition: border-color .12s, box-shadow .12s; }
+.tsf-propose__card:hover { border-color: var(--blue); box-shadow: var(--shadow); }
+.tsf-propose__card:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.tsf-propose__card.best { border-color: var(--blue); box-shadow: inset 0 3px 0 var(--blue); }
+.tsf-propose__card-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+.tsf-propose__rank { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.tsf-propose__card.best .tsf-propose__rank { color: var(--blue); }
+.tsf-propose__match { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; background: var(--pale); color: var(--blue); }
+.tsf-propose__match.exact { background: color-mix(in srgb, var(--ov-c3, #1f8a5b) 14%, transparent); color: var(--ov-c3, #1f8a5b); }
+.tsf-propose__match.out { background: color-mix(in srgb, #c98a1b 16%, transparent); color: #a86e0c; }
+.tsf-propose__total { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tsf-propose__total small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.tsf-propose__diff, .tsf-propose__meta { color: var(--muted); font-size: 11.5px; }
+.tsf-propose__bls { font-size: 11.5px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tsf-propose__reason { display: flex; gap: 5px; font-size: 11.5px; color: var(--text); line-height: 1.4; padding-top: 6px; border-top: 1px dashed var(--line); }
 .tsf-propose__reason svg { flex: none; margin-top: 2px; color: var(--blue); }
-.tsf-propose__open { margin-top: auto; display: inline-flex; gap: 4px; align-items: center; font-size: 12.5px; font-weight: 600; color: var(--blue); }
+.tsf-propose__turns { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px dashed var(--line); display: flex; flex-direction: column; gap: 6px; }
+.tsf-propose__turns li { display: flex; flex-direction: column; gap: 3px; }
+.tsf-propose__turns p { margin: 0; padding: 6px 10px; border-radius: 8px; font-size: 12px; line-height: 1.45; }
+.tsf-propose__turns .q { background: var(--bg); align-self: flex-end; }
+.tsf-propose__turns .a { background: var(--pale); display: flex; gap: 6px; }
+.tsf-propose__turns .a svg { flex: none; margin-top: 3px; color: var(--blue); }
+.tsf-propose__turns .a.off { color: var(--muted); }
 
-.tsf-propose__assigned { padding: 14px 18px; }
-.tsf-propose__assigned h3 { margin: 0 0 8px; font-size: 14px; }
-.tsf-propose__assigned h3 span { font-size: 12px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+/* Assigned BLs (page and modal). */
+.tsf-propose__assigned { padding: 14px 16px; }
+.tsf-propose__assigned h3 { margin: 0 0 10px; font-size: 14px; }
+.tsf-propose__assigned h3 span { font-size: 11px; color: var(--muted); font-weight: 500; margin-left: 4px; }
+.tsf-propose__groups { display: flex; flex-direction: column; gap: 8px; }
+.tsf-propose__groups-sum { margin: 0; font-size: 12px; color: var(--muted); }
+.tsf-propose__groups-sum b { color: var(--text); font-variant-numeric: tabular-nums; }
+.tsf-propose__tf-strip { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.tsf-propose__tf-strip li { display: flex; flex-direction: column; gap: 2px; padding: 7px 11px; border: 1px solid var(--line); border-left: 3px solid var(--blue); border-radius: 8px; background: var(--surface); font-size: 12px; }
+.tsf-propose__tf-strip svg { color: var(--blue); vertical-align: -2px; margin-right: 5px; }
+.tsf-propose__tf-strip small { color: var(--muted); font-size: 11px; }
+.tsf-propose__tf-usd { font-size: 13px; font-variant-numeric: tabular-nums; }
+.tsf-propose__capped { color: var(--muted); }
 
-/* Buttons here hold sentences and figures: no title-casing from the shared button style. */
-.tsf-propose__deal, .tsf-propose__deal *, .tsf-propose__card, .tsf-propose__card *, .tsf-propose__chip { text-transform: none; }
-.tsf-propose__fallback { display: flex; gap: 6px; align-items: center; margin: 0; font-size: 12.5px; color: var(--muted); padding: 6px 10px; border-radius: 8px; background: var(--bg); }
-.tsf-propose__fallback svg { color: var(--blue); }
-
-/* The proposal modal. */
-.tsf-proposal { display: flex; flex-direction: column; gap: 14px; }
+/* Proposal modal. */
+.tsf-proposal { display: flex; flex-direction: column; gap: 12px; font-size: 13px; }
 .tsf-proposal .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .tsf-proposal__section { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; overflow-x: auto; }
-.tsf-proposal__section h4 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 6px; align-items: center; }
-.tsf-proposal__figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px; }
-.tsf-proposal__figures div { padding: 8px 10px; border-radius: 8px; background: var(--bg); }
+.tsf-proposal__section h4 { margin: 0 0 10px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; display: flex; gap: 6px; align-items: center; }
+.tsf-proposal__figures { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 0 0 10px; }
+.tsf-proposal__figures div { padding: 7px 10px; border-radius: 8px; background: var(--bg); }
 .tsf-proposal__figures div.plus { background: var(--pale); }
 .tsf-proposal__figures div.good dd { color: var(--ov-c3, #1f8a5b); }
-.tsf-proposal__figures dt { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-.tsf-proposal__figures dd { margin: 3px 0 0; font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tsf-proposal__figures small { font-size: 11.5px; font-weight: 500; color: var(--muted); }
+.tsf-proposal__figures dt { font-size: 11px; color: var(--muted); }
+.tsf-proposal__figures dd { margin: 2px 0 0; font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsf-proposal__figures small { font-size: 11px; font-weight: 500; color: var(--muted); }
+.tsf-proposal__stack { display: flex; height: 6px; border-radius: 999px; overflow: hidden; gap: 2px; background: var(--line); }
+.tsf-proposal__stack span { display: block; height: 100%; background: var(--blue); }
+.tsf-proposal__stack span:nth-child(even) { opacity: .6; }
 .tsf-proposal__why { background: var(--pale); border-color: transparent; }
 .tsf-proposal__why h4 svg { color: var(--blue); }
 .tsf-proposal__why p { margin: 0; line-height: 1.5; }
-.tsf-proposal__dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 8px; vertical-align: -1px; }
+.tsf-proposal__dot { display: none; }
 .tsf-proposal__table { overflow-x: auto; width: 100%; }
-.tsf-proposal__share { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
-.tsf-proposal__note { margin: 0; font-size: 12.5px; color: var(--muted); }
+.tsf-proposal__share { color: var(--muted); font-size: 11px; margin-left: 4px; }
+.tsf-proposal__note { margin: 0; font-size: 12px; color: var(--muted); }
 
 @media (max-width: 1180px) {
   .tsf-propose__hero { grid-template-columns: 1fr; }
-  .tsf-propose__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .tsf-propose__hero-figures { flex-wrap: wrap; }
 }
 @media (max-width: 900px) {
-  .tsf-propose__layout { grid-template-columns: 1fr; }
+  .tsf-propose__layout { grid-template-columns: minmax(0, 1fr); }
   .tsf-propose__deals { position: static; max-height: 360px; }
-  .tsf-propose__hero-figures { flex-wrap: wrap; }
+  .tsf-propose__hero-figures div { flex: 1; min-width: 0; }
   .tsf-proposal__figures { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* Proposals and assigned BLs as compact report lists. */
+.tsf-propose__list th, .tsf-propose__list td, .tsf-propose__groups .ds-table th, .tsf-propose__groups .ds-table td { font-size: 12px; padding-top: 6px; padding-bottom: 6px; vertical-align: middle; }
+.tsf-propose__list tr.best td { background: var(--pale); }
+.tsf-propose__list tr.best .tsf-propose__rank { color: var(--blue); }
+.tsf-propose__list .tsf-propose__rank { display: block; font-size: 11px; }
+.tsf-propose__list .tsf-propose__reason { display: block; max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 0; padding: 0; font-size: 11px; color: var(--muted); }
+.tsf-propose__list .tsf-propose__reason svg { display: none; }
+.tsf-propose__list .tsf-propose__bls { max-width: 260px; }
+.tsf-propose__list .tsf-propose__match { white-space: nowrap; }
+.tsf-propose__sub { display: block; font-size: 11px; font-weight: 400; color: var(--muted); }
+.tsf-propose__list tbody tr { cursor: default; }
+.tsf-propose__open { font-size: 12px; text-transform: none; white-space: nowrap; }
+.tsf-propose__list tr.best .tsf-propose__open { text-decoration: underline; text-underline-offset: 3px; }
+
+/* Master–detail (requested 2026-11-07): the Deal IDs as a report table on the left, the chosen deal on the right. */
+.tsf-propose__layout { grid-template-columns: minmax(360px, 0.8fr) minmax(0, 1.2fr); gap: 18px; }
+.tsf-propose__deals { padding: 0; }
+.tsf-propose__deals .ds-table-wrap, .tsf-propose__deals .table-wrap { overflow-y: auto; }
+.tsf-propose__dealtable { width: 100%; }
+.tsf-propose__dealtable tbody tr { cursor: pointer; }
+.tsf-propose__dealtable tbody tr.selected td { background: var(--pale); }
+.tsf-propose__dealtable tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--blue); }
+.tsf-propose__dealid { border: 0; background: none; padding: 0; font: inherit; font-size: 13px; font-weight: 600; color: var(--blue); cursor: pointer; text-transform: none; }
+.tsf-propose__dealid:focus-visible, .tsf-propose__bls-link:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 3px; }
+.tsf-propose__bls-link { display: inline-flex; align-items: center; gap: 3px; margin-left: 8px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--blue); font: inherit; font-size: 11px; padding: 0 6px; cursor: pointer; }
+.tsf-propose__pad { padding: 14px; }
+.tsf-propose__deals > div:has(> .kit-data-table) { flex: 1; min-height: 0; overflow: auto; }
+
+/* The chosen deal: a title, a subtitle and one figures line, like a report header. */
+.tsf-propose__hero { padding: 2px 0 0; background: none; border: 0; box-shadow: none; display: flex; flex-direction: column; gap: 8px; }
+.tsf-propose__hero-title h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 4px; }
+.tsf-propose__hero-title .tsf-propose__muted { font-size: 13px; }
+.tsf-propose__net { margin: 6px 0 0; font-size: 13px; font-weight: 600; color: var(--text); }
+.tsf-propose__net b { color: var(--blue); }
+.tsf-propose__hero .tsf-propose__progress { height: 3px; }
+.tsf-propose .tsf-kpis { margin: 0; }
+
+/* A deal can hold many BLs: the assigned list scrolls inside its panel, its header and total stay in view. */
+.tsf-propose__assigned .tsf-propose__scroll { max-height: 460px; overflow: auto; }
+.tsf-propose__assigned thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+.tsf-propose__assigned tfoot :is(th, td) { position: sticky; bottom: 0; background: var(--surface); }
+.tsf-propose__deals .kit-data-table thead th { position: sticky; top: 0; z-index: 1; background: var(--surface); }
+
+/* Compact (2026-11-07). */
+.tsf-propose { gap: 10px; }
+.tsf-propose__layout { gap: 12px; }
+.tsf-propose__deals-head { padding: 10px 12px 8px; gap: 6px; }
+.tsf-propose__hero { gap: 4px; }
+.tsf-propose__hero-title h2 { font-size: 15px; font-weight: 700; letter-spacing: 0; margin: 0; gap: 8px; }
+.tsf-propose__hero-title .tsf-propose__muted { font-size: 12px; }
+.tsf-propose__net { margin: 2px 0 0; font-size: 12px; }
+.tsf-propose__proposals, .tsf-propose__assigned { padding: 10px 12px; gap: 8px; }
+.tsf-propose__opt { padding: 2px 9px; font-size: 11.5px; }
+.tsf-propose__options { gap: 6px 16px; }
+.tsf-propose__ask { padding: 2px 2px 2px 8px; }
+.tsf-propose__ask .input { padding: 4px 2px; font-size: 12px; }
+.tsf-propose__ask .button { min-height: 26px; padding-top: 2px; padding-bottom: 2px; font-size: 11.5px; }
+.tsf-propose__none { padding: 8px 10px; font-size: 12px; }
+.tsf-propose__dealid { font-size: 12.5px; }
+.tsf-propose__assigned h3 { margin: 0 0 4px; font-size: 13px; }
+/* The deal list scrolls inside its own box: the search and the Open / With BLs / All filter stay in view. */
+.tsf-propose__deals { overflow: hidden; }
+.tsf-propose__dealscroll { flex: 1; min-height: 0; overflow: auto; }
+.tsf-propose__hero { align-items: stretch; text-align: left; }
+
+/* The command bar (2026-11-07): one roomy field that says which BLs to use, examples to try, a guide, and the applied
+   conditions as removable chips. */
+.tsf-cmd { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px 4px; }
+.tsf-cmd__bar { display: flex; align-items: center; gap: 8px; padding: 5px 6px 5px 12px; border: 1.5px solid color-mix(in srgb, var(--blue) 35%, var(--line)); border-radius: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--pale) 55%, var(--surface)), var(--surface)); box-shadow: 0 1px 2px rgb(15 23 42 / 5%); transition: border-color .15s, box-shadow .15s; }
+.tsf-cmd__bar:focus-within { border-color: var(--blue); box-shadow: 0 0 0 4px color-mix(in srgb, var(--blue) 14%, transparent); }
+.tsf-cmd__icon { color: var(--blue); flex: 0 0 auto; }
+.tsf-cmd__bar input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--text); font: inherit; font-size: 13.5px; height: 34px; }
+.tsf-cmd__bar input::placeholder { color: var(--muted); }
+.tsf-cmd__bar .button { height: 32px; border-radius: 8px; }
+.tsf-cmd__try { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.tsf-cmd__try > span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.tsf-cmd__eg { border: 1px dashed color-mix(in srgb, var(--blue) 40%, var(--line)); background: var(--surface); color: var(--blue); border-radius: 999px; padding: 3px 10px;
+  font: inherit; font-size: 11.5px; cursor: pointer; text-transform: none; white-space: nowrap; }
+.tsf-cmd__eg:hover { background: var(--pale); border-style: solid; }
+.tsf-cmd__eg:focus-visible, .tsf-cmd__x:focus-visible, .tsf-cmd__help summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.tsf-cmd__help summary { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; list-style: none; }
+.tsf-cmd__help summary::-webkit-details-marker { display: none; }
+.tsf-cmd__help[open] summary { color: var(--blue); }
+.tsf-cmd__guide { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px 16px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: color-mix(in srgb, var(--bg) 60%, var(--surface)); }
+.tsf-cmd__guide > div { display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
+.tsf-cmd__guide h5 { flex-basis: 100%; margin: 0 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); }
+.tsf-cmd__guide p { grid-column: 1 / -1; margin: 2px 0 0; font-size: 11.5px; color: var(--muted); }
+.tsf-propose .tsf-propose__understood { padding: 2px 14px 8px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.tsf-cmd__chip { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 2px 3px 2px 4px; border: 1px solid color-mix(in srgb, var(--blue) 30%, var(--line)); border-radius: 999px; background: var(--pale); max-width: 100%; }
+.tsf-cmd__chip .tsf-propose__rule, .tsf-cmd__chip .tsf-propose__not { border: 0; background: none; padding: 1px 4px; }
+.tsf-cmd__x { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; border: 0; border-radius: 50%; background: color-mix(in srgb, var(--blue) 14%, transparent); color: var(--blue); cursor: pointer; padding: 0; }
+.tsf-cmd__x:hover { background: var(--blue); color: #fff; }
+.tsf-propose__aim { font-size: 12px; color: var(--muted); margin-left: auto; }
+.tsf-propose__aim b { color: var(--blue); }
+.tsf-propose__tabs { margin: 2px 0 8px; border-bottom: 1px solid var(--line); width: 100%; }
+.tsf-proposal__off td { opacity: .45; text-decoration: line-through; }
+.tsf-proposal__off td:first-child { opacity: 1; text-decoration: none; }
+.tsf-proposal__hint { font-weight: 400; color: var(--muted); font-size: 11.5px; margin-left: 6px; }
+/* The deal list fits its panel (no sideways scroll). */
+.tsf-propose__dealtable { width: 100%; table-layout: auto; }
+.tsf-propose__dealtable td:nth-child(2) { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tsf-proposal__hint { text-transform: none; letter-spacing: 0; }
+.tsf-propose__way { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; white-space: normal; }
+.tsf-propose__reset { display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; border: 1px solid var(--line); background: var(--surface); color: var(--muted); border-radius: 999px; padding: 3px 10px; font: inherit; font-size: 11.5px; cursor: pointer; text-transform: none; }
+.tsf-propose__reset:hover { color: var(--blue); border-color: var(--blue); }
+.tsf-propose__reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+.tsf-propose__updating { display: flex; align-items: center; gap: 8px; margin: 2px 14px 6px; font-size: 12px; color: var(--blue); }
+.tsf-propose__updating span { width: 12px; height: 12px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--blue) 30%, transparent); border-top-color: var(--blue); animation: tsf-spin .8s linear infinite; }
+@keyframes tsf-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .tsf-propose__updating span { animation: none; } }
+.tsf-propose__listwrap { min-width: 0; }
+.tsf-propose__allways { font-size: 11.5px; color: var(--muted); margin-left: 4px; }

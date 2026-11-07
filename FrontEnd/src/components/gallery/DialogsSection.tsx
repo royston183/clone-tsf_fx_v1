@@ -23,7 +23,7 @@ import { galleryItem } from './ids';
 
 type Open = 'form' | 'form2' | 'confirm' | 'danger' | 'review' | 'f4' | 'object' | 'upload' | null;
 const UPLOAD: UploadLine[] = [
-  { row: 1, status: 'create', cells: { gl: '400100', amount: '1,25,000.00' } },
+  { row: 1, status: 'create', cells: { gl: '400100', amount: '125,000.00' } },
   { row: 2, status: 'update', cells: { gl: '400200', amount: '80,000.00' } },
   { row: 3, status: 'invalid', cells: { gl: '9999', amount: 'abc' }, problem: "GL account '9999' does not exist · Amount must be an amount." }
 ];

@@ -107,7 +107,7 @@ export function pairProblem(mc: MasterContract | undefined, legs: readonly Blott
  * If the contract cannot be moved the Deal ID already exists, so the error says which one — nothing
  * is rolled back, as in the original (two separate commits).
  */
-export async function createPairDealId(args: Omit<PairArgs, 'traderCode'>): Promise<{ dealId: string; dealType: string; dealDesc: string }> {
+export async function createPairDealId(args: Omit<PairArgs, 'traderCode'> & { traderCode?: string }): Promise<{ dealId: string; dealType: string; dealDesc: string }> {
   const problem = pairProblem(args.mc, args.legs)
   if (problem) throw new Error(problem)
   const [traders, existing] = await Promise.all([fxList('trmTrader', {}), fxList('tsfDealId', {})])
@@ -115,7 +115,8 @@ export async function createPairDealId(args: Omit<PairArgs, 'traderCode'>): Prom
     const holder = dealIdListing(existing, leg.companyCode ?? '', leg.transactionNumber)
     if (holder) throw new Error(`Transaction ${leg.transactionNumber} is already on Deal ID ${holder}; it cannot be given another.`)
   }
-  const columns = dealIdColumns({ ...args, traderCode: traderCodeOf(traders, args.traderName) })
+  // A caller that knows the SAP trader code passes it; otherwise it is found by the trader's name, as the original does.
+  const columns = dealIdColumns({ ...args, traderCode: args.traderCode?.trim() || traderCodeOf(traders, args.traderName) })
   const dealId = await bookDealRow(columns)
   try {
     await setMcStatus([args.mc.mcNumber], '04')

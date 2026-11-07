@@ -109,7 +109,7 @@ describe('transaction rules (ported from SAP Reporting)', () => {
     expect(sapDate('2026-02-30')).toBe('—');
     expect(money(61500, 'INR')).toBe('61,500.00 INR');
     expect(money(0, 'INR'), 'a zero amount is blank').toBe('');
-    expect(money(12345678.5)).toBe('1,23,45,678.50');
+    expect(money(12345678.5)).toBe('12,345,678.50');
     expect(rate(1000, 3)).toBe('1,000');
     expect(codeName('26E', 'Inv: Equity')).toBe('26E · Inv: Equity');
     expect(dealKey('1900004')).toBe('0000001900004');

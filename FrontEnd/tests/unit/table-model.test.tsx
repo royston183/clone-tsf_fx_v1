@@ -4,7 +4,7 @@ import { compareCellValues, elements, nodeText, renderTableParts } from '@/compo
 describe('universal table controls', () => {
   it('compares grouped amounts, day-first dates and identifiers correctly', () => {
     expect(nodeText(['Remarks', false, <span key="icon" />])).toBe('Remarks');
-    expect(compareCellValues('12,00,000.00', '95,000.00')).toBeGreaterThan(0);
+    expect(compareCellValues('1,200,000.00', '95,000.00')).toBeGreaterThan(0);
     expect(compareCellValues('02-12-2025', '01-01-2026')).toBeLessThan(0);
     expect(compareCellValues('0000000002', '0000000010')).toBeLessThan(0);
     expect(compareCellValues('USD 12,000.00', 'USD 800.00')).toBeGreaterThan(0);

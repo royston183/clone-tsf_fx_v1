@@ -1,10 +1,12 @@
 // Live reads of DE6: TSF FX Blotter (read only; nothing is written). Every read goes through the data client:
-//   Transactions   tsf-deals (SAP through the relay) for the blotter date, shown as Created / Released / Reversed by txnStatus
+//   Transactions   tsf-deals (SAP through the relay) for the blotter date, shown as Created / Released / Reversed by txnStatus;
+//                  plus the day's TrmFxApp records the report leaves out (no Deal ID yet), completed from FxTransaction
 //   Masters        wb-masters (rest): trader groups and traders, business partners, company codes
 //   Open MCs       master-contract (rest), status 03 / 04
 //   Open Deal IDs  tsf-deal-id (rest), not cancelled and not short-straddle
 import type { Row } from '@/lib/grid/types';
 import { moduleQuery, moduleView, reportRun } from '@/lib/client/data';
+import { apiFetch, entityPath, list, service } from '@/ref/api-client';
 import { TXN_TYPES } from '@/pages/fx/sample';
 import { nextId, type BlotterRow, type Mc, type OpenDeal, type Status } from './data';
 import type { BlGroup, Code } from './masters';
@@ -113,8 +115,43 @@ export function rowFromTxn(r: Row, bpNames: Record<string, string>): BlotterRow 
   };
 }
 
+/**
+ * A transaction the report does not return, as the report's row: its application data (TrmFxApp) completed with the
+ * deal itself (FxTransaction). The first currency is the pair's lead currency; Buy / Sell is the side taken in it.
+ */
+export function rowFromApp(app: Row, fx: Row | null): Row {
+  const buy = s(fx?.BuyCurrency), lead = s(fx?.LeadCurrency) || buy;
+  const follow = s(fx?.FollowCurrency) || (lead === buy ? s(fx?.SellCurrency) : buy);
+  const buysLead = buy === lead;
+  return {
+    rfha: s(app.FinancialTransaction), companyCode: s(app.CompanyCode), dealId: s(app.ZtsfDealID), dealType: s(app.ZtsfDealType), mcRef: s(app.ZtsfMcRefNo),
+    txnStatus: s(app.TxnStatus), trader: s(app.Ztrcode), tradeDate: s(fx?.ContractDate), partnerCode: s(fx?.Partner), transactionType: s(fx?.TransactionType),
+    bs1: fx ? (buysLead ? 'Buy' : 'Sell') : '', curr1: lead, curr2: follow, amount1: fx ? (buysLead ? fx.BuyAmount : fx.SellAmount) : '',
+    allInRate: fx?.ForwardRate ?? '', valueDate: s(fx?.ValueDate), ndfFixDate: s(fx?.NdfFixingDate), ndfRef: s(fx?.FixingReferenceId),
+    reversed: s(fx?.ActiveStatus) === '3' ? 'X' : ''
+  };
+}
+
+/**
+ * The day's transactions the report leaves out. The report (ZFS_CE_TsfDeal) lists only transactions that already carry a
+ * TSF Deal ID, so legs created by Auto-create Deals (their Deal ID is drawn at Release to MO) would never show; they are
+ * read from TrmFxApp for the blotter date and completed from FxTransaction.
+ */
+async function rowsOutsideReport(date: string, have: Set<string>, signal?: AbortSignal): Promise<Row[]> {
+  const apps = await list<Row>(service('trmfxapp')('TrmFxApp'), { filter: `BlotterDate eq ${date}`, top: 500 }, signal ? { signal } : undefined);
+  const missing = apps.filter(a => !have.has(`${s(a.CompanyCode)}|${s(a.FinancialTransaction)}`));
+  return Promise.all(missing.map(async a => {
+    const key = { CompanyCode: s(a.CompanyCode), FinancialTransaction: s(a.FinancialTransaction) };
+    const fx = await apiFetch<Row>(service('fx')(entityPath('FxTransaction', key)), signal ? { signal } : undefined).catch(() => null);
+    return rowFromApp(a, fx);
+  }));
+}
+
 /** The transactions of one blotter date (SAP, through the report), optionally only those of the given trader codes. */
 export async function loadBlotterRows(date: string, traders: string[] | null, bpNames: Record<string, string>, signal?: AbortSignal): Promise<BlotterRow[]> {
   const result = await reportRun('tsf-deals', { selection: { blotterDate: date, blotterTo: date } }, signal);
-  return result.rows.filter(r => !traders || traders.includes(s(r.trader))).map(r => rowFromTxn(r, bpNames));
+  const have = new Set(result.rows.map(r => `${s(r.companyCode)}|${s(r.rfha)}`));
+  // Not fatal: without it the blotter still shows what the report holds.
+  const extra = await rowsOutsideReport(date, have, signal).catch(e => { if (signal?.aborted) throw e; return [] as Row[]; });
+  return [...result.rows, ...extra].filter(r => !traders || traders.includes(s(r.trader))).map(r => rowFromTxn(r, bpNames));
 }

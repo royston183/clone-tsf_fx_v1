@@ -1,12 +1,14 @@
 // Every BL as Propose Tradeflows needs it (BillOfLading of ZFS_SB_TRADEFLOW_O4_API): read whole, and changed only in
-// its Deal ID and the USD it was matched with (accept / unassign). Internal: no tile opens it.
+// its Deal ID and the USD it was matched with (accept). Internal: no tile opens it.
 import { col } from '@/lib/grid/grid';
 import type { ModuleDef } from '../types';
 
 export type BlAssignLookups = Record<string, never>;
 
 /** Fields read (keys first). Only dealId and assignedUsd are ever changed here. */
-export const BL_ASSIGN_FIELDS = ['blNo', 'blRecordDate', 'tfNo', 'tfDate', 'commodity', 'quantity', 'dealId', 'assignedUsd', 'deletedFlag'];
+export const BL_ASSIGN_FIELDS = ['blNo', 'blRecordDate', 'tfNo', 'tfDate', 'commodity', 'quantity', 'dealId', 'assignedUsd', 'deletedFlag',
+  // What the typed conditions can filter on (read only).
+  'blNumber', 'blDate', 'etd', 'eta', 'contractRef', 'notifyParty', 'invoiceRef', 'unit'];
 export const BL_ASSIGN_WRITABLE = ['dealId', 'assignedUsd'];
 
 export const blAssign: ModuleDef<BlAssignLookups> = {
@@ -28,7 +30,15 @@ export const blAssign: ModuleDef<BlAssignLookups> = {
       { field: 'quantity', label: 'Quantity', type: 'decimal', scale: 3, precision: 15 },
       { field: 'dealId', label: 'Deal ID', type: 'code', max: 20 },
       { field: 'assignedUsd', label: 'Assigned USD', type: 'amount', precision: 15 },
-      { field: 'deletedFlag', label: 'Deleted', type: 'code', max: 1 }
+      { field: 'deletedFlag', label: 'Deleted', type: 'code', max: 1 },
+      { field: 'blNumber', label: 'BL Number', type: 'code', max: 35 },
+      { field: 'blDate', label: 'BL Date', type: 'date' },
+      { field: 'etd', label: 'ETD', type: 'date' },
+      { field: 'eta', label: 'ETA', type: 'date' },
+      { field: 'contractRef', label: 'Contract Ref', type: 'code', max: 20 },
+      { field: 'notifyParty', label: 'Notify Party', type: 'text', max: 80 },
+      { field: 'invoiceRef', label: 'Invoice Ref', type: 'code', max: 20 },
+      { field: 'unit', label: 'Unit', type: 'code', max: 3 }
     ],
     check: () => ({})
   }],

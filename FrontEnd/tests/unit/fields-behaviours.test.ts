@@ -52,20 +52,20 @@ describe('amount and decimal', () => {
     expect(behaviour.clean('1L', amount)).toBe('100000.00');
     expect(behaviour.paste('1.25M', amount, {})).toBe('1250000.00');
     expect(behaviour.toSap('2Cr', amount)).toBe(20000000);
-    expect(behaviour.format('1B', amount, { row: {}, lk: {} })).toBe('1,00,00,00,000.00');
+    expect(behaviour.format('1B', amount, { row: {}, lk: {} })).toBe('1,000,000,000.00');
     expect(check(f({ type: 'amount', label: 'Amount', precision: 5 }), '1L')).toContain('too large');
     expect(check(f({ type: 'decimal', label: 'Rate' }), '1L')).toContain('must be an amount');
   });
   const amt = f({ type: 'amount', label: 'Amount' });
   it('cleans, checks, formats and converts', () => {
-    expect(clean(amt, '1,23,456.5')).toBe('123456.50');
+    expect(clean(amt, '123,456.5')).toBe('123456.50');
     expect(clean(amt, '1234.50-')).toBe('-1234.50');
     expect(clean(amt, 'abc')).toBe('abc');
     expect(clean(amt, '12,5')).toBe('12,5');
     expect(check(amt, '12,5')).toBe('Amount must be an amount with at most 2 decimals, e.g. 1234.50.');
     expect(check(amt, 'abc')).toBe('Amount must be an amount with at most 2 decimals, e.g. 1234.50.');
     expect(check(f({ type: 'amount', label: 'Amount', precision: 5 }), '12345.00')).toBe('Amount is too large (at most 3 digits before the decimal point).');
-    expect(formatField(amt, { x: '1234567.50' }, {})).toBe('12,34,567.50');
+    expect(formatField(amt, { x: '1234567.50' }, {})).toBe('1,234,567.50');
     expect(behaviourOf(amt).toSap('1234.50', amt)).toBe(1234.5);
     expect(behaviourOf(amt).toSap('', amt)).toBeNull();
     expect(behaviourOf(amt).fromSap(1234.5, amt)).toBe('1234.50');
