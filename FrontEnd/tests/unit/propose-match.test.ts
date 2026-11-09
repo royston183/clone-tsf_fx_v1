@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { candidates, findCombinations, rankByCloseness, remaining, toUsd } from '@/lib/propose/match';
+import { assignedTotal, candidates, closestCombinations, findCombinations, findFewest, MAX_BLS, rankByCloseness, remaining, toUsd } from '@/lib/propose/match';
 
 const bl = (blNo: string, usdValue: string, extra: Record<string, string> = {}) =>
   ({ blNo, tfNo: `TF-${blNo}`, tfDate: '2026-11-05', quantity: '1', usdValue, commodity: 'ALMOND', dealId: '', deletedFlag: '', ...extra });
@@ -56,7 +56,7 @@ describe('findCombinations', () => {
     expect(performance.now() - start).toBeLessThan(1000);
     expect(found.length).toBeGreaterThan(0);
     expect(found.length).toBeLessThanOrEqual(50);
-    expect(found.every(c => c.bls.length <= 8 && Math.abs(c.diffPct) <= 1)).toBe(true);
+    expect(found.every(c => c.bls.length <= MAX_BLS && Math.abs(c.diffPct) <= 1)).toBe(true);
   });
 });
 
@@ -71,5 +71,97 @@ describe('rankByCloseness and remaining', () => {
   });
   it('subtracts the USD stored on the active BLs of the deal', () => {
     expect(remaining('10000', [{ dealId: 'D1', assignedUsd: '2500.50', deletedFlag: '' }, { dealId: 'D1', assignedUsd: '1000', deletedFlag: 'X' }])).toBe('7499.50');
+  });
+});
+
+describe('closestCombinations (nothing within 1%)', () => {
+  it('offers the smallest cover with its last BL capped at what is left, once per value set', () => {
+    // Deal 7000000081 on live data: 100,000 USD left; every free C112 BL is 138,600 or 833,348.03.
+    const pool = [bl('24', '138600'), bl('25', '833348.03'), bl('26', '138600'), bl('27', '138600')];
+    expect(findCombinations(pool, '100000', {})).toEqual([]);
+    const found = closestCombinations(pool, '100000', {});
+    expect(found[0]).toMatchObject({ fit: 'over', totalUsd: '138600.00', cap: { usd: '100000.00' } });
+    expect(found.filter(c => c.totalUsd === '138600.00')).toHaveLength(1);
+    expect(assignedTotal(found[0], '100000')).toBe('100000.00');
+    expect(found.every(c => c.fit === 'over')).toBe(true);
+  });
+  it('caps the smallest BL of a minimal cover and offers the fullest partial fills', () => {
+    const found = closestCombinations([bl('a', '6000'), bl('b', '3000'), bl('c', '500')], '8000', {});
+    const cover = found.find(c => c.fit === 'over' && c.bls.join('+') === 'a+b');
+    expect(cover).toMatchObject({ totalUsd: '9000.00', cap: { blNo: 'b', usd: '2000.00' } });
+    expect(found.filter(c => c.fit === 'under')[0]).toMatchObject({ bls: ['a', 'c'], totalUsd: '6500.00' });
+  });
+  it('keeps to maxBls and gives nothing without candidates', () => {
+    const found = closestCombinations([bl('a', '1000'), bl('b', '1000'), bl('c', '1000')], '2500', { maxBls: 1 });
+    expect(found.every(c => c.bls.length === 1)).toBe(true);
+    expect(closestCombinations([], '100', {})).toEqual([]);
+  });
+});
+
+describe('large Deal IDs (many BLs in one proposal)', () => {
+  // Like C110 on live data: 65 BLs of 136,680–153,000 USD each.
+  const many = Array.from({ length: 65 }, (_, i) => bl(String(4000000034 + i), (136680 + (i * 251) % 16320).toFixed(2)));
+  const total = many.reduce((s, b) => s + Math.round(Number(b.usdValue) * 100), 0) / 100;
+  it('fills a deal larger than all BLs together with every BL (partial fill)', () => {
+    const start = performance.now();
+    const found = closestCombinations(many, '10000000', {});
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(found[0]).toMatchObject({ fit: 'under', totalUsd: total.toFixed(2) });
+    expect(found[0].bls).toHaveLength(65);
+  });
+  it('finds a proposal of dozens of BLs within 1% when one exists', () => {
+    const start = performance.now();
+    const found = findCombinations(many, '5000000', {});
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(found.length).toBeGreaterThan(0);
+    expect(found[0].bls.length).toBeGreaterThan(30);
+    expect(Math.abs(found[0].diffPct)).toBeLessThanOrEqual(1);
+  });
+  it('covers a deal just under the total with a capped BL', () => {
+    const found = closestCombinations(many, (total - 50).toFixed(2), { tolerancePct: 0.0001 });
+    const cover = found.find(c => c.fit === 'over')!;
+    expect(cover.bls).toHaveLength(65);
+    expect(assignedTotal(cover, (total - 50).toFixed(2))).toBe((total - 50).toFixed(2));
+  });
+});
+
+describe('findFewest (fewest BLs, bigger first)', () => {
+  it('completes the amount with the fewest BLs, taking the largest', () => {
+    const pool = [bl('a', '150000'), bl('b', '150000'), bl('c', '100000'), bl('d', '100000'), bl('e', '100000'), bl('f', '75000'), bl('g', '75000'), bl('h', '75000'), bl('i', '75000')];
+    expect(findCombinations(pool, '300000', {}).some(c => c.bls.length > 2)).toBe(true);
+    const found = findFewest(pool, '300000', {});
+    expect(found.length).toBeGreaterThan(0);
+    expect(found.every(c => c.bls.length === 2)).toBe(true);
+    expect([...found[0].bls].sort()).toEqual(['a', 'b']);
+  });
+  it('keeps the closest first among sets of the same size', () => {
+    const found = findFewest([bl('a', '5050'), bl('b', '5000'), bl('c', '2000'), bl('d', '3000')], '5000', {});
+    expect(found.map(c => c.bls)).toEqual([['b'], ['a']]);
+  });
+  it('needs 4 of the live C110 BLs for 600,000 USD and stays fast with 65 BLs', () => {
+    const many = Array.from({ length: 65 }, (_, i) => bl(String(4000000034 + i), (136680 + (i * 251) % 16320).toFixed(2)));
+    const start = performance.now();
+    const found = findFewest(many, '600000', {});
+    expect(performance.now() - start).toBeLessThan(1000);
+    expect(found[0].bls).toHaveLength(4);
+    expect(Math.abs(found[0].diffPct)).toBeLessThanOrEqual(1);
+  });
+  it('respects maxBls and gives nothing when no set fits', () => {
+    expect(findFewest([bl('a', '100'), bl('b', '100')], '1000', {})).toEqual([]);
+    expect(findFewest([bl('a', '500'), bl('b', '500')], '1000', { maxBls: 1 })).toEqual([]);
+  });
+});
+
+describe('closest proposals first (tightening search)', () => {
+  // Live-like C110 BLs: 65 values between 136,680 and 153,000 USD; 600,000 USD left on the deal.
+  const many = Array.from({ length: 65 }, (_, i) => bl(String(4000000034 + i), (136680 + (i * 251) % 16320).toFixed(2)));
+  it('finds a combination within 0.05% instead of stopping near the 1% edge', async () => {
+    const { findTight } = await import('@/lib/propose/match');
+    const edge = findCombinations(many, '600000', { maxBls: 4 });
+    const tight = findTight(many, '600000', { maxBls: 4 });
+    expect(Math.abs(tight[0].diffPct)).toBeLessThanOrEqual(0.05);
+    expect(Math.abs(tight[0].diffPct)).toBeLessThanOrEqual(Math.min(...edge.map(c => Math.abs(c.diffPct))));
+    expect(findFewest(many, '600000', {})[0].bls).toHaveLength(4);
+    expect(Math.abs(findFewest(many, '600000', {})[0].diffPct)).toBeLessThanOrEqual(0.05);
   });
 });

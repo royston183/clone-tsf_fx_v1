@@ -123,3 +123,82 @@ Numbering starts at L-001.
 - **Also:** check which system an ADT MCP server points at before creating objects. The relay's `config.json`
   `sapBaseUrl` is the app's real system (here NIIF, vhnlqds4ap01), not the system label in `.env.local`.
 - **Applies to:** every application on this template (template candidate)
+
+### L-010 · A tolerance-only matcher returns nothing on real data; always offer the closest and say why
+
+- **Date:** 2026-11-06
+- **Source:** live failure
+- **Raised during:** `records/worklog/2026-11/2026-11-06-1508-propose-closest.md`
+- **What happened:** Propose Tradeflows showed "No combination … within 1%" for every live deal: the only C112 BLs
+  were larger than the 100,000 USD deal, and the C110 deals had no BLs of their commodity at all. The sample data had
+  been built so that exact matches existed, so the gap never showed before the live check.
+- **Lesson:** A matching screen needs a fallback (closest under / closest over, with a capped last item) and a
+  reason when there is nothing to propose (no candidates vs. preferences excluding them). Test with live-shaped data
+  where nothing fits, not only with sample data that fits.
+- **Applies to:** this application (template candidate for any matching or proposal screen)
+
+### L-011 · "Fewest items" must only rank complete answers; partial fills rank by how full they are
+
+- **Date:** 2026-11-06
+- **Source:** live probe
+- **Raised during:** `records/worklog/2026-11/2026-11-06-1508-propose-closest.md`
+- **What happened:** With "Fewest BLs, bigger first", deal 7000000080 (more than all free C110 BLs together) ranked a
+  64-BL partial fill above the 65-BL one, because the fewest-count key also applied to proposals that do not complete
+  the amount.
+- **Lesson:** Order in two tiers: proposals that complete the amount (fewest items first), then partial ones (fullest
+  first). Probe orderings on live-shaped data where nothing completes, not only where something does.
+- **Applies to:** this application (template candidate for matching / proposal screens)
+
+### L-012 · A report that lists only transactions with a Deal ID hides the legs waiting for one
+
+- **Date:** 2026-11-07
+- **Source:** live run
+- **Raised during:** `records/worklog/2026-11/2026-11-07-0930-fx-chain-propose-ai-look.md`
+- **What happened:** Legs created by DE6 Auto-create Deals (TrmFxApp 01, no Deal ID yet) never showed on the blotter: the
+  TsfDeal report (ZFS_CE_TsfDeal) returns only transactions that carry a TSF Deal ID, so they could not be released.
+- **Lesson:** Check what a read-only report leaves out before building a screen's list on it; read the application
+  data (TrmFxApp for the blotter date) and complete it from the source entity for what the report omits.
+- **Applies to:** this application (template candidate: verify report coverage in the live check)
+
+### L-013 · Transaction numbers are per company code; never order legs of two companies by number
+
+- **Date:** 2026-11-07
+- **Source:** live run
+- **Raised during:** `records/worklog/2026-11/2026-11-07-0930-fx-chain-propose-ai-look.md`
+- **What happened:** Deal 1 (IN11 3000000000061) sorted after Deal 2 (SG03 2000000000087) because each company code has
+  its own number range; the pair would have been released the wrong way round.
+- **Lesson:** Order D1/D2 by the business rule (the FX model's Deal 1 entity), then value date; let the person swap.
+- **Applies to:** every application that pairs SAP financial transactions (template candidate)
+
+### L-014 · Prove the SAP account on a service the system has published
+
+- **Date:** 2026-11-07
+- **Source:** live failure
+- **Raised during:** `records/worklog/2026-11/2026-11-07-0930-fx-chain-propose-ai-look.md`
+- **What happened:** The top bar showed "SAP not tested" (and a test would fail) because the connection check used the
+  first configured service, Time Buckets, which is not published on this system (404), while the app's own services work.
+- **Lesson:** Skip services that answer 404 (not published) and prove the account on the first that answers; stop at
+  once on 401 so a wrong password is never sent twice. Run the check once after sign-in.
+- **Applies to:** every application on this template (template candidate: `checkAnyService`)
+
+## L-015 Bulk test data: check the values in SAP after creating them (2026-11-07)
+- **What happened:** The bulk script drew the x1000 multiplier and the /1000 divisor for decimal quantities
+  independently, so 515 of 3,500 BLs were stored 1,000 times too large (e.g. 12,317,997 LBS) and 471 1,000 times too small (e.g. 57.430 LBS). The matcher then built
+  proposals from them.
+- **Lesson:** After creating test data, read it back and check ranges (quantity, value per commodity) before testing on
+  it; correct with PATCH on the composite key (`BillOfLading(BlNo='…',BlRecordDate=…)`, then the trade flow; when raising a quantity, the trade flow first, since SAP checks the BLs against it).
+- **Applies to:** every bulk test-data load on this application
+
+## L-016 Test deals must look like real ones: one deal takes 200-300 BLs (2026-11-07)
+- **What happened:** The test deals were 1,000-4,00,000 USD, so one BL could equal a deal and proposals had 1-3 BLs.
+  The user: a deal takes 200-300 BLs; that is why the app proposes them.
+- **Lesson:** Size test deals from the BL pool (200-300 x the commodity's average BL value) and the proposal limits to
+  match (MAX_BLS 500; the AI request carries BL details only up to 1,000 rows).
+- **Applies to:** Propose Tradeflow test data and limits
+
+## L-017 Python edit scripts and regex escapes (2026-11-07)
+- **What happened:** Python strings turned `\b` into a backspace byte and `\d` warnings into wrong regexes (twice: in an
+  e2e locator and a query edit); a removed-verb cleanup also cut "No" out of "Northwind".
+- **Lesson:** Edit regex-heavy TypeScript with the Edit tool, not Python heredocs; after any scripted edit grep for
+  `\b`. Optional suffixes after a removed word need a word boundary (`(?!\w)`).
+- **Applies to:** every scripted edit in this application

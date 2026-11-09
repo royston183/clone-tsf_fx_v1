@@ -27,6 +27,8 @@ import '@/styles/normal/skin.css';
 import '@/components/table/table.css';
 import '@/styles/tsf-modal.css';
 import '@/styles/catalog-refinement.css';
+// The TSF_FX look (top bar, titles, KPI strip, report tables): after everything else.
+import '@/styles/sap-look.css';
 import { App } from './App';
 import { Notice } from './components/ui/Notice';
 import * as data from './lib/client/data';

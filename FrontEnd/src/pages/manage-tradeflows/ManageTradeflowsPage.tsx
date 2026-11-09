@@ -1,9 +1,9 @@
 // Manage Tradeflows: the trade flows (as Tradeflows List shows them), and per trade flow its BLs. A BL can be split
 // into several, new BLs can take the trade flow's open quantity, and a BL can be deleted (flagged, never removed).
-// BLs with a Deal ID are locked here (unassign them in Propose Tradeflows). Saves go through the data client to
+// BLs with a Deal ID are locked here (an assignment is final). Saves go through the data client to
 // `tradeflow-manage` (SAP numbers each new BL).
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ArrowLeft, Plus, Scissors, Server, Trash2 } from 'lucide-react';
+import { AlertCircle, Plus, Scissors, Server, Trash2, X } from 'lucide-react';
 import { LargeList } from '@/components/list/LargeList';
 import { DataTable } from '@/components/table/DataTable';
 import { TrafficLightTag } from '@/components/ui/Badge';
@@ -51,8 +51,9 @@ export default function ManageTradeflowsPage() {
   const close = () => router.push(pathname);
 
   return (
-    <section className="panel ds-app tsf-manage">
-      {!openKey && <>
+    <section className={`tsf-manage tsf-manage__md${openKey ? ' is-open' : ''}`}>
+      {/* The trade flows on the left; the open one, with its BLs, on the right (master–detail). */}
+      <div className="panel ds-app tsf-manage__list">
         <div className="ds-toolbar">
           <div className="ds-title">
             <h2>Trade flows</h2>
@@ -64,8 +65,12 @@ export default function ManageTradeflowsPage() {
         {!view && !viewError && <Loading text="Loading trade flows…" />}
         {view && <LargeList moduleId={ID} list={def.list} lk={lk} version={version} noun="trade flows" onOpen={open} />}
         <p className="panel-note">Open a trade flow to split its BLs, add BLs or delete one.</p>
-      </>}
-      {openKey && <Record key={openValue ?? ''} tfKey={openKey} onBack={close} onSaved={text => { setVersion(v => v + 1); notify(text, 'success'); }} onError={text => notify(text, 'error')} />}
+      </div>
+      <div className="tsf-manage__detail">
+        {openKey
+          ? <Record key={openValue ?? ''} tfKey={openKey} onBack={close} onSaved={text => { setVersion(v => v + 1); notify(text, 'success'); }} onError={text => notify(text, 'error')} />
+          : <div className="panel tsf-manage__pick">Open a trade flow on the left to see its BLs here.</div>}
+      </div>
       <Toast toast={toast} />
     </section>
   );
@@ -140,7 +145,7 @@ function Record({ tfKey, onBack, onSaved, onError }: { tfKey: Row; onBack: () =>
           <tbody>{shown.map(b => {
             const s = blStatus(b);
             const locked = s.label !== 'Active';
-            const why = s.label === 'Assigned' ? `Assigned to ${str(b.dealId)}: unassign it in Propose Tradeflows first.` : s.label === 'Deleted' ? 'This BL is deleted.' : undefined;
+            const why = s.label === 'Assigned' ? `Assigned to ${str(b.dealId)}: an assigned BL cannot be changed.` : s.label === 'Deleted' ? 'This BL is deleted.' : undefined;
             return (
               <tr key={`${b.blNo}|${b.blRecordDate}`} className={isDeleted(b) ? 'deleted' : ''}>
                 <td className="mono">{str(b.blNo)}</td>
@@ -172,5 +177,5 @@ function Record({ tfKey, onBack, onSaved, onError }: { tfKey: Row; onBack: () =>
 }
 
 function BackBar({ onBack }: { onBack: () => void }) {
-  return <div className="tsf-manage__back"><button className="button small secondary" onClick={onBack}><ArrowLeft size={15} />All trade flows</button></div>;
+  return <div className="tsf-manage__back"><button className="button small secondary" onClick={onBack}><X size={15} />Close</button></div>;
 }

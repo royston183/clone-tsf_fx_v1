@@ -66,6 +66,26 @@ export function firstService(): SapService {
 }
 
 /**
+ * Proves an account against the configured services in order, skipping a service SAP says is not published on this
+ * system (404): the first that answers proves the account. A rejected user or password (401) or any other failure stops
+ * at once, so a wrong password is never sent twice.
+ */
+export async function checkAnyService(settings: SapSettings, conn: SapConnection): Promise<CheckResult> {
+  const services = Object.values(buildConfig().services);
+  if (!services.length) throw new HttpError(503, 'No SAP service is configured.');
+  let missing: unknown = null;
+  for (const [i, s] of services.entries()) {
+    try {
+      return await checkService(settings, conn, { key: s.key, base: s.base }, { retry: i === 0 });
+    } catch (e) {
+      if (!(e instanceof HttpError) || e.status !== 404) throw e;
+      missing ??= e;
+    }
+  }
+  throw missing instanceof Error ? missing : new HttpError(502, 'No configured SAP service is published on this system.');
+}
+
+/**
  * Proves the account against SAP (a paused account is retried once) and saves it for this tab only on success.
  * An empty password keeps the saved one when the user is the same.
  */
@@ -77,7 +97,7 @@ export async function testAndSave(account: { username: string; password: string;
   if (!username || !password) throw new HttpError(400, 'Enter the SAP user and password.');
   const client = account.client?.trim() || current.client;
   if (!/^\d{3}$/.test(client)) throw new HttpError(400, 'The SAP client has three digits.');
-  const result = await checkService({ client, timeoutMs: buildConfig().timeoutMs }, newSapConnection(username, password), firstService(), { retry: true });
+  const result = await checkAnyService({ client, timeoutMs: buildConfig().timeoutMs }, newSapConnection(username, password));
   try { sessionStorage.setItem(KEY, JSON.stringify({ username, password, client })); } catch { /* storage blocked: the account is not kept */ }
   connection = null;
   clearDashboardCache();

@@ -34,9 +34,9 @@ BackEnd's REST/reference routes. Application-owned local tables use SQLite (Azur
 | `fx-overview` | dashboard | TSF FX Overview | B-overview (tiles, flow, donut, bar list, table) | master-contract and tsf-deals aggregation | tsf-deals | service binding corrected; browser flow checked |
 | `master-contract` | object | FO: Create Master Contract (ZSGTSFP001) | T-large-list, T-object, D-form, F-amount, F-dateRange, B-badges | `rest`, shared middleware | master-contract | reads connected; writes built, not live-validated |
 | `tsf-deals` | report (line items) | View List of TSF Deals (ZSGTSF_RFX_BLOTTER_COMP) | T-line-report, B-report-selection, B-report-overview | `sap`, relay | tsf-deals | live reads connected in prior session |
-| page `fx-blotter` | custom page | DE6: TSF FX Blotter (ZSGTSFP008) | DataTable, Modal, D-wizard, B-toast, B-badges | SAP relay + middleware masters | fx, trmfxapp | live reads; posting not connected |
+| page `fx-blotter` | custom page | DE6: TSF FX Blotter (ZSGTSFP008) | DataTable, Modal, D-wizard, B-toast, B-badges | SAP relay + middleware masters | fx, trmfxapp | live; Auto-create Deals and Release to MO (pair) post to SAP, run live 2026-11-07 |
 | page `trader-workbench` | custom page | FO: Trader Workbench (ZSGTSFR100) | DataTable, Modal, B-toast, B-badges | SAP relay + middleware masters | fx, trmfxapp | live reads; posting not connected |
-| page `deal-confirmation` | custom page | TSF MO Deal Confirmation - FX & Options (ZSGTSFR024) | SelectionPanel, DataTable, D-review, B-toast | SAP relay | fx, trmfxapp | reads connected; writes tested against fakes |
+| page `deal-confirmation` | custom page | TSF MO Deal Confirmation - FX & Options (ZSGTSFR024) | SelectionPanel, DataTable, D-review, B-toast | SAP relay | fx, trmfxapp | live; Match & Release run live 2026-11-07 |
 | page `execute-settlement` | custom page | MO: Execute Settlement for Deal ID (ZSGTSFR060) | DataTable, Modal, D-form, B-toast | SAP relay + middleware | fx, trmfxapp | reads connected; settlement writes partial, not live-validated |
 | pages `ref-*` | custom pages | 39 remaining implemented reference FX menu entries | Reference components and scoped screen styles | SAP relay + middleware/local table compatibility routes; source limitations preserved | `FrontEnd/src/ref/port-manifest.json` | ported; navigation, themes and responsive layout checked |
 | page `planned` | custom page | Seven menu tiles with no implemented screen in the reference, plus Manage Tradeflows (logic to come) | — | — | — | unavailable in reference |
@@ -117,6 +117,7 @@ RAP objects are listed in this app's worklog Object list. The services themselve
 | 2026-11-04 | Started | Copied from the template @ f36965f | `records/worklog/2026-11/2026-11-04-1955-tsf-fx-build.md` |
 | 2026-11-04 | UI approved | v001 approved ("approved."): shell, Overview and six key FX screens on sample data | `records/worklog/2026-11/evidence/2026-11-04-1955-tsf-fx-build/` |
 | 2026-11-05 | UI approved | Master Data + Trade Flows screens approved ("UI approved") on sample data | `records/worklog/2026-11/2026-11-05-1204-trade-flows.md` |
+| 2026-11-07 | SAP connected | DE6 Auto-create Deals and Release to MO write to SAP; FO → MO chain run live: Deal ID 7000000083 created, settled (07) and confirmed (02) | `records/worklog/2026-11/2026-11-07-0930-fx-chain-propose-ai-look.md` |
 <!-- fs-sprint:end status-history -->
 
 Stand-alone, every line here is also added to the template's `docs/application-log.md` (row and status history).

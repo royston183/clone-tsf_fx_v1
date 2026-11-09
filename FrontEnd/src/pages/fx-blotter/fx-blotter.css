@@ -44,3 +44,4 @@
 }
 
 .tsf-blotter .bl-hint { margin: 4px 0 0; font-size: 11px; color: var(--muted); }
+.tsf-mc-search { margin-bottom: 10px; max-width: 360px; }

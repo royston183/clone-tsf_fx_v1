@@ -159,7 +159,7 @@ describe('typed columns', () => {
     check: () => ({})
   };
   it('pastes a date range and an amount into their own fields, skipping computed columns', () => {
-    const out = pasteInto(typed, 'add', [g()], 0, 'id', 'd1\t01-04-2026\t31.03.2027\t1,23,456.5\tignored\r\n', {}, () => g());
+    const out = pasteInto(typed, 'add', [g()], 0, 'id', 'd1\t01-04-2026\t31.03.2027\t123,456.5\tignored\r\n', {}, () => g());
     expect(out![0].values).toEqual({ id: 'D1', from: '2026-04-01', to: '2027-03-31', amount: '123456.50' });
   });
   it('validates and saves the expanded fields', () => {

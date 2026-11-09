@@ -32,7 +32,7 @@ export function matchColumns(defs: AnyField[], table: { line: number; cells: str
   return { rows, lines, ignored };
 }
 
-/** File text as field values, read the way a paste from Excel is ('April' → '04', '1,25,000.5' → '125000.50'); text a field cannot read is kept for the server's check. */
+/** File text as field values, read the way a paste from Excel is ('April' → '04', '125,000.5' → '125000.50'); text a field cannot read is kept for the server's check. */
 export function toFieldValues(defs: AnyField[], row: Row, lk: unknown): Row {
   return Object.fromEntries(valueFields(defs).map(d => {
     const raw = row[d.field] ?? '';

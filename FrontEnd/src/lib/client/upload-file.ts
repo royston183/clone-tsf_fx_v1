@@ -8,7 +8,7 @@ export async function readUpload(file: File, defs: AnyField[], { maxBytes, maxRo
   const name = file.name.toLowerCase();
   if (name.endsWith('.xls')) throw new Error('Save the file as .xlsx (Excel Workbook) or .csv.');
   if (!/\.(xlsx|csv|txt)$/.test(name)) throw new Error('Choose an .xlsx or .csv file.');
-  if (file.size > maxBytes) throw new Error(`The file is larger than ${(maxBytes / 1048576).toLocaleString('en-IN', { maximumFractionDigits: 1 })} MB.`);
+  if (file.size > maxBytes) throw new Error(`The file is larger than ${(maxBytes / 1048576).toLocaleString('en-US', { maximumFractionDigits: 1 })} MB.`);
   const table: SheetRow[] = name.endsWith('.xlsx')
     ? await readXlsx(await file.arrayBuffer())
     : parseCsv(await file.text()).map((cells, i) => ({ line: i + 1, cells }));

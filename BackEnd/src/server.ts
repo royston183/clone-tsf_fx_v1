@@ -10,7 +10,7 @@ import { route } from '@core/server/router';
 import { appRoot, loadEnvFile, runtimeNodePlatform } from './platform-node';
 import type { RefDeps } from './ref/middleware-proxy';
 import { isRefPath, routeRef } from './ref/routes';
-import { AI_PATH, aiProposals, defaultAiDeps, type AiDeps } from './ai/proposals';
+import { AI_PATH, aiAsk, aiInterpret, aiProposals, ASK_PATH, defaultAiDeps, INTERPRET_PATH, type AiDeps } from './ai/proposals';
 
 export const DEFAULT_PORT = 3200;
 const BODY_LIMIT = 6 * 1024 * 1024;
@@ -52,6 +52,8 @@ export function buildServer(cfg: AppConfig, ref: RefDeps = {}, ai: AiDeps = defa
     const request = new Request(url, { method: req.method, headers, body });
     const pathname = new URL(url).pathname;
     const res = pathname === AI_PATH && req.method === 'POST' ? await aiProposals(request, cfg, ai)
+      : pathname === ASK_PATH && req.method === 'POST' ? await aiAsk(request, cfg, ai)
+      : pathname === INTERPRET_PATH && req.method === 'POST' ? await aiInterpret(request, cfg, ai)
       : isRefPath(pathname) ? (await routeRef(request, cfg, ref))! : await route(request, cfg);
     reply.status(res.status);
     res.headers.forEach((value, key) => { reply.header(key, value); });

@@ -48,7 +48,7 @@ export function SpotTable({
   selectedId: string | null
   sort: Sort
   onSort: (key: SortKey) => void
-  onSelect: (id: string) => void
+  onSelect: (id: string | null) => void
   onOpenDetail: (row: SpotRow, kind: DetailKind) => void
   onDragStart: (row: SpotRow) => void
   onDragEnd: () => void
@@ -77,7 +77,8 @@ export function SpotTable({
                 className={isSel ? 'selected' : ''}
                 onClick={(e) => {
                   if ((e.target as HTMLElement).closest('.txn-link')) return
-                  onSelect(r.id)
+                  // A second click on the chosen row clears it.
+                  onSelect(isSel ? null : r.id)
                 }}
                 onDragStart={() => {
                   onSelect(r.id)
@@ -86,7 +87,7 @@ export function SpotTable({
                 onDragEnd={onDragEnd}
               >
                 <td className="check-col">
-                  <input className="row-check" type="checkbox" checked={isSel} readOnly onClick={(e) => e.stopPropagation()} />
+                  <input className="row-check" type="checkbox" checked={isSel} readOnly aria-label={`Select ${r.id}`} />
                 </td>
                 <td>
                   <b>{r.dealId}</b>

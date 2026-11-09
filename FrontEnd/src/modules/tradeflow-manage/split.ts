@@ -33,7 +33,7 @@ export function openQuantity(tfQuantity: string, bls: Row[]): string {
  * (or the open quantity), so the trade flow is never exceeded.
  */
 export function splitProblems(source: Row | null, open: string, quantities: string[]): string[] {
-  if (source && str(source.dealId)) return [`BL ${str(source.blNo)} has Deal ID ${str(source.dealId)}: unassign it in Propose Tradeflows first.`];
+  if (source && str(source.dealId)) return [`BL ${str(source.blNo)} has Deal ID ${str(source.dealId)}: an assigned BL cannot be split.`];
   const parts = quantities.map(q => milli(q));
   if (!parts.length || parts.some(p => p === null || p <= 0n)) return ['Each BL needs a quantity greater than zero.'];
   const sum = parts.reduce<bigint>((s, p) => s + (p ?? 0n), 0n);

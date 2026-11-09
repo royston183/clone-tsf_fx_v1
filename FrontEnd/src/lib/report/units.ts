@@ -40,7 +40,7 @@ export function inUnit(v: string, divisor: number): string {
   return negative && q !== ZERO ? `-${out}` : out;
 }
 
-/** An amount in a unit with en-IN grouping; zero is blank when `zeroBlank` (detail cells, as SAP's no_zero). */
+/** An amount in a unit with thousands grouping; zero is blank when `zeroBlank` (detail cells, as SAP's no_zero). */
 export function formatInUnit(v: string, unit: Unit, zeroBlank = false): string {
   if (zeroBlank && isZero(v)) return '';
   return formatAmount(inUnit(v, unit.divisor));

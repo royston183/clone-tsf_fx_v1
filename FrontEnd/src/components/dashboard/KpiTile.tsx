@@ -14,7 +14,7 @@ function figure(t: Tile, v: string, unit: Unit): string {
   if (t.type === 'amount') return [formatInUnit(v, unit), unitName(unit), t.currency ?? ''].filter(Boolean).join(' ');
   if (t.type === 'percent') return formatPercent(v);
   if (t.type === 'ratio') return `${Number(v).toFixed(2)}×`;
-  return Number(v).toLocaleString('en-IN');
+  return Number(v).toLocaleString('en-US');
 }
 /** An Overview card's value: the figure alone; an amount's currency and unit go on the line under it. */
 function bare(t: Tile, unit: Unit): string {

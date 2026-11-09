@@ -56,7 +56,7 @@ describe('chart math', () => {
     expect(ticks).toEqual([0, 200000, 400000, 600000, 800000]);
     expect(ticks.map(t => axisLabel(t, ticks, 10000000))).toEqual(['0.00', '0.02', '0.04', '0.06', '0.08']);
     expect(ticks.map(t => axisLabel(t, ticks, 100000))).toEqual(['0', '2', '4', '6', '8']);
-    expect(ticks.map(t => axisLabel(t, ticks))).toEqual(['0', '2,00,000', '4,00,000', '6,00,000', '8,00,000']);
+    expect(ticks.map(t => axisLabel(t, ticks))).toEqual(['0', '200,000', '400,000', '600,000', '800,000']);
     expect(tickDecimals([0, 2.5, 5], 1)).toBe(1);
     expect(tickDecimals([-20, -10, 0, 10], 1)).toBe(0);
   });

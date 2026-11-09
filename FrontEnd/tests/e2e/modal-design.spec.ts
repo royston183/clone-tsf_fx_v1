@@ -19,15 +19,15 @@ test('amount shortcuts expand on Enter and blur, retain cents and stay right ali
   const amount = modal.getByRole('textbox', { name: 'Amount', exact: true });
   await expect(modal.getByRole('combobox', { name: 'Amount unit', exact: true })).toHaveCount(0);
   for (const [text, expected] of [
-    ['1L', '1,00,000.00'], ['2Cr', '2,00,00,000.00'], ['500K', '5,00,000.00'], ['1M', '10,00,000.00'], ['1B', '1,00,00,00,000.00'],
-    ['1.25 lakhs', '1,25,000.00'], ['2 million', '20,00,000.00'], ['3 thousands', '3,000.00'], ['0.00000000001B', '0.01']
+    ['1L', '100,000.00'], ['2Cr', '20,000,000.00'], ['500K', '500,000.00'], ['1M', '1,000,000.00'], ['1B', '1,000,000,000.00'],
+    ['1.25 lakhs', '125,000.00'], ['2 million', '2,000,000.00'], ['3 thousands', '3,000.00'], ['0.00000000001B', '0.01']
   ]) {
     await amount.fill(text); await amount.press('Enter');
     await expect(amount).toHaveValue(expected);
     await expect(modal).toBeVisible();
   }
   await amount.fill('1.5 million'); await amount.blur();
-  await expect(amount).toHaveValue('15,00,000.00');
+  await expect(amount).toHaveValue('1,500,000.00');
   expect(await amount.evaluate(e => getComputedStyle(e).textAlign)).toBe('right');
   await amount.fill('1L'); await amount.press('Enter');
   await modal.getByLabel('Deal', { exact: true }).fill('TL-1001');
@@ -53,9 +53,9 @@ test('record shortcuts save the full base amount; focus/blur alone does not mark
     const amount = modal.getByRole('textbox', { name: 'Amount', exact: true });
     await amount.focus(); await amount.blur();
     await expect(modal.locator('.ds-foot-hint')).toContainText('No changes yet');
-    await expect(amount).toHaveValue('25,00,000.01');
+    await expect(amount).toHaveValue('2,500,000.01');
     await amount.fill('30L'); await amount.press('Enter');
-    await expect(amount).toHaveValue('30,00,000.00');
+    await expect(amount).toHaveValue('3,000,000.00');
     await modal.getByRole('button', { name: 'Save', exact: true }).click();
     const review = page.getByRole('dialog', { name: `Save Deal ${created.header.deal}`, exact: true });
     await review.getByRole('combobox', { name: 'Review amounts unit', exact: true }).selectOption('LAKHS');
@@ -148,8 +148,8 @@ test('amount range filters use the same shorthand and right-aligned comma groupi
   const to = page.getByRole('textbox', { name: 'Amount to', exact: true });
   await from.fill('1L'); await from.press('Enter');
   await to.fill('1M'); await to.press('Enter');
-  await expect(from).toHaveValue('1,00,000.00');
-  await expect(to).toHaveValue('10,00,000.00');
+  await expect(from).toHaveValue('100,000.00');
+  await expect(to).toHaveValue('1,000,000.00');
   expect(await from.evaluate(e => getComputedStyle(e).textAlign)).toBe('right');
   await expect.poll(async () => {
     const values = await page.locator('.kit-list tbody tr td:nth-child(5)').allTextContents();
@@ -181,7 +181,7 @@ test('read-only conversions work by keyboard and grid inputs expand shorthand am
   await page.setViewportSize({ width: 1440, height: 900 });
   const cell = page.locator('[data-gallery-id="F-amount"] .kit-amount-cell').filter({ has: page.locator('input:not([disabled]):not([readonly])') }).first();
   await cell.locator('input').fill('2Cr'); await cell.locator('input').press('Enter');
-  await expect(cell.locator('input')).toHaveValue('2,00,00,000.00');
+  await expect(cell.locator('input')).toHaveValue('20,000,000.00');
   await cell.locator('input').fill('1.25M'); await cell.locator('input').blur();
-  await expect(cell.locator('input')).toHaveValue('12,50,000.00');
+  await expect(cell.locator('input')).toHaveValue('1,250,000.00');
 });

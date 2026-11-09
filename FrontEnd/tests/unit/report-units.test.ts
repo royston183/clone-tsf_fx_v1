@@ -18,7 +18,7 @@ describe('units', () => {
   });
   it('formats amounts in a unit with Indian grouping, zero blank on request', () => {
     expect(formatInUnit('1234567.50', LAKHS)).toBe('12.35');
-    expect(formatInUnit('123456789.00', DEFAULT_UNITS[0])).toBe('12,34,56,789.00');
+    expect(formatInUnit('123456789.00', DEFAULT_UNITS[0])).toBe('123,456,789.00');
     expect(formatInUnit('0.00', DEFAULT_UNITS[0], true)).toBe('');
     expect(formatInUnit('0.00', DEFAULT_UNITS[0])).toBe('0.00');
     expect(formatPercent('-17.54')).toBe('-17.54 %');

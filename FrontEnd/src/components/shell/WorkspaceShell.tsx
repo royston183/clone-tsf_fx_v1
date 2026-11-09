@@ -5,6 +5,7 @@ import { resolveTrail } from '@/config/catalog';
 import { TransactionProvider } from '@/components/trm/TransactionProvider';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
+import { TopbarSlotProvider } from './TopbarSlot';
 import { WorkspaceNotices } from './WorkspaceNotices';
 
 export function WorkspaceShell({ children }: { children: ReactNode }) {
@@ -15,12 +16,15 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   // The mobile menu belongs to the page it was opened on, so any navigation closes it without an effect.
   const [navOpenAt, setNavOpenAt] = useState<string | null>(null);
   const navOpen = navOpenAt === pathname;
+  // Where a page puts its own top-bar controls (TopbarActions).
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
   return (
+    <TopbarSlotProvider value={slot}>
     <TransactionProvider>
       <div className="app">
         <Sidebar activeId={page.id} open={navOpen} onNavigate={() => setNavOpenAt(null)} />
         <div className="main">
-          <Topbar page={crumbPage} trail={trail} navOpen={navOpen} onToggleNav={() => setNavOpenAt(navOpen ? null : pathname)} />
+          <Topbar page={crumbPage} trail={trail} navOpen={navOpen} onToggleNav={() => setNavOpenAt(navOpen ? null : pathname)} slotRef={setSlot} />
           <main className="content">
             <WorkspaceNotices />
             {children}
@@ -29,5 +33,6 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     </TransactionProvider>
+    </TopbarSlotProvider>
   );
 }

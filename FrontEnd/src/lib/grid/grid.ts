@@ -150,6 +150,20 @@ export function validateGrid<L>(tab: TabDef<L>, gridRows: GridRow[], existingRow
   });
 }
 
+/**
+ * A stored date as YYYY-MM-DD, whatever form it came in (2026-11-06, 2026-11-06T00:00:00Z, 20261106, 06-11-2026), or ''.
+ * Only the calendar day is kept, never converted through a time zone, so a date filter matches the day SAP stored.
+ */
+export function isoDay(value: unknown): string {
+  const t = str(value).trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = /^(\d{4})(\d{2})(\d{2})$/.exec(t);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = /^(\d{2})[-./](\d{2})[-./](\d{4})$/.exec(t);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : '';
+}
+
 /** Rows visible after the filter bar, the column filters and the sort. */
 export function visibleRows<L>(tab: TabDef<L>, rows: Row[], ui: UiState): Row[] {
   const q = ui.search.trim().toLowerCase();

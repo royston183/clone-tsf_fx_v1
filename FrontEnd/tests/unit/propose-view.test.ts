@@ -38,3 +38,12 @@ describe('Propose view helpers', () => {
     expect(orderByRules([...combos].reverse(), { preferFewerTfs: true }, bls).map(c => c.bls.join(''))).toEqual(['a', 'bc']);
   });
 });
+
+describe('orderByRules with "fewest BLs, bigger first"', () => {
+  it('puts proposals that complete the amount first (fewest BLs), then the fullest partial fill', async () => {
+    const { orderByRules } = await import('@/pages/propose-tradeflows/view');
+    const c = (n: number, diffPct: number, fit?: 'under' | 'over') => ({ bls: Array.from({ length: n }, (_, i) => `${n}-${i}`), diffPct, tfs: n, fit, ...(fit === 'over' ? { cap: { blNo: 'x', usd: '1' } } : {}) });
+    const order = orderByRules([c(64, -7.66, 'under'), c(65, -6.29, 'under'), c(5, 0.4), c(3, 0.9), c(2, 40, 'over')], {}, new Map(), ['fewest']);
+    expect(order.map(o => [o.bls.length, o.fit ?? 'within'])).toEqual([[2, 'over'], [3, 'within'], [5, 'within'], [65, 'under'], [64, 'under']]);
+  });
+});

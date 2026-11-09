@@ -1,7 +1,7 @@
 // Update Price (Trade Flows): the price of a commodity from an effective-from date. A trade flow is priced at the
 // latest price on or before its TF date (modules/tradeflow/pricing.ts; SAP: ZFS_I_TradeFlowPrice).
 // SAP: ZFS_T_SLC_CMPRC through ZFS_SB_TRADEFLOW_O4_API (entity set CommodityPrice), once the UI is approved.
-import { col, str } from '@/lib/grid/grid';
+import { col, isoDay, str } from '@/lib/grid/grid';
 import { formatDate } from '@/lib/fields/parse';
 import type { Option, Row } from '@/lib/grid/types';
 import type { ModuleDef } from '../types';
@@ -27,6 +27,8 @@ export const commodityPrice: ModuleDef<PriceLookups> = {
   noun: 'prices',
   serviceKey: 'tradeflow',
   storageKey: 'tsf-commodity-price-tab',
+  // The Update Price page (pages/update-price) reads and writes through this module; it has no screen of its own.
+  internal: true,
   blankRows: 1,
   // Three fields (commodity, effective from, price): a pop-up form.
   opens: { create: 'popup', open: 'popup' },
@@ -42,9 +44,8 @@ export const commodityPrice: ModuleDef<PriceLookups> = {
       col('unit', 'Per Unit')
     ],
     search: r => [r.commodity, r.commodityText],
-    // Effective Date: a calendar picker matching the Effective From day exactly. The value is YYYY-MM-DD; the row's
-    // date is cut to its first ten characters so a timestamp suffix from the service cannot shift the day.
-    filters: [{ id: 'effectiveFrom', kind: 'date', all: 'Effective Date', options: () => [], match: (r, v) => str(r.effectiveFrom).slice(0, 10) === v }],
+    // The prices whose Effective From is the day picked (a calendar-day comparison, never through a time zone).
+    filters: [{ id: 'effectiveFrom', kind: 'date', all: 'Effective Date', options: () => [], match: (r, v) => isoDay(r.effectiveFrom) === isoDay(v) }],
     grid: [
       { field: 'commodity', label: 'Commodity *', type: 'select', options: lk => lk.options, key: true, required: true },
       { field: 'effectiveFrom', label: 'Effective From *', type: 'date', key: true, required: true },

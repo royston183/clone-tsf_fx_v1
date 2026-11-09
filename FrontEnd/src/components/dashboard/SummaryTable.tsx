@@ -11,7 +11,7 @@ const STRONG = new Set(['warn', 'total', 'subtotal', 'heading']);
 /** A cell by its column's format: amounts in the unit (the default), counts grouped, percents, text as it is. */
 export function cellText(format: ColumnFormat | undefined, v: string, unit: Unit, rowPercent = false): string {
   if (format === 'text') return v;
-  if (format === 'count') return v === '' || !Number.isFinite(Number(v)) ? v : Number(v).toLocaleString('en-IN');
+  if (format === 'count') return v === '' || !Number.isFinite(Number(v)) ? v : Number(v).toLocaleString('en-US');
   if (format === 'percent' || rowPercent) return v === '' ? '' : formatPercent(v);
   return formatInUnit(v, unit);
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmount, formatDate, groupIndian, parseAmount, parseAmountInput, parseDate, stripGrouping, trimmed } from '@/lib/fields/parse';
+import { formatAmount, formatDate, groupThousands, parseAmount, parseAmountInput, parseDate, stripGrouping, trimmed } from '@/lib/fields/parse';
 
 describe('amount shorthand entry', () => {
   it.each([
@@ -21,7 +21,7 @@ describe('amount shorthand entry', () => {
 describe('parseAmount', () => {
   it('returns canonical amounts with the given scale', () => {
     expect(parseAmount('1234.5', 2)).toBe('1234.50');
-    expect(parseAmount('1,23,456.50', 2)).toBe('123456.50');
+    expect(parseAmount('123,456.50', 2)).toBe('123456.50');
     expect(parseAmount(' 1,234 ', 2)).toBe('1234.00');
     expect(parseAmount('.5', 2)).toBe('0.50');
     expect(parseAmount('007', 0)).toBe('7');
@@ -43,9 +43,9 @@ describe('parseAmount', () => {
   });
   it('reads commas only as Indian or western grouping of the whole part', () => {
     expect(parseAmount('1,234', 2)).toBe('1234.00');
-    expect(parseAmount('1,23,456.50', 2)).toBe('123456.50');
+    expect(parseAmount('123,456.50', 2)).toBe('123456.50');
     expect(parseAmount('1,234,567', 2)).toBe('1234567.00');
-    expect(parseAmount('12,34,567', 2)).toBe('1234567.00');
+    expect(parseAmount('1,234,567', 2)).toBe('1234567.00');
     expect(parseAmount('12,5', 2)).toBeNull();
     expect(parseAmount('1,5', 2)).toBeNull();
     expect(parseAmount('1,2345', 2)).toBeNull();
@@ -56,8 +56,8 @@ describe('parseAmount', () => {
 describe('stripGrouping', () => {
   it('removes valid grouping and refuses any other comma', () => {
     expect(stripGrouping('1,234')).toBe('1234');
-    expect(stripGrouping('1,23,456')).toBe('123456');
-    expect(stripGrouping('12,34,567')).toBe('1234567');
+    expect(stripGrouping('123,456')).toBe('123456');
+    expect(stripGrouping('1,234,567')).toBe('1234567');
     expect(stripGrouping('1234')).toBe('1234');
     expect(stripGrouping('12,5')).toBeNull();
     expect(stripGrouping('1,2345')).toBeNull();
@@ -67,10 +67,10 @@ describe('stripGrouping', () => {
 
 describe('formatAmount', () => {
   it('groups the Indian way and keeps the sign', () => {
-    expect(groupIndian('1234567')).toBe('12,34,567');
-    expect(groupIndian('123')).toBe('123');
-    expect(formatAmount('1234567.50')).toBe('12,34,567.50');
-    expect(formatAmount('-123456.00')).toBe('-1,23,456.00');
+    expect(groupThousands('1234567')).toBe('1,234,567');
+    expect(groupThousands('123')).toBe('123');
+    expect(formatAmount('1234567.50')).toBe('1,234,567.50');
+    expect(formatAmount('-123456.00')).toBe('-123,456.00');
     expect(formatAmount('12')).toBe('12');
     expect(formatAmount('not a number')).toBe('not a number');
   });
@@ -105,5 +105,20 @@ describe('parseDate', () => {
     expect(formatDate('')).toBe('');
     expect(formatDate('junk')).toBe('junk');
     expect(trimmed(null)).toBe('');
+  });
+});
+
+describe('readable numbers (thousands grouping and the short form)', () => {
+  it('groups by thousands and shortens to K / M / B', async () => {
+    const { formatCompact } = await import('@/lib/fields/parse');
+    expect(formatAmount('23924000.00')).toBe('23,924,000.00');
+    expect(formatCompact('23924000')).toBe('23.9M');
+    expect(formatCompact(500000)).toBe('500K');
+    expect(formatCompact('1250000000')).toBe('1.25B');
+    expect(formatCompact('-9950')).toBe('-9.95K');
+    expect(formatCompact('428.36')).toBe('428.36');
+  });
+  it('still reads amounts typed with lakh / crore grouping', () => {
+    expect(parseAmount('1,00,00,000', 2)).toBe(parseAmount('10000000', 2));
   });
 });

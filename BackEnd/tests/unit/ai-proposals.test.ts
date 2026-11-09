@@ -2,7 +2,7 @@
 // the design lists may leave the BackEnd; whatever the AI answers is checked before the page sees it.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { aiProposals, AI_MODEL, type AiClient } from '../../src/ai/proposals';
+import { aiAsk, aiInterpret, aiProposals, AI_MODEL, type AiClient } from '../../src/ai/proposals';
 import { buildServer } from '../../src/server';
 import { freshStore, testConfig } from '../support/config';
 
@@ -93,37 +93,82 @@ describe('the BackEnd routes /api/ai/proposals', () => {
   });
 });
 
-describe('criteria read from the question', () => {
-  it('converts 50K to 50000 and 50K+ to "or more"; only valid criteria survive', async () => {
-    const { client } = fake({
-      ranked: [], rules: [], acrossDeals: true, notUnderstood: [],
-      criteria: [
-        { scope: 'deal', field: 'amount', op: 'gt', value: '50K' },
-        { scope: 'deal', field: 'amount', op: 'gt', value: '50K+' },
-        { scope: 'bl', field: 'amount', op: 'lt', value: '1,500' },
-        { scope: 'bl', field: 'tfDate', op: 'gte', value: '2026-10-01' },
-        { scope: 'bl', field: 'commodity', op: 'eq', value: 'rubber' },
-        { scope: 'deal', field: 'quantity', op: 'gt', value: '5' },
-        { scope: 'bl', field: 'amount', op: 'gt', value: 'lots' },
-        { scope: 'bl', field: 'tfDate', op: 'gt', value: 'last week' }
-      ]
-    });
-    const res = await aiProposals(request(body), cfg(), { client });
-    const out = await res.json();
-    expect(out.acrossDeals).toBe(true);
-    expect(out.criteria).toEqual([
-      { scope: 'deal', field: 'amount', op: 'gt', value: '50000.00' },
-      { scope: 'deal', field: 'amount', op: 'gte', value: '50000.00' },
-      { scope: 'bl', field: 'amount', op: 'lt', value: '1500.00' },
-      { scope: 'bl', field: 'tfDate', op: 'gte', value: '2026-10-01' },
-      { scope: 'bl', field: 'commodity', op: 'eq', value: 'rubber' }
-    ]);
-    expect(out.notUnderstood).toHaveLength(3);
+describe('POST /api/ai/ask', () => {
+  const rest = { deal: body.deal, candidates: body.candidates, bls: body.bls };
+  const ask = { ...rest, question: 'Why is BL 4000000007 in Proposal 1? Keep trade flow TF00000002 out.', history: [{ question: 'Which is oldest?', answer: 'Proposal 1.' }] };
+  const askRequest = (payload: unknown) => new Request('http://127.0.0.1:3200/api/ai/ask', {
+    method: 'POST', headers: { origin: FRONTEND, 'x-app-request': '1', 'content-type': 'application/json' }, body: JSON.stringify(payload)
   });
-  it('answers without criteria for an answer that has none', async () => {
-    const { client } = fake({ ranked: [], rules: [], notUnderstood: [] });
-    const out = await (await aiProposals(request(body), cfg(), { client })).json();
-    expect(out.criteria).toEqual([]);
-    expect(out.acrossDeals).toBe(false);
+
+  it('answers 503 when no API key is configured', async () => {
+    expect((await aiAsk(askRequest(ask), cfg(), { client: null })).status).toBe(503);
+  });
+  it('refuses an empty question', async () => {
+    expect((await aiAsk(askRequest({ ...ask, question: '  ' }), cfg(), { client: null })).status).toBe(400);
+  });
+  it('sends only the listed fields and returns the answer with the rules it understood', async () => {
+    const { client, sent } = fake({ answer: ' BL 4000000007 brings the total to the amount. ', rules: [{ kind: 'excludeTf', values: ['TF00000002'], number: null }, { kind: 'colour', values: [], number: null }], notUnderstood: [] });
+    const res = await aiAsk(askRequest(ask), cfg(), { client });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ answer: 'BL 4000000007 brings the total to the amount.', rules: { excludeTf: ['TF00000002'] }, notUnderstood: ['colour'], model: AI_MODEL });
+    expect(sent[0]).toMatchObject({ model: 'claude-opus-5-5' });
+    const content = JSON.stringify(sent[0].messages);
+    expect(content).toContain('Keep trade flow TF00000002 out');
+    for (const secret of ['secret desc', 'Olam', 'ALMOND STD5', '1490004320', '9230140002']) expect(content).not.toContain(secret);
+  });
+  it('answers 502 when Claude declines', async () => {
+    const { client } = fake({ answer: '', rules: [], notUnderstood: [] }, 'refusal');
+    expect((await aiAsk(askRequest(ask), cfg(), { client })).status).toBe(502);
+  });
+});
+
+describe('the BackEnd route /api/ai/ask', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => { freshStore(); app = buildServer(testConfig({ APP_ORIGINS: FRONTEND }), {}, { client: null }); await app.ready(); });
+  afterAll(async () => { await app.close(); });
+  it('reaches the route (503 without a key)', async () => {
+    const rest = { deal: body.deal, candidates: body.candidates, bls: body.bls };
+    const res = await app.inject({ method: 'POST', url: '/api/ai/ask', headers: { origin: FRONTEND, 'x-app-request': '1', 'content-type': 'application/json' }, payload: JSON.stringify({ ...rest, question: 'why?', history: [] }) });
+    expect(res.statusCode).toBe(503);
+  });
+});
+
+describe('POST /api/ai/interpret', () => {
+  const input = {
+    text: 'BLs from vessels arriving next week, exclude 4000000024',
+    deal: { dealId: '7000000081', tsfCommodity: 'C112' },
+    commodities: [{ commodity: 'C112', description: 'SOYOIL', tsfCommodity: 'C112' }],
+    today: '2026-11-06'
+  };
+  const interpretRequest = (payload: unknown) => new Request('http://127.0.0.1:3200/api/ai/interpret', {
+    method: 'POST', headers: { origin: FRONTEND, 'x-app-request': '1', 'content-type': 'application/json' }, body: JSON.stringify(payload)
+  });
+  const reading = {
+    scope: 'selected', dealAmount: null, dealRemaining: null, dealIds: [],
+    blAmount: { op: '>', value: 50000, to: null }, blQuantity: null, tfDate: { from: '2026-11-09', to: '2026-11-15', fromStrict: false, toStrict: false },
+    onlyBls: [], includeBls: ['12345'], excludeBls: ['4000000024'], onlyTfs: [], excludeTfs: [],
+    commodities: ['C112', 'GOLD'], maxBls: 700, minBls: null, olderFirst: true, newerFirst: false, fewerTradeFlows: false,
+    notUnderstood: ['vessels']
+  };
+
+  it('answers 503 when no API key is configured', async () => {
+    expect((await aiInterpret(interpretRequest(input), cfg(), { client: null })).status).toBe(503);
+  });
+  it('sends only the text, the deal, the commodity master and the date, and keeps only well-formed criteria', async () => {
+    const { client, sent } = fake(reading);
+    const res = await aiInterpret(interpretRequest({ ...input, secretNotes: 'Olam' }), cfg(), { client });
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.criteria).toEqual({
+      scope: 'selected', deal: {},
+      bl: { amount: { op: '>', value: 50000 }, tfDate: { from: '2026-11-09', fromStrict: false, to: '2026-11-15', toStrict: false }, exclude: ['4000000024'] },
+      commodity: ['C112'], order: { older: true }
+    });
+    expect([...body.notUnderstood].sort()).toEqual(['BL 12345 (not valid)', 'a number of BLs (not valid)', 'commodity GOLD (not valid)', 'vessels']);
+    expect(body.model).toBe(AI_MODEL);
+    expect(JSON.stringify(sent[0].messages)).not.toContain('Olam');
+  });
+  it('refuses an empty text', async () => {
+    expect((await aiInterpret(interpretRequest({ ...input, text: ' ' }), cfg(), { client: null })).status).toBe(400);
   });
 });

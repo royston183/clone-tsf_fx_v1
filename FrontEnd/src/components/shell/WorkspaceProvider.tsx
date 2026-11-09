@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from '@/lib/client/nav';
 import { signOut as appSignOut } from '@/lib/client/app-login';
-import { workspaceInfo } from '@/lib/client/workspace';
+import { checkSapAccount, workspaceInfo } from '@/lib/client/workspace';
 import { clearDashboardCache } from '@/lib/client/dashboard-cache';
 import type { WorkspaceInfo } from '@/lib/workspace-types';
 
@@ -22,6 +22,16 @@ export function WorkspaceProvider({ initial, children }: { initial: WorkspaceInf
   const reload = useCallback(async () => {
     try { setWorkspace(workspaceInfo()); setError(''); } catch (e) { setError((e as Error).message); }
   }, []);
+  // The SAP account in use is checked once when the workspace opens (a read of one service's metadata, nothing
+  // written), so the top bar shows "SAP connected" or why SAP is unavailable instead of "not tested". A rejected account
+  // is never retried here: the client pauses it until the person tests it in Settings → SAP Connection.
+  const untested = Boolean(workspace.usesSap && workspace.session?.sapUsername && workspace.session.sapStatus === 'none' && workspace.services.length);
+  useEffect(() => {
+    if (!untested) return;
+    let live = true;
+    checkSapAccount().catch(() => undefined).finally(() => { if (live) void reload(); });
+    return () => { live = false; };
+  }, [untested, reload]);
   // Sign-out ends the app login and forgets this tab's SAP account.
   const signOut = useCallback(async () => {
     setSigningOut(true);

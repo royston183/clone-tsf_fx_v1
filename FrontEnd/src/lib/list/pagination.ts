@@ -3,7 +3,7 @@ import { typeOf, type AnyField } from '@/lib/fields';
 import { parseAmountInput } from '@/lib/fields/parse';
 import type { AnyList, FilterOp, ListFilter } from './types';
 
-const group = (n: number) => n.toLocaleString('en-IN');
+const group = (n: number) => n.toLocaleString('en-US');
 
 /** ALM's pagination text: "1–100 of 48,213". */
 export function rangeText(page: number, pageSize: number, total: number): string {

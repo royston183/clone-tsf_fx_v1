@@ -34,11 +34,13 @@ export type GridColumn<L> = FieldDef<L>;
 
 export interface FilterDef<L> {
   id: string;
-  /** 'date' renders a calendar picker (value = YYYY-MM-DD) instead of the type-ahead list. */
-  kind?: 'select' | 'date';
+  /** The dropdown's "all" text; for a date filter, the picker's label (e.g. "Effective Date"). */
   all: string;
   options: (rows: Row[], lk: L) => Option[];
+  /** `value`: the option chosen, or for a date filter the date picked as YYYY-MM-DD. */
   match: (row: Row, value: string) => boolean;
+  /** `select` (default): a dropdown of options; `date`: a date picker with a Clear button. */
+  kind?: 'select' | 'date';
 }
 
 /** The fields and rules one row is checked with: a tab, an object header, an items grid, an upload. */

@@ -53,15 +53,17 @@ async function overLimitIds(io: QueueIo, dealIds: string[]): Promise<Set<string>
 /**
  * The queue: FX deals with status 03, 04 or 06, blotter date from 2000-01-01 up to the chosen day, in the chosen company
  * range and of the chosen trader; reversed deals left out. A single company (or none) goes to SAP as the filter, a range is
- * cut here (the report takes one company code).
+ * cut here (the report takes one company code). The trader is filtered here too, keeping the deals that carry no trader
+ * code (a release whose trader is not in ZSGTRMTR_TRADER), as the reference does: they must never drop out of the queue.
  */
 export async function loadQueue(sel: QueueSelection, io: QueueIo = liveQueueIo): Promise<Queue> {
   const single = sel.from && (!sel.to || sel.to === sel.from) ? sel.from : '';
   const results = await Promise.all(QUEUE_STATUSES.map(status => io.report({
-    blotterDate: QUEUE_FROM, blotterTo: sel.upto, txnStatus: status, ...(single ? { companyCode: single } : {}), ...(sel.trader ? { trader: sel.trader } : {})
+    blotterDate: QUEUE_FROM, blotterTo: sel.upto, txnStatus: status, ...(single ? { companyCode: single } : {})
   })));
   const rows = results.flatMap(r => r.rows).filter(r => !isReversed(r) && (QUEUE_STATUSES as readonly string[]).includes(str(r.txnStatus))
-    && (single || ((!sel.from || str(r.companyCode) >= sel.from) && (!sel.to || str(r.companyCode) <= sel.to))));
+    && (single || ((!sel.from || str(r.companyCode) >= sel.from) && (!sel.to || str(r.companyCode) <= sel.to)))
+    && (!sel.trader || !str(r.trader) || str(r.trader) === sel.trader));
   const deals = rows.map(toConfDeal);
   const ids = [...new Set(deals.map(d => d.dealId).filter(Boolean))];
   let warning = '';

@@ -1,4 +1,4 @@
-// Display helpers of the FX screens: amounts with en-IN grouping, rates to 4 (or 6) places, dates dd-mm-yyyy.
+// Display helpers of the FX screens: amounts with thousands grouping, rates to 4 (or 6) places, dates dd-mm-yyyy.
 import { formatAmount, formatDate } from '@/lib/fields/parse';
 
 export const amt = (v: number | string | null | undefined, dp = 2): string => {

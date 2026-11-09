@@ -76,7 +76,7 @@ describe('trade flows on SAP (ZFS_SB_TRADEFLOW_O4_API)', () => {
 
   it('posts an upload as TradeFlow creates without TfNo or TfDate, after one look-up of the BL Numbers', async () => {
     const row = { notifyParty: 'Olam', blNumber: 'NEW0001', blDate: '2023-02-07', etd: '2023-02-07', eta: '2023-03-07', contractRef: '1490004320', contractDate: '', invoiceRef: '9230140002', invoiceDate: '2026-02-08', commodity: 'ALMOND', goods: 'ALMOND STD5', quantity: '44000', unit: 'LBS' };
-    expect(await uploadService(cfg, 'tradeflow-upload').post(user, { rows: [row] })).toEqual({ created: 1, updated: 0, invalid: 0 });
+    expect(await uploadService(cfg, 'tradeflow-upload').post(user, { rows: [row] })).toEqual({ created: 1, updated: 0, invalid: 0, duplicate: 0 });
     const lookups = sap.log.filter(r => r.method === 'GET' && r.rel === 'TradeFlow');
     expect(lookups.some(r => (r.query.get('$filter') ?? '').includes("BlNumber eq 'NEW0001'"))).toBe(true);
     const [body] = created(sap, 'TradeFlow');
@@ -88,7 +88,7 @@ describe('trade flows on SAP (ZFS_SB_TRADEFLOW_O4_API)', () => {
   it('refuses an upload row whose BL Number SAP already holds', async () => {
     const row = { notifyParty: 'Olam', blNumber: 'NAM6036645', blDate: '2023-02-07', etd: '2023-02-07', eta: '2023-03-07', contractRef: '1', contractDate: '', invoiceRef: '2', invoiceDate: '2026-02-08', commodity: 'ALMOND', goods: 'X', quantity: '1', unit: 'LBS' };
     const check = await uploadService(cfg, 'tradeflow-upload').check(user, { rows: [row] });
-    expect(check.lines[0].problems).toEqual(['NAM6036645 already exists.']);
+    expect(check.lines[0]).toMatchObject({ status: 'duplicate', problems: ['NAM6036645 already exists.'] });
   });
 
   it('opens a trade flow with its Bill of Lading in one request', async () => {

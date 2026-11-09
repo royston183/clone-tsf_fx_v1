@@ -1,7 +1,7 @@
 import { DataTable, columnsFor } from '@/components/table/DataTable';
 import { StatusValue } from '@/components/ui/StatusValue';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ChevronDown, Database, Pencil, Plus, RefreshCw, RotateCcw, Search, Server, Trash2 } from 'lucide-react';
+import { AlertCircle, CalendarDays, ChevronDown, Database, Pencil, Plus, RefreshCw, RotateCcw, Search, Server, Trash2 } from 'lucide-react';
 import { moduleView, onSampleData, SAMPLE_DATA_NOTE, sourceLabel } from '@/lib/client/data';
 import { alignClass, alignOf } from '@/lib/fields';
 import { columnValues, editValues, freshUi, keyOf, visibleRows } from '@/lib/grid/grid';
@@ -17,7 +17,6 @@ import { SortIcon } from '@/components/ui/SortTh';
 import { Toast, useToast } from '@/components/ui/Toast';
 import { ColumnFilter } from './ColumnFilter';
 import { DeleteConfirm } from './DeleteConfirm';
-import { DateFilter } from './DateFilter';
 import { FilterCombo } from './FilterCombo';
 import { entries, GridEditor, gridRow, type SavedView } from './GridEditor';
 
@@ -121,7 +120,8 @@ export default function Workbench({ def }: { def: AnyModule }) {
   return (
     <section className="panel ds-app">
       <div className="kit-app-list" hidden={onPage}>
-      <div className="ds-tabs" role="tablist" aria-label={`${def.title} tables`}>
+      {/* One table only: its title below says it already, so no tab strip. */}
+      <div className="ds-tabs" role="tablist" aria-label={`${def.title} tables`} hidden={def.tabs.length < 2}>
         {def.tabs.map(t => <button key={t.id} role="tab" aria-selected={t.id === tab.id} className={t.id === tab.id ? 'active' : ''} onClick={() => chooseTab(t.id)}>{t.label}{!(t.large && t.list) && <span>{view?.tables[t.id]?.length ?? '–'}</span>}</button>)}
       </div>
       <div className="ds-toolbar">
@@ -146,9 +146,15 @@ export default function Workbench({ def }: { def: AnyModule }) {
             onRowDoubleClick={tab.editable ? r => openEditRows([r]) : undefined} />
         : <>
         <div className="ds-filters">
-          {tab.filters.map(f => f.kind === 'date'
-            ? <DateFilter key={f.id} label={f.all} value={state.filters[f.id] ?? ''} onChange={v => patch(s => ({ filters: { ...s.filters, [f.id]: v } }))} />
-            : <FilterCombo key={f.id} all={f.all} options={f.options(rows, lk)} value={state.filters[f.id] ?? ''} onChange={v => patch(s => ({ filters: { ...s.filters, [f.id]: v } }))} />)}
+          {tab.filters.map(f => {
+            const value = state.filters[f.id] ?? '';
+            const set = (v: string) => patch(s => ({ filters: { ...s.filters, [f.id]: v } }));
+            return f.kind === 'date'
+              ? <label key={f.id} className="search ds-search ds-date-filter" title={f.all}><CalendarDays size={15} /><span className="td-muted">{f.all}</span>
+                  <input type="date" aria-label={f.all} value={value} onChange={e => set(e.target.value)} />
+                  {value && <button type="button" aria-label={`Clear ${f.all}`} onClick={() => set('')}>×</button>}</label>
+              : <FilterCombo key={f.id} all={f.all} options={f.options(rows, lk)} value={value} onChange={set} />;
+          })}
           <label className="search ds-search"><Search size={15} /><input aria-label="Search" placeholder="Search…" value={state.search} onChange={e => patch({ search: e.target.value })} />{state.search && <button aria-label="Clear search" onClick={() => patch({ search: '' })}>×</button>}</label>
         </div>
         <div className="table-wrap ds-table-wrap">

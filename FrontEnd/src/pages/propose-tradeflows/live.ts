@@ -8,8 +8,9 @@ import type { Row } from '@/lib/grid/types';
 import { rankByCloseness, toUsd } from '@/lib/propose/match';
 import { valueOf } from '@/modules/tradeflow/pricing';
 import { loadExchangeRate } from '@/ref/shared/fx/exchange-rate-api';
-import type { AiAnswer, Deal, ProposeData } from './data';
-import { checkAssignment } from './logic';
+import { describeCriteria, readConditions, type Criteria, mergeCriteria } from '@/lib/propose/query';
+import type { AiAnswer, AskAnswer, Deal, Interpretation, ProposeData } from './data';
+import { assignmentProblems } from './logic';
 
 /** The deal amount's currency: the first one of the deal currency chain ("USD-USD-INR" → USD). */
 export const dealCurrency = (chain: string): string => (/^([A-Z]{3})/.exec(str(chain).toUpperCase())?.[1] ?? '');
@@ -90,16 +91,29 @@ export function liveProposeData(): ProposeData {
     },
     async commodities() { return (await moduleView('commodity')).tables.commodities ?? []; },
     rates,
-    async assign(dealId, usdByBl, guard) {
-      // The latest rows from SAP, not the screen's copy: another user may have assigned a BL since the proposal was made.
+    async assign(target, usdByBl, values) {
+      // Read again from SAP now: what was free when the proposal was shown may have been taken since.
       const bls = (await moduleView('bl-assign')).tables.bls ?? [];
-      if (guard) { const problem = checkAssignment(guard, dealId, usdByBl, bls); if (problem) throw new Error(problem); }
-      const rows = bls.filter(b => usdByBl[b.blNo] !== undefined).map(b => ({ ...b, dealId, assignedUsd: usdByBl[b.blNo] }));
+      const problems = assignmentProblems(target, usdByBl, Object.keys(usdByBl), bls, values);
+      if (problems.length) throw new Error(`Not assigned: ${problems.join(' ')} Refresh to see the current BLs.`);
+      // The fresh rows carry their ETags: SAP refuses the write (409) if any of them changes before it lands.
+      const rows = bls.filter(b => usdByBl[b.blNo] !== undefined).map(b => ({ ...b, dealId: target.dealId, assignedUsd: usdByBl[b.blNo] }));
       await moduleChange('bl-assign', 'bls', 'update', rows);
     },
-    async unassign(blNo) {
-      const bls = (await moduleView('bl-assign')).tables.bls ?? [];
-      await moduleChange('bl-assign', 'bls', 'update', bls.filter(b => b.blNo === blNo).map(b => ({ ...b, dealId: '', assignedUsd: '' })));
+    async interpret(text, context): Promise<Interpretation> {
+      const own = readConditions(text, context.commodities, { known: context.known, today: context.today });
+      if (!own.notUnderstood.length) return { ...own, model: 'none' };
+      // Only what the app could not read goes to the AI; its criteria are checked by the BackEnd and here again.
+      try {
+        const ai = await backendApi<{ criteria: Criteria; notUnderstood: string[]; model: string }>('/ai/interpret', {
+          method: 'POST', body: { text, deal: context.deal, commodities: context.commodities.map(c => ({ commodity: str(c.commodity), description: str(c.description), tsfCommodity: str(c.tsfCommodity) })), today: context.today }
+        });
+        // The app's own reading stays (dates, ranges, references, targets); the AI adds what it placed.
+        const both = mergeCriteria([own.criteria, ai.criteria]);
+        return { criteria: both, applied: describeCriteria(both), notUnderstood: ai.notUnderstood, model: ai.model };
+      } catch (e) {
+        return { ...own, notUnderstood: own.notUnderstood.map(n => `${n} (${(e as Error).message || 'the AI is not available'})`), model: 'none' };
+      }
     },
     async ai(request): Promise<AiAnswer> {
       try {
@@ -108,6 +122,13 @@ export function liveProposeData(): ProposeData {
         // No key, the AI unreachable or declining: the app's own ranking, and why.
         const why = (e as Error).message || 'The AI is not available.';
         return { ranked: rankByCloseness(request.candidates).slice(0, 5).map(c => ({ index: request.candidates.indexOf(c), reason: `${why} Ranked by closeness.` })), rules: {}, notUnderstood: request.preferences.trim() ? [`${why} Preferences were not applied.`] : [], model: 'none' };
+      }
+    },
+    async ask(request): Promise<AskAnswer> {
+      try {
+        return await backendApi<AskAnswer>('/ai/ask', { method: 'POST', body: request });
+      } catch (e) {
+        return { answer: `${(e as Error).message || 'The AI is not available.'} The question was not answered.`, rules: {}, notUnderstood: [], model: 'none' };
       }
     }
   };

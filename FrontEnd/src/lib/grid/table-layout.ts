@@ -38,22 +38,14 @@ export function fitTableColumns(columns: MeasuredColumn[], available: number): F
   });
   let remaining = available - sized.reduce((sum, c) => sum + c.width, 0);
   if (remaining > 0) {
-    let flexible = sized.filter(c => c.kind === 'text' && c.width < c.max);
-    while (remaining > 0.1 && flexible.length) {
-      const share = remaining / flexible.length;
-      for (const c of flexible) { const add = Math.min(c.max - c.width, share); c.width += add; remaining -= add; }
-      flexible = flexible.filter(c => c.width < c.max);
-    }
-    // Space still left once descriptions are full width: the table still spans its container, sharing it across the data
-    // columns by their width (flags, actions and pinned widths stay), in whole pixels that add up to the container exactly.
-    const spread = remaining > 0.5 ? sized.filter((c, i) => columns[i].width === undefined && c.kind !== 'flag' && c.kind !== 'actions') : [];
-    if (spread.length) {
+    // Compact (2026-11-07, "use the space wisely"): every column keeps its content width, so related values sit close
+    // together. When the last data column reads left to right (text, code, date, status) it takes the rest, so the rows
+    // still span the panel; a last number column is not pushed to the far edge, and the table ends where its data ends.
+    let i = sized.length - 1;
+    while (i >= 0 && (columns[i].width !== undefined || sized[i].kind === 'flag' || sized[i].kind === 'actions')) i--;
+    if (i >= 0 && sized[i].align === 'left') {
       for (const c of sized) c.width = Math.floor(c.width);
-      let left = Math.floor(available) - sized.reduce((sum, c) => sum + c.width, 0);
-      const total = spread.reduce((sum, c) => sum + c.width, 0);
-      for (const c of spread) c.width += Math.floor(left * c.width / total);
-      left = Math.floor(available) - sized.reduce((sum, c) => sum + c.width, 0);
-      for (let i = 0; left > 0; i = (i + 1) % spread.length, left--) spread[i].width += 1;
+      sized[i].width += Math.floor(available) - sized.reduce((sum, c) => sum + c.width, 0);
     }
   } else if (remaining < 0) {
     for (const c of [...sized].sort((a, b) => (b.width - b.min) - (a.width - a.min))) {

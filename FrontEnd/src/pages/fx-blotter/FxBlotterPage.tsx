@@ -1,5 +1,6 @@
 // DE6: TSF FX Blotter. FO traders capture FX deals in an editable grid, create them in SAP and release them to the Mid Office.
-// Reads live (SAP transactions, middleware masters and Deal IDs, master contracts); writes are not connected yet: every action changes this page only.
+// Reads live (SAP transactions, middleware masters and Deal IDs, master contracts). Auto-create Deals and Release to MO of a pair
+// write to SAP and the middleware (sap.ts); the other actions still change this page only.
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Copy, Lock, Plus, RefreshCw, Search, Trash2, Undo2 } from 'lucide-react';
 import type { CustomPageProps } from '@/pages/registry';
@@ -15,19 +16,22 @@ import { COMPANIES as SAMPLE_COMPANIES, TXN_TYPES } from '@/pages/fx/sample';
 import '@/pages/fx/fx.css';
 import './fx-blotter.css';
 import {
-  ACC_CATS, CURRENCIES, DEAL_D1, DEAL_D2, DEAL_SS, FIRST_DEAL, FIRST_RFHA, FIRST_SS, FIX_REFS, MODES, blankRow, nextId,
+  ACC_CATS, CURRENCIES, DEAL_D2, DEAL_SS, FIRST_DEAL, FIRST_RFHA, FIRST_SS, FIX_REFS, MODES, blankRow, nextId,
   type BlotterRow, type Status
 } from './data';
 import { amount2, applyEdit, enablement, isBlank, isNdf, lockBlock, normalise, num, opposite, rateNum, spotOf, usdOf, validateCreate } from './logic';
 import { InfoDialog, McDialog, NotesDialog, SpotDialog, StatusTag, TxnListDialog, UploadDialog, ViewTxnDialog, type SpotDraft } from './InfoDialogs';
-import { AssignDialog, AutoDealDialog, PairWizard, SsDialog, type AutoResult } from './ReleaseDialogs';
+import { AssignDialog, SsDialog } from './ReleaseDialogs';
+import { SapAutoDealDialog, SapPairDialog } from './SapDialogs';
+import { loadAutoMasters, type AutoMasters } from './sap';
 import { MastersContext, type BlMasters } from './masters';
 import { loadBlotterMasters, loadBlotterRows, messageOf, type BlMasterData } from './live';
 
 type Dlg =
   | { k: 'confirmCreate' } | { k: 'created'; numbers: string[] } | { k: 'confirmRev'; id: string } | { k: 'reversed'; ref: string }
   | { k: 'view'; id: string } | { k: 'mc'; mc: string } | { k: 'assign' } | { k: 'pair' } | { k: 'ss' } | { k: 'auto' } | { k: 'spot' }
-  | { k: 'lock' } | { k: 'locked' } | { k: 'list' } | { k: 'upload' } | { k: 'notes' };
+  | { k: 'lock' } | { k: 'locked' } | { k: 'list' } | { k: 'upload' } | { k: 'notes' }
+  | { k: 'done'; title: string; message: string; tone: 'ok' | 'warn' };
 
 const COLUMNS: { label: string; kind: TableColumn['kind'] }[] = [
   { label: '', kind: 'flag' }, { label: 'Status', kind: 'status' }, { label: 'RFHA / Draft', kind: 'code' }, { label: 'Deal ID', kind: 'code' }, { label: 'Trade Date*', kind: 'date' },
@@ -92,6 +96,14 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
   const [dlg, setDlg] = useState<Dlg | null>(null);
   const [counters, setCounters] = useState({ rfha: FIRST_RFHA, deal: FIRST_DEAL, draft: 2, ss: FIRST_SS });
   const [toast, notify] = useToast();
+  // The middleware masters Auto-create Deals and the Deal ID need; read when first needed and again after a write.
+  const [auto, setAuto] = useState<{ k: 'idle' } | { k: 'loading' } | { k: 'error'; message: string } | { k: 'ready'; m: AutoMasters }>({ k: 'idle' });
+  const autoReady = async (): Promise<AutoMasters | null> => {
+    if (auto.k === 'ready') return auto.m;
+    setAuto({ k: 'loading' });
+    try { const m = await loadAutoMasters(); setAuto({ k: 'ready', m }); return m; }
+    catch (e) { const message = messageOf(e); setAuto({ k: 'error', message }); notify(`The master contracts could not be read: ${message}`, 'error'); return null; }
+  };
 
   const real = useMemo(() => rows.filter(r => !isBlank(r)), [rows]);
   const sel = useMemo(() => real.filter(r => selected.includes(r.id)), [real, selected]);
@@ -147,6 +159,12 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
   const allShown = shownReal.length > 0 && shownReal.every(r => selected.includes(r.id));
   const rowById = (id: string) => rows.find(r => r.id === id);
   const nextDeal = String(counters.deal);
+  const allTraders = useMemo(() => md.groups.flatMap(g => g.traders), [md.groups]);
+  /** The trader the deals go under: the chosen trader, else the trader the selected transactions were booked by. */
+  const traderOf = (codes: string[] = []): { code: string; name: string } | null => {
+    const code = trader || codes.find(Boolean) || '';
+    return code ? { code, name: allTraders.find(t => t.code === code)?.text ?? code } : null;
+  };
 
   // Actions
   const newRow = () => {
@@ -186,9 +204,9 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
     setDlg({ k: 'created', numbers });
   };
   const openView = (r: BlotterRow) => { if (/^DRAFT/.test(r.ref)) notify(NEED_RFHA); else setDlg({ k: 'view', id: r.id }); };
-  const startRelease = () => {
+  const startRelease = async () => {
     if (sel.length === 1) setDlg({ k: 'assign' });
-    else if (sel.length === 2) setDlg({ k: 'pair' });
+    else if (sel.length === 2) { if (await autoReady()) setDlg({ k: 'pair' }); }
     else notify('Select exactly 1 (assign to existing Deal ID) or 2 (create new Deal ID) Created transactions.', 'error');
   };
   const release = (ids: string[], p: (i: number) => Partial<BlotterRow>) => {
@@ -207,23 +225,9 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
     setSelected(s => s.filter(x => x !== id));
     setDlg({ k: 'reversed', ref });
   };
-  const autoCreate = (a: AutoResult) => {
-    const dealId = String(counters.deal);
-    const co = SAMPLE_COMPANIES.find(c => c.code === a.origin);
-    const [c1, c2] = a.mc.pair.split('/');
-    const ndf = a.mc.model === 'M037';
-    let n = counters.rfha;
-    const made = a.deals.map((d, i): BlotterRow => ({
-      ...blankRow(blotterDate), touched: true, status: 'Created', ref: String(n++), dealId, tradeDate: d.tradeDate, company: a.origin, profit: co?.profitCenter ?? '', unit: co?.businessArea ?? '', bank: d.bank,
-      txnType: ndf ? 'NDF' : 'FWD', bs1: i === 0 ? 'Buy' : 'Sell', cur1: c1, cur2: c2, amount1: d.amount, rate: d.rate, swap: d.swap, valueDate: d.valueDate, mode: d.mode,
-      fixDate: ndf ? d.fixDate : '', fixRef: ndf ? d.fixRef : '', mc: a.mc.mc, dealType: i === 0 ? DEAL_D1 : DEAL_D2
-    }));
-    setCounters(c => ({ ...c, rfha: n, deal: c.deal + 1 }));
-    setDeals(ds => [...ds, { dealId, mc: a.mc.mc, model: a.mc.model, type: 'FX1', legs: 2 }]);
-    consume(a.mc.mc, num(a.deals[0].amount));
-    commit([...real, ...made, ...rows.filter(isBlank)]);
-    setDlg({ k: 'created', numbers: made.map(m => m.ref) });
-  };
+  const openAuto = async () => { if (await autoReady()) setDlg({ k: 'auto' }); };
+  /** After a write: the masters (contract balances) are read again and the blotter reloaded from SAP. */
+  const afterWrite = () => { setAuto({ k: 'idle' }); setSelected([]); load(); };
   const spotBase = (): SpotDraft => ({ company: masters.companies[0]?.code ?? '', txnType: 'SPOT', bank: masters.banks[0]?.code ?? '', rate: '', buy: '', sell: '', tradeDate: blotterDate, valueDate: workingDay(addDays(blotterDate, 2)) });
   const spotCreate = (d: SpotDraft) => {
     const co = SAMPLE_COMPANIES.find(c => c.code === d.company);
@@ -295,10 +299,10 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
 
   const kpis = [
     { id: 'total', label: 'Total Rows', value: real.length, tone: 'blue' as const, onClick: () => setFilter('All'), active: filter === 'All' },
-    { id: 'draft', label: 'Draft (Editable)', value: count('Draft'), tone: 'grey' as const, onClick: () => setFilter('Draft'), active: filter === 'Draft' },
-    { id: 'created', label: 'Created (RFHA)', value: count('Created'), tone: 'amber' as const, onClick: () => setFilter('Created'), active: filter === 'Created' },
-    { id: 'released', label: 'Released to MO', value: count('Released'), tone: 'green' as const, onClick: () => setFilter('Released'), active: filter === 'Released' },
-    { id: 'reversed', label: 'Reversed', value: count('Reversed'), tone: 'red' as const, onClick: () => setFilter('Reversed'), active: filter === 'Reversed' },
+    { id: 'draft', label: 'Draft (Editable)', value: count('Draft'), tone: 'grey' as const, onClick: () => setFilter(filter === 'Draft' ? 'All' : 'Draft'), active: filter === 'Draft' },
+    { id: 'created', label: 'Created (RFHA)', value: count('Created'), tone: 'amber' as const, onClick: () => setFilter(filter === 'Created' ? 'All' : 'Created'), active: filter === 'Created' },
+    { id: 'released', label: 'Released to MO', value: count('Released'), tone: 'green' as const, onClick: () => setFilter(filter === 'Released' ? 'All' : 'Released'), active: filter === 'Released' },
+    { id: 'reversed', label: 'Reversed', value: count('Reversed'), tone: 'red' as const, onClick: () => setFilter(filter === 'Reversed' ? 'All' : 'Reversed'), active: filter === 'Reversed' },
     { id: 'notional', label: 'Total Notional (USD)', value: compact(real.filter(r => r.status !== 'Reversed').reduce((s, r) => s + num(r.amount1), 0)), note: 'Sum of Amount 1, not reversed', tone: 'purple' as const },
     { id: 'deals', label: 'Deal IDs Generated', value: new Set(real.map(r => r.dealId).filter(Boolean)).size, tone: 'blue' as const }
   ];
@@ -326,16 +330,16 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
         <button className="button secondary" onClick={() => setDlg({ k: 'list' })}>View Txn List</button>
         <button className="button secondary" disabled={locked} onClick={() => setDlg({ k: 'upload' })}>Upload</button>
         <span className="tsf-sep" aria-hidden="true" />
-        <button className="button secondary" disabled={!en.release} title="Select 1 or 2 Created transactions" onClick={startRelease}>Release to MO</button>
+        <button className="button secondary" disabled={!en.release || auto.k === 'loading'} title="Select 1 or 2 Created transactions" onClick={() => { void startRelease(); }}>Release to MO</button>
         <button className="button secondary" disabled={!en.ss} onClick={() => setDlg({ k: 'ss' })}>Release to MO - SS</button>
         <button className="button secondary" disabled={locked} onClick={startLock}><Lock size={14} /> Lock Blotter</button>
         <button className="button secondary" onClick={() => setDlg({ k: 'notes' })}>Notes</button>
         <span className="tsf-sep" aria-hidden="true" />
-        <button className="button secondary" disabled={locked} onClick={() => setDlg({ k: 'auto' })}>Auto-create Deals</button>
+        <button className="button secondary" disabled={locked || auto.k === 'loading'} onClick={() => { void openAuto(); }}>{auto.k === 'loading' ? 'Reading contracts…' : 'Auto-create Deals'}</button>
         <button className="button secondary" disabled={locked} onClick={() => setDlg({ k: 'spot' })}>Auto Spot</button>
       </div>
 
-      <Notice kind="info">Read only this round: Created, Released and Reversed rows are live from SAP; creating, releasing, reversing, locking and uploading change this page only. {NOT_SAVED}</Notice>
+      <Notice kind="info">Auto-create Deals and Release to MO of two transactions write to SAP (the deals, their application data and the Deal ID). Create Transaction, assigning one transaction, Short Straddle, Reverse, Lock and Upload still change this page only. {NOT_SAVED}</Notice>
       {md.warnings.map(w => <Notice key={w} kind="warn">{w}</Notice>)}
       {ld.k === 'error' && <Notice error action={{ label: 'Retry', onClick: load }}>The blotter could not be read from SAP: {ld.message}</Notice>}
       {ld.k === 'loading' && <p className="bl-hint" role="status">Reading the blotter from SAP…</p>}
@@ -368,7 +372,7 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
           <DataTable aria-label="FX deal input blotter" className="ds-table bl-grid" columns={COLUMNS.map(c => ({ kind: c.kind }))}>
             <thead><tr>
               {COLUMNS.map((c, i) => i === 0
-                ? <th key="cb" className="ds-cb bl-s1"><input type="checkbox" aria-label="Select all shown rows" checked={allShown} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...shownReal.map(r => r.id)])] : selected.filter(id => !shownReal.some(r => r.id === id)))} /></th>
+                ? <th key="cb" className="ds-cb bl-s1"><input type="checkbox" aria-label="Select all shown rows" disabled={!shownReal.length} checked={allShown} onChange={e => setSelected(e.target.checked ? [...new Set([...selected, ...shownReal.map(r => r.id)])] : selected.filter(id => !shownReal.some(r => r.id === id)))} /></th>
                 : <th key={c.label} className={i === 1 ? 'bl-s2' : i === 2 ? 'bl-s3' : undefined}>{c.label}</th>)}
             </tr></thead>
             <tbody>{body}</tbody>
@@ -389,20 +393,26 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
         release([sel[0].id], () => ({ dealId: d.dealId, mc: d.mc, dealType: DEAL_D2 }));
         notify(`${sel[0].ref} released to MO under Deal ID ${d.dealId} on this page only. ${NOT_SAVED}`, 'info');
       }} />}
-      {dlg?.k === 'pair' && sel.length === 2 && <PairWizard rows={sel} mcs={mcs} nextDealId={nextDeal} onClose={() => setDlg(null)} onConfirm={m => {
-        consume(m.mc, Math.max(...sel.map(usdOf)));
-        setDeals(ds => [...ds, { dealId: nextDeal, mc: m.mc, model: m.model, type: 'FX1', legs: 2 }]);
-        setCounters(c => ({ ...c, deal: c.deal + 1 }));
-        release(sel.map(r => r.id), i => ({ dealId: nextDeal, mc: m.mc, dealType: i === 0 ? DEAL_D1 : DEAL_D2 }));
-        notify(`Deal ID ${nextDeal} shown on this page only; both legs marked released. ${NOT_SAVED}`, 'info');
-      }} />}
+      {dlg?.k === 'pair' && sel.length === 2 && auto.k === 'ready' && <SapPairDialog rows={sel} contracts={auto.m.contracts} blotterDate={blotterDate} trader={traderOf(sel.map(r => r.trader ?? ''))}
+        onClose={() => setDlg(null)} onDone={o => {
+          afterWrite();
+          setDlg({ k: 'done', tone: o.errors.length ? 'warn' : 'ok', title: o.errors.length ? 'Released with a problem' : 'Released to MO',
+            message: `${o.created ? `Deal ID ${o.dealId} was created and both legs` : `Both legs of Deal ID ${o.dealId}`} ${o.errors.length ? `were released, but: ${o.errors.join(' ')}` : 'were released to the Mid Office (status 03). They are now in TSF MO Deal Confirmation - FX & Options.'}` });
+        }} />}
       {dlg?.k === 'ss' && sel.length === 2 && <SsDialog rows={sel} onClose={() => setDlg(null)} onConfirm={noInv => {
         const id = `SS-${counters.ss}`;
         setCounters(c => ({ ...c, ss: c.ss + 1 }));
         release(sel.map(r => r.id), () => ({ dealId: id, dealType: DEAL_SS }));
         notify(`SS Deal ID ${id}${noInv ? ' (No-Invoice model)' : ''} shown on this page only; both legs marked released. ${NOT_SAVED}`, 'info');
       }} />}
-      {dlg?.k === 'auto' && <AutoDealDialog mcs={mcs} today={blotterDate} onClose={() => setDlg(null)} onCreate={autoCreate} />}
+      {dlg?.k === 'auto' && auto.k === 'ready' && <SapAutoDealDialog masters={auto.m} blotterDate={blotterDate} trader={traderOf()} onClose={() => setDlg(null)} onDone={(o, mc) => {
+        afterWrite();
+        const nums = o.booked.map(b => `${b.leg} ${b.transaction} (${b.companyCode})`).join(', ');
+        setDlg(o.booked.length === 2 && !o.error
+          ? { k: 'done', tone: 'ok', title: 'Deals Created in SAP', message: `${nums} were created for master contract ${mc.mcNumber}. Select both and use Release to MO to create the Deal ID.` }
+          : { k: 'done', tone: 'warn', title: o.booked.length ? 'Deals Partly Created' : 'Deals Not Created', message: `${nums ? `${nums}. ` : ''}${o.error}` });
+      }} />}
+      {dlg?.k === 'done' && <InfoDialog title={dlg.title} message={dlg.message} onClose={() => setDlg(null)} />}
       {dlg?.k === 'spot' && <SpotDialog dealId={nextDeal} base={spotBase()} onClose={() => setDlg(null)} onCreate={spotCreate} />}
       {dlg?.k === 'lock' && <ConfirmDialog title="Lock Blotter" message={`Do you want to Lock the Blotter for the day? ${NOT_SAVED} The day is not locked in SAP.`} confirmLabel="Lock" onClose={() => setDlg(null)} onConfirm={() => { setLocked(true); setDlg({ k: 'locked' }); }} />}
       {dlg?.k === 'locked' && <InfoDialog title="Blotter Locked (not saved)" message={`The blotter is locked on this page only. ${NOT_SAVED}`} onClose={() => setDlg(null)} />}

@@ -9,8 +9,12 @@ import { backendFor, moduleEntry, serial } from './module-service';
 import type { PlanOp } from '@/lib/planner';
 import type { Actor } from '../actor';
 
-export interface UploadLineResult { row: number; status: 'create' | 'update' | 'invalid'; problems: string[]; values: Row }
-export interface UploadCheck { lines: UploadLineResult[]; counts: { create: number; update: number; invalid: number } }
+/**
+ * A row's status: create / update, `duplicate` when its only problem is that it is already stored (or repeats an
+ * earlier row of the same file), `invalid` for any other problem. Neither duplicate nor invalid rows are posted.
+ */
+export interface UploadLineResult { row: number; status: 'create' | 'update' | 'invalid' | 'duplicate'; problems: string[]; values: Row }
+export interface UploadCheck { lines: UploadLineResult[]; counts: { create: number; update: number; invalid: number; duplicate: number } }
 
 /** Upload & preview (spec §6.3): every row checked and compared with SAP; post re-checks and sends one changeset. */
 export function uploadService(cfg: AppConfig, id: string) {
@@ -38,15 +42,19 @@ export function uploadService(cfg: AppConfig, id: string) {
     const first = new Map<string, number>();
     const lines = rows.map((row, i): UploadLineResult => {
       const k = keyOf(tab, row);
+      const duplicates: string[] = [];
       if (def.keys.every(f => row[f])) {
         const seen = first.get(k);
-        if (seen !== undefined) problems[i].push(`Same key as row ${seen + 1}.`); else first.set(k, i);
-        if (def.mode === 'create' && existing.has(k)) problems[i].push(`${def.keys.map(f => row[f]).join(' / ')} already exists.`);
+        if (seen !== undefined) duplicates.push(`Same key as row ${seen + 1}.`); else first.set(k, i);
+        if (def.mode === 'create' && existing.has(k)) duplicates.push(`${def.keys.map(f => row[f]).join(' / ')} already exists.`);
       }
-      return { row: i + 1, status: problems[i].length ? 'invalid' : existing.has(k) ? 'update' : 'create', problems: problems[i], values: row };
+      const all = [...problems[i], ...duplicates];
+      // Any other problem keeps the row Invalid; a row whose only problem is that it is already there is a Duplicate.
+      const status = problems[i].length ? 'invalid' : duplicates.length ? 'duplicate' : existing.has(k) ? 'update' : 'create';
+      return { row: i + 1, status, problems: all, values: row };
     });
     const n = (s: UploadLineResult['status']) => lines.filter(l => l.status === s).length;
-    return { check: { lines, counts: { create: n('create'), update: n('update'), invalid: n('invalid') } }, rows, existing };
+    return { check: { lines, counts: { create: n('create'), update: n('update'), invalid: n('invalid'), duplicate: n('duplicate') } }, rows, existing };
   }
 
   return {
@@ -54,9 +62,9 @@ export function uploadService(cfg: AppConfig, id: string) {
     post: (actor: Actor, input: Record<string, unknown>) => serial(`${id}|${backend.mode}`, async () => {
       // The preview is never trusted: every row is checked again against what is stored now.
       const { check, rows, existing } = await evaluate(actor, input.rows);
-      const bad = check.lines.filter(l => l.status === 'invalid');
+      const bad = check.lines.filter(l => l.status === 'invalid' || l.status === 'duplicate');
       if (def.strict && bad.length) throw new HttpError(422, `${bad.length} rows need attention; nothing was posted.`, bad.map(l => ({ row: l.row, message: l.problems.join(' · ') })));
-      const ops: PlanOp[] = check.lines.filter(l => l.status !== 'invalid').map((l): PlanOp => {
+      const ops: PlanOp[] = check.lines.filter(l => l.status === 'create' || l.status === 'update').map((l): PlanOp => {
         const row = rows[l.row - 1];
         const id = def.keys.map(k => row[k]).join(' / ');
         if (l.status === 'create') return { op: 'create', id, key: pick(row), data: row };
@@ -64,7 +72,7 @@ export function uploadService(cfg: AppConfig, id: string) {
       });
       if (!ops.length) throw new HttpError(422, 'No valid rows to post.');
       await backend.apply(actor, def.entity, ops);
-      return { created: check.counts.create, updated: check.counts.update, invalid: check.counts.invalid };
+      return { created: check.counts.create, updated: check.counts.update, invalid: check.counts.invalid, duplicate: check.counts.duplicate };
     })
   };
 }

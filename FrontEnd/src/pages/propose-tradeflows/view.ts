@@ -51,12 +51,54 @@ export function quickRules(ids: string[]): Rules {
   return rules;
 }
 
-/** Proposals in order: closest first; or by the preference (oldest trade flows, fewest trade flows) when one is set. */
-export function orderByRules<C extends { bls: string[]; diffPct: number; tfs: number }>(list: C[], rules: Rules, bls: Map<string, { tfDate?: string }>): C[] {
-  const age = (c: C) => c.bls.map(no => str(bls.get(no)?.tfDate)).sort()[0] ?? '';
-  return [...list].sort((a, b) =>
-    (rules.preferOlder ? age(a).localeCompare(age(b)) : 0)
-    || (rules.preferNewer ? age(b).localeCompare(age(a)) : 0)
-    || (rules.preferFewerTfs ? a.tfs - b.tfs : 0)
-    || Math.abs(a.diffPct) - Math.abs(b.diffPct) || a.bls.length - b.bls.length);
+/**
+ * Proposals in order. Those that complete the amount always come before partial fills; then the typed order preferences;
+ * then the fill options in the order they were chosen (fewest BLs, closest to the amount, oldest trade flows); then the
+ * closest. Among partial fills the fullest is best.
+ */
+type Way = 'fewest' | 'closest' | 'oldest' | 'contracts' | 'parties';
+export function orderByRules<C extends { bls: string[]; diffPct: number; tfs: number; cap?: unknown; fit?: 'under' | 'over'; kinds?: string[]; alt?: number }>(list: C[], rules: Rules,
+  bls: Map<string, { tfDate?: string; tfNo?: string; blDate?: string; contractRef?: string; notifyParty?: string }>,
+  fills: readonly Way[] = ['closest']): C[] {
+  // A proposal's age: its newest BL (all-old proposals first), then its oldest; BL date (else TF date), then TF number.
+  const ages = (c: C) => c.bls.map(no => `${str(bls.get(no)?.blDate) || str(bls.get(no)?.tfDate)}|${str(bls.get(no)?.tfNo).padStart(12, '0')}`).sort();
+  const age = (c: C) => { const a = ages(c); return `${a[a.length - 1] ?? ''}#${a[0] ?? ''}`; };
+  // A capped proposal fills the deal exactly.
+  const off = (c: C) => (c.cap ? 0 : Math.abs(c.diffPct));
+  const groups = (c: C, f: 'contractRef' | 'notifyParty') => new Set(c.bls.map(no => str(bls.get(no)?.[f]))).size;
+  const by: Record<Way, (a: C, b: C) => number> = {
+    fewest: (a, b) => (a.fit !== 'under' && b.fit !== 'under' ? a.bls.length - b.bls.length : 0),
+    closest: (a, b) => off(a) - off(b),
+    oldest: (a, b) => age(a).localeCompare(age(b)),
+    contracts: (a, b) => groups(a, 'contractRef') - groups(b, 'contractRef'),
+    parties: (a, b) => groups(a, 'notifyParty') - groups(b, 'notifyParty')
+  };
+  // With several ways chosen, their proposals take turns in the order the ways were chosen: each way's best, then each
+  // way's second, and so on (so every way shows, and the order never jumps when an option is turned on or off).
+  if (fills.length > 1 && !rules.preferOlder && !rules.preferNewer && !rules.preferFewerTfs && list.some(c => c.kinds?.length)) {
+    const per = fills.map(f => list.filter(c => c.kinds?.[0] === f).sort((a, b) => (a.alt ?? 0) - (b.alt ?? 0)));
+    const out: C[] = [];
+    for (let i = 0; per.some(p => p[i]); i++) for (const p of per) if (p[i]) out.push(p[i]);
+    return renumber([...out, ...list.filter(c => !out.includes(c))]);
+  }
+  return renumber([...list].sort((a, b) => {
+    let d = Number(a.fit === 'under') - Number(b.fit === 'under')
+      || (rules.preferOlder ? age(a).localeCompare(age(b)) : 0)
+      || (rules.preferNewer ? age(b).localeCompare(age(a)) : 0)
+      || (rules.preferFewerTfs ? a.tfs - b.tfs : 0);
+    for (const f of fills) d ||= by[f](a, b);
+    return d || off(a) - off(b) || a.bls.length - b.bls.length;
+  }));
+}
+
+/** The alternatives of each way numbered in the order shown (its first shown is its best, then alt. 2, 3, …). */
+function renumber<C extends { kinds?: string[]; alt?: number }>(list: C[]): C[] {
+  const seen = new Map<string, number>();
+  return list.map(c => {
+    const way = c.kinds?.[0];
+    if (!way) return c;
+    const n = (seen.get(way) ?? 0) + 1;
+    seen.set(way, n);
+    return { ...c, alt: n };
+  });
 }

@@ -8,7 +8,7 @@ import type { SessionInfo, WorkspaceInfo } from '@/lib/workspace-types';
 import { SERVER_MODULES, sourceOf } from '@/modules/server-registry';
 import { signedInUser } from './app-login';
 import { browserConfig } from './browser-platform';
-import { actingUser, buildConfig, currentAccount, sapConnection, sapSettings, testAndSave, type CheckResult, type SapAccount } from './sap-account';
+import { actingUser, buildConfig, checkAnyService, currentAccount, sapConnection, sapSettings, testAndSave, type CheckResult, type SapAccount } from './sap-account';
 
 /** The application reads or writes SAP: at least one module's data is inside SAP. */
 export const usesSap = (): boolean => Object.values(SERVER_MODULES).some(m => sourceOf(m) === 'sap');
@@ -41,6 +41,19 @@ export function workspaceInfo(): WorkspaceInfo {
     services: Object.values(sap.services).map(s => ({ key: s.key, title: s.title, binding: s.binding, path: s.path, url: s.base })),
     gallery: galleryOn(browserConfig())
   };
+}
+
+/** Tests the tab's account on the first configured service SAP has published, and remembers the answer. */
+export async function checkSapAccount(): Promise<CheckResult> {
+  if (!sapConnection()) throw new HttpError(400, NO_SAP_ACCOUNT);
+  try {
+    const result = await checkAnyService(sapSettings(), sapConnection()!);
+    remember(true, '');
+    return result;
+  } catch (error) {
+    remember(false, (error as Error).message);
+    throw error;
+  }
 }
 
 /** Tests one SAP service with the tab's account (a paused account is retried once) and remembers the answer. */

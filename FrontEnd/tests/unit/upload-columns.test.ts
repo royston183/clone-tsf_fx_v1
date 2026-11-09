@@ -15,10 +15,10 @@ describe('matchColumns', () => {
     const out = matchColumns(defs, [
       { line: 1, cells: [] },
       { line: 2, cells: ['gl account', 'COSTCENTER', 'Period *', 'Period Year', 'Amount', 'Extra'] },
-      { line: 3, cells: ['400100', 'CC10', 'April', '2026', '1,25,000.5', 'ignored'] },
+      { line: 3, cells: ['400100', 'CC10', 'April', '2026', '125,000.5', 'ignored'] },
       { line: 4, cells: ['', '', '', '', '', 'only extra'] }
     ]);
-    expect(out.rows).toEqual([{ gl: '400100', costCenter: 'CC10', month: 'April', year: '2026', amount: '1,25,000.5', note: '' }]);
+    expect(out.rows).toEqual([{ gl: '400100', costCenter: 'CC10', month: 'April', year: '2026', amount: '125,000.5', note: '' }]);
     expect(out.lines).toEqual([3]);
     expect(out.ignored).toEqual(['Extra']);
   });
@@ -30,7 +30,7 @@ describe('matchColumns', () => {
 
 describe('toFieldValues and templateHeadings', () => {
   it('converts file text the way a paste from Excel is read, keeping unknown text for the check', () => {
-    expect(toFieldValues(defs, { gl: '400100', costCenter: 'cc10', month: 'April', year: '2026', amount: '1,25,000.5', note: ' x ' }, {}))
+    expect(toFieldValues(defs, { gl: '400100', costCenter: 'cc10', month: 'April', year: '2026', amount: '125,000.5', note: ' x ' }, {}))
       .toEqual({ gl: '400100', costCenter: 'CC10', month: '04', year: '2026', amount: '125000.50', note: 'x' });
     expect(toFieldValues(defs, { gl: '', costCenter: '', month: 'Smarch', year: '', amount: 'abc', note: '' }, {}).month).toBe('Smarch');
   });

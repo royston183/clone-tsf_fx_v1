@@ -10,7 +10,7 @@ const fields = [
 describe('totalsByCurrency', () => {
   it('sums per currency exactly and never across currencies', () => {
     const rows = [
-      { amount: '0.10', currency: 'INR' }, { amount: '0.20', currency: 'inr' }, { amount: '1,00,000.05', currency: 'USD' },
+      { amount: '0.10', currency: 'INR' }, { amount: '0.20', currency: 'inr' }, { amount: '100,000.05', currency: 'USD' },
       { amount: '-50.00', currency: 'USD' }, { amount: 'abc', currency: 'INR' }, { amount: '7', currency: '' }, { amount: '', currency: 'EUR' }
     ];
     expect(totalsByCurrency(rows, fields, ['amount'])).toEqual([

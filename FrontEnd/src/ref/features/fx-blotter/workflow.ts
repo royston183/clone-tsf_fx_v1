@@ -72,7 +72,9 @@ let traderMaster: Promise<FxRow[]> | undefined
  * trader code is only a dropdown key, so the code is found by the trader's name, as the Deal ID does.
  * Nothing is written when the trader is not in the master or the master cannot be read: the save goes on without it.
  */
-async function traderField(blotterTrader: string | undefined): Promise<AppStrFields> {
+async function traderField(blotterTrader: string | undefined, sapCode?: string): Promise<AppStrFields> {
+  // A caller that already knows the SAP trader code (the TSF_FX blotter's own trader list) passes it as it is.
+  if (sapCode?.trim()) return { Ztrcode: sapCode.trim().slice(0, 3) }
   const name = TRADERS.find((t) => t.code === blotterTrader)?.name ?? ''
   if (!name) return {}
   traderMaster ??= fxList('trmTrader', {}).catch((error: unknown) => {
@@ -95,13 +97,13 @@ async function traderField(blotterTrader: string | undefined): Promise<AppStrFie
  * a failed application-data save does not — the result carries `appDataPending` so the row can be
  * shown as Created and the save retried without booking the deal again.
  */
-export async function createBlotterDeal(r: BlotterRow, blotterDate: Date, options?: { initialStatus?: string; appProperties?: ReadonlySet<string> }): Promise<Booked> {
+export async function createBlotterDeal(r: BlotterRow, blotterDate: Date, options?: { initialStatus?: string; appProperties?: ReadonlySet<string>; traderCode?: string }): Promise<Booked> {
   const initialStatus = options?.initialStatus ?? FX_TXN_STATUS.FO_CREATE
   const payload = toCreatePayload(r)
   const created = await createDeal(r)
   const fields: AppStrFields = {
     ...fieldsOfRow(r),
-    ...(await traderField(r.trader)),
+    ...(await traderField(r.trader, options?.traderCode)),
     ...((await extendedAppFields(r, `${payload['LeadCurrency']}/${payload['FollowCurrency']}`)) as AppStrFields),
     ZtsfBcurr: String(payload['BuyCurrency'] ?? ''),
     ZtsfScurr: String(payload['SellCurrency'] ?? ''),
@@ -158,11 +160,12 @@ export async function releaseBlotterRows(
   rows: readonly BlotterRow[],
   link: DealLink | undefined,
   blotterDate: Date,
+  traderCode?: string,
 ): Promise<SaveOutcome[]> {
   const outs: SaveOutcome[] = []
   for (const row of rows) {
     if (!isInSap(row)) continue // a demo row has no SAP transaction to attach data to
-    const fields: AppStrFields = { ...fieldsOfRow(row), ...(await traderField(row.trader)), ...dealFields(link), BlotterDate: toISO(blotterDate) }
+    const fields: AppStrFields = { ...fieldsOfRow(row), ...(await traderField(row.trader, traderCode)), ...dealFields(link), BlotterDate: toISO(blotterDate) }
     const saved = await persist(
       { companyCode: row.companyCode ?? '', transaction: row.transactionNumber },
       fields,

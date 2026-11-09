@@ -16,19 +16,19 @@ describe('shared table column plan', () => {
     ])).toEqual([{ kind: 'amount', align: 'right', width: 175 }, { kind: 'date', align: 'left', width: undefined }, { kind: 'flag', align: undefined, width: undefined }]);
     expect(fitTableColumns(columns, 900).map(c => c.align)).toEqual(['center', 'left', 'left', 'left', 'right']);
   });
-  it('gives spare space to descriptions first, while dates, codes and numbers stay compact', () => {
-    const plan = fitTableColumns(columns, 752);
-    expect(plan.map(c => c.width)).toEqual([40, 84, 360, 120, 148]);
-  });
-  it('spans the whole container once descriptions are full width, sharing the rest by width (flags and pinned widths stay)', () => {
+  it('keeps every column at its content width; a last number column is not pushed to the far edge', () => {
     const plan = fitTableColumns(columns, 1600);
+    expect(plan.map(c => c.width)).toEqual([40, 84, 320, 120, 148]);
+  });
+  it('lets a last left-aligned column take the rest, so the rows still span the panel (flags and pinned widths stay)', () => {
+    const ending = [...columns.slice(0, 4), { kind: 'text' as const, contentWidth: 200, headerWidth: 90 }];
+    const plan = fitTableColumns(ending, 1600);
     expect(plan.reduce((sum, c) => sum + c.width, 0)).toBe(1600);
-    expect(plan[0].width).toBe(40);
-    expect(plan.slice(1).every((c, i) => c.width > [84, 360, 120, 148][i])).toBe(true);
+    expect(plan.slice(0, 4).map(c => c.width)).toEqual([40, 84, 320, 120]);
     const pinned = fitTableColumns([{ kind: 'code', width: 90, contentWidth: 80, headerWidth: 60 }, { kind: 'date', contentWidth: 120, headerWidth: 120 }], 1000);
     expect(pinned.map(c => c.width)).toEqual([90, 910]);
     // A fractional container never yields a table wider than it (no horizontal scrollbar).
-    expect(fitTableColumns(columns, 1599.6).reduce((sum, c) => sum + c.width, 0)).toBe(1599);
+    expect(fitTableColumns(ending, 1599.6).reduce((sum, c) => sum + c.width, 0)).toBe(1599);
   });
   it('retains the full single-line data width and scrolls instead of wrapping descriptions', () => {
     const fit = fitTableColumns(columns, 650);

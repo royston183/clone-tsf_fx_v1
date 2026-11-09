@@ -18,8 +18,11 @@ const money = z.string().regex(/^-?\d+(\.\d+)?$/);
 /** What the page may send. Unknown fields are dropped here, so they can never reach Anthropic. */
 const Input = z.object({
   deal: z.object({ dealId: z.string().max(20), tsfCommodity: z.string().max(10), dealUsd: money, remainingUsd: money }),
-  candidates: z.array(z.object({ bls: z.array(z.string().max(10)).min(1).max(8), totalUsd: money, diffPct: z.number(), tfs: z.number().int() })).max(20),
-  bls: z.array(z.object({ blNo: z.string().max(10), tfNo: z.string().max(10), tfDate: z.string().max(10), quantity: z.string().max(20), usdValue: z.string().max(20) })).max(160),
+  candidates: z.array(z.object({
+    bls: z.array(z.string().max(10)).min(1).max(600), totalUsd: money, diffPct: z.number(), tfs: z.number().int(),
+    fit: z.enum(['under', 'over']).optional(), cap: z.object({ blNo: z.string().max(10), usd: money }).optional()
+  })).max(20),
+  bls: z.array(z.object({ blNo: z.string().max(10), tfNo: z.string().max(10), tfDate: z.string().max(10), quantity: z.string().max(20), usdValue: z.string().max(20) })).max(1000),
   preferences: z.string().max(500)
 });
 /** What Claude must answer (structured output). Rule kinds stay free text, so unknown ones can be reported. */
@@ -91,7 +94,9 @@ export function defaultAiDeps(env: Record<string, string | undefined> = process.
 
 const SYSTEM = [
   'You help a commodity trade-finance team match bills of lading (BLs) to a Deal ID.',
-  'The application has already calculated every candidate combination; their totals are exact and within the allowed tolerance.',
+  'The application has already calculated every candidate combination; their totals are exact and within the allowed tolerance,',
+  'unless a combination has a "fit": then nothing came within the tolerance and it is one of the closest. fit "over" covers the amount',
+  'and its "cap" BL is assigned only the USD still left, so the deal ends filled; fit "under" fills only part of the amount.',
   'Your job: (1) rank the combinations from best to worst for the person, (2) give each ranked combination one short, concrete reason',
   '(for example how close it is, how many BLs or trade flows it uses, how old the trade flows are), and (3) translate the person\'s',
   `preferences into rules of these kinds only: ${RULE_KINDS.join(', ')}.`,
@@ -113,7 +118,7 @@ function toRules(raw: Output['rules']): { rules: Rules; rejected: string[] } {
     const kind = r.kind as (typeof RULE_KINDS)[number];
     if (!RULE_KINDS.includes(kind)) { rejected.push(r.kind); continue; }
     if (kind === 'maxBls' || kind === 'minBls') {
-      if (r.number !== null && Number.isInteger(r.number) && r.number >= 1 && r.number <= 8) rules[kind] = r.number; else rejected.push(`${kind} ${String(r.number)}`);
+      if (r.number !== null && Number.isInteger(r.number) && r.number >= 1 && r.number <= 600) rules[kind] = r.number; else rejected.push(`${kind} ${String(r.number)}`);
     } else if (kind === 'tolerancePct') {
       if (r.number !== null && r.number > 0 && r.number <= 1) rules[kind] = r.number; else rejected.push(`a tolerance wider than 1% (${String(r.number)}%)`);
     } else if (kind === 'preferOlder' || kind === 'preferNewer' || kind === 'preferFewerTfs') {
@@ -161,4 +166,158 @@ export function aiProposals(req: Request, cfg: AppConfig, deps: AiDeps): Promise
       notUnderstood: [...out.data.notUnderstood.map(n => n.slice(0, 200)), ...rejected, ...parsedCriteria.rejected], model: AI_MODEL
     });
   });
+}
+
+// POST /api/ai/ask: a question about the proposals shown for a Deal ID (why a BL, which trade flows, what would change
+// with …). Claude answers in a few sentences from the same fields as the ranking, and may turn the question into rules.
+export const ASK_PATH = '/api/ai/ask';
+const AskInput = Input.omit({ preferences: true }).extend({
+  question: z.string().trim().min(1).max(500),
+  history: z.array(z.object({ question: z.string().max(500), answer: z.string().max(2000) })).max(6)
+});
+const AskOutput = z.object({
+  answer: z.string(),
+  rules: z.array(z.object({ kind: z.string(), values: z.array(z.string()), number: z.number().nullable() })),
+  notUnderstood: z.array(z.string())
+});
+const ASK_SYSTEM = [
+  'You help a commodity trade-finance team decide which bills of lading (BLs) to assign to a Deal ID.',
+  'You get the deal, the proposals the application calculated (each with its BLs, exact USD total and difference),',
+  'the BLs\' numbers, trade flows, dates, quantities and USD values, and the person\'s question.',
+  'Answer in at most four short sentences, in plain language, using only these figures; refer to proposals as "Proposal 1", "Proposal 2" in the order given.',
+  'A proposal with fit "over" covers the amount and its cap BL gives only the USD still left; fit "under" fills part of it.',
+  `If the question asks to change the proposals, also return rules of these kinds only: ${RULE_KINDS.join(', ')}`,
+  '(maxBls/minBls/tolerancePct use "number"; includeTf/excludeTf/includeBl/excludeBl use "values"; preferOlder/preferNewer/preferFewerTfs need neither);',
+  'otherwise return no rules. Put a requested change you cannot express as such a rule in notUnderstood.',
+  'Never invent amounts, BLs or trade flows, and never claim to have assigned anything: the person assigns.'
+].join(' ');
+
+/** Handles POST /api/ai/ask. */
+export function aiAsk(req: Request, cfg: AppConfig, deps: AiDeps): Promise<Response> {
+  return handle(async () => {
+    assertTrustedWrite(req, cfg);
+    const parsed = AskInput.safeParse(await readJson(req, 512 * 1024));
+    if (!parsed.success) throw new HttpError(400, 'The question is not valid.', parsed.error.issues.slice(0, 5).map(i => ({ message: `${i.path.join('.')}: ${i.message}` })));
+    if (!deps.client) throw new HttpError(503, 'AI is not configured.');
+    const input = parsed.data;
+    const response = await deps.client.messages.parse({
+      model: AI_MODEL,
+      max_tokens: 16000,
+      output_config: { effort: 'medium', format: zodOutputFormat(AskOutput) },
+      system: ASK_SYSTEM,
+      messages: [{ role: 'user', content: JSON.stringify({
+        deal: input.deal,
+        proposals: input.candidates.map((c, i) => ({ proposal: i + 1, ...c })),
+        bls: input.bls,
+        earlier: input.history,
+        question: input.question
+      }) }]
+    });
+    const out = AskOutput.safeParse(response.parsed_output);
+    if (response.stop_reason === 'refusal' || !out.success) throw new HttpError(502, 'The AI gave no usable answer.');
+    const { rules, rejected } = toRules(out.data.rules);
+    return json({ answer: out.data.answer.trim().slice(0, 1200), rules, notUnderstood: [...out.data.notUnderstood.map(n => n.slice(0, 200)), ...rejected], model: AI_MODEL });
+  });
+}
+
+// POST /api/ai/interpret: typed conditions the app's own reader could not place, turned into the same structured criteria
+// (src/lib/propose/query.ts Criteria). Claude only reads the text; everything it returns is checked here, and the
+// proposals are still calculated by the app on real SAP rows. Sent: the text, the chosen Deal ID with its TSF FX
+// commodity, the commodity master (code, description, TSF FX commodity) and today's date. Nothing else.
+export const INTERPRET_PATH = '/api/ai/interpret';
+const InterpretInput = z.object({
+  text: z.string().trim().min(1).max(500),
+  deal: z.object({ dealId: z.string().max(20), tsfCommodity: z.string().max(10) }).nullable(),
+  commodities: z.array(z.object({ commodity: z.string().max(20), description: z.string().max(80), tsfCommodity: z.string().max(10) })).max(300),
+  today: z.string().regex(/^\d{4}-\d{2}-\d{2}$/)
+});
+const CmpOut = z.object({ op: z.enum(['>', '>=', '<', '<=', '=', 'between']), value: z.number(), to: z.number().nullable() }).nullable();
+const RangeOut = z.object({ from: z.string().nullable(), to: z.string().nullable(), fromStrict: z.boolean(), toStrict: z.boolean() }).nullable();
+const InterpretOutput = z.object({
+  scope: z.enum(['selected', 'all']),
+  dealAmount: CmpOut, dealRemaining: CmpOut, dealIds: z.array(z.string()),
+  blAmount: CmpOut, blQuantity: CmpOut, tfDate: RangeOut,
+  onlyBls: z.array(z.string()), includeBls: z.array(z.string()), excludeBls: z.array(z.string()), onlyTfs: z.array(z.string()), excludeTfs: z.array(z.string()),
+  commodities: z.array(z.string()), maxBls: z.number().nullable(), minBls: z.number().nullable(),
+  olderFirst: z.boolean(), newerFirst: z.boolean(), fewerTradeFlows: z.boolean(),
+  notUnderstood: z.array(z.string())
+});
+export type InterpretReading = z.infer<typeof InterpretOutput>;
+const INTERPRET_SYSTEM = [
+  "You turn a commodity trade-finance user's typed conditions into filters for proposing bills of lading (BLs) for a Deal ID.",
+  'Deal-level conditions (deal amount, amount left on the deal, Deal IDs) are never BL-level conditions, and the reverse;',
+  'an amount whose subject is not stated goes to notUnderstood. Amounts are USD numbers: K = 1,000, L or lakh = 100,000,',
+  'M = 1,000,000, Cr or crore = 10,000,000. "greater than 50K" is op ">" 50000; "50K+" is op ">=" 50000.',
+  'BL numbers start with 40, trade flow numbers with 30, Deal IDs with 70 (10 digits). scope is "all" only when the user',
+  'explicitly asks about deals in general (e.g. "show deals ..."); otherwise "selected". Dates are YYYY-MM-DD; tfDate is the',
+  'trade flow date. Commodities only from the given master (use its commodity code). Use null or [] for what is not asked.',
+  "Never invent numbers, BLs, trade flows or deals. Put anything you cannot express in notUnderstood, in the user's words."
+].join(' ');
+
+const ID10 = /^\d{10}$/;
+const ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Handles POST /api/ai/interpret. */
+export function aiInterpret(req: Request, cfg: AppConfig, deps: AiDeps): Promise<Response> {
+  return handle(async () => {
+    assertTrustedWrite(req, cfg);
+    const parsed = InterpretInput.safeParse(await readJson(req, 256 * 1024));
+    if (!parsed.success) throw new HttpError(400, 'The conditions request is not valid.', parsed.error.issues.slice(0, 5).map(i => ({ message: `${i.path.join('.')}: ${i.message}` })));
+    if (!deps.client) throw new HttpError(503, 'AI is not configured.');
+    const input = parsed.data;
+    const response = await deps.client.messages.parse({
+      model: AI_MODEL,
+      max_tokens: 16000,
+      output_config: { effort: 'medium', format: zodOutputFormat(InterpretOutput) },
+      system: INTERPRET_SYSTEM,
+      messages: [{ role: 'user', content: JSON.stringify(input) }]
+    });
+    const out = InterpretOutput.safeParse(response.parsed_output);
+    if (response.stop_reason === 'refusal' || !out.success) throw new HttpError(502, 'The AI gave no usable reading of the conditions.');
+    return json({ ...criteriaOf(out.data, input.commodities.map(c => c.commodity)), model: AI_MODEL });
+  });
+}
+
+/** The AI's reading as the app's Criteria, keeping only well-formed values; the rest is reported as not applied. */
+export function criteriaOf(o: InterpretReading, known: string[]): { criteria: Record<string, unknown>; notUnderstood: string[] } {
+  const rejected: string[] = [];
+  const ids = (list: string[], prefix: string, what: string) => {
+    const ok = list.filter(x => ID10.test(x) && x.startsWith(prefix));
+    for (const x of list) if (!ok.includes(x)) rejected.push(`${what} ${x}`);
+    return ok;
+  };
+  const cmp = (c: InterpretReading['dealAmount'], what: string) => {
+    if (!c) return undefined;
+    if (!(c.value >= 0) || (c.op === 'between' && !(c.to !== null && c.to >= c.value))) { rejected.push(what); return undefined; }
+    return c.op === 'between' ? { op: c.op, value: c.value, to: c.to } : { op: c.op, value: c.value };
+  };
+  const range = (r: InterpretReading['tfDate']) => {
+    if (!r) return undefined;
+    const from = r.from && ISO.test(r.from) ? r.from : undefined, to = r.to && ISO.test(r.to) ? r.to : undefined;
+    if (!from && !to) { rejected.push('a trade-flow date'); return undefined; }
+    return { ...(from ? { from, fromStrict: r.fromStrict } : {}), ...(to ? { to, toStrict: r.toStrict } : {}) };
+  };
+  const count = (n: number | null, what: string) => {
+    if (n === null) return undefined;
+    if (Number.isInteger(n) && n >= 1 && n <= 600) return n;
+    rejected.push(what);
+    return undefined;
+  };
+  const commodity = o.commodities.filter(c => known.includes(c));
+  for (const c of o.commodities) if (!commodity.includes(c)) rejected.push(`commodity ${c}`);
+  const clean = (x: Record<string, unknown>) => Object.fromEntries(Object.entries(x).filter(([, v]) => v !== undefined && !(Array.isArray(v) && !v.length)));
+  const order = clean({ older: o.olderFirst || undefined, newer: o.newerFirst || undefined, fewerTfs: o.fewerTradeFlows || undefined });
+  const criteria = {
+    scope: o.scope,
+    deal: clean({ amount: cmp(o.dealAmount, 'a deal amount'), remaining: cmp(o.dealRemaining, 'an amount left'), dealIds: ids(o.dealIds, '7', 'Deal ID') }),
+    bl: clean({
+      amount: cmp(o.blAmount, 'a BL value'), quantity: cmp(o.blQuantity, 'a BL quantity'), tfDate: range(o.tfDate),
+      only: ids(o.onlyBls, '4', 'BL'), include: ids(o.includeBls, '4', 'BL'), exclude: ids(o.excludeBls, '4', 'BL'),
+      onlyTf: ids(o.onlyTfs, '3', 'trade flow'), excludeTf: ids(o.excludeTfs, '3', 'trade flow')
+    }),
+    ...(commodity.length ? { commodity } : {}),
+    ...clean({ maxBls: count(o.maxBls, 'a number of BLs'), minBls: count(o.minBls, 'a number of BLs') }),
+    ...(Object.keys(order).length ? { order } : {})
+  };
+  return { criteria, notUnderstood: [...o.notUnderstood.map(n => n.slice(0, 200)), ...rejected.map(r => `${r} (not valid)`)] };
 }

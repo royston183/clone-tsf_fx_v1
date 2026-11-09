@@ -30,7 +30,7 @@ describe('safeFrom', () => {
 
 describe('parseDrillParams', () => {
   it('cleans and checks each value by its field type', () => {
-    expect(parse('f.company=1000&f.month=01&f.year=2026&f.product=51A&f.amount=1,25,000&f.name=O%27Brien').values)
+    expect(parse('f.company=1000&f.month=01&f.year=2026&f.product=51A&f.amount=125,000&f.name=O%27Brien').values)
       .toEqual({ company: '1000', month: '01', year: '2026', product: '51A', amount: '125000.00', name: "O'Brien" });
   });
   it('drops unknown fields, invalid values, duplicates and over-long values', () => {

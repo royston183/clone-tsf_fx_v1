@@ -1,40 +1,53 @@
-// One proposal in detail: how it changes the deal, each BL with its trade flow, quantity, USD value and share, and the
-// AI's reasoning. Accept writes the Deal ID on its BLs.
-import { CheckCircle2, Sparkles } from 'lucide-react';
+// One proposal in detail: how it changes the deal, each BL with its reference, BL date, quantity, USD value and share,
+// and the AI's reasoning. Untick BLs to propose again without them; Assign writes the Deal ID on the BLs.
+import { useState } from 'react';
+import { CheckCircle2, RefreshCw, Sparkles } from 'lucide-react';
 import { DataTable } from '@/components/table/DataTable';
 import { Modal } from '@/components/ui/Modal';
-import { formatAmount, formatDate } from '@/lib/fields/parse';
+import { formatAmount, formatCompact, formatDate } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
+import { assignedTotal } from '@/lib/propose/match';
 import { fmtQty } from '@/pages/manage-tradeflows/logic';
 import type { DealRow } from './logic';
 import type { Proposal } from './ProposeTradeflowsPage';
 import { contributions, matchPct } from './view';
 
 const money = (v: number) => formatAmount(v.toFixed(2));
+const WAY_NAME: Record<string, string> = { fewest: 'Fewest BLs', closest: 'Closest amount', oldest: 'Oldest BLs', contracts: 'Fewest contracts', parties: 'Fewest notify parties' };
 
-export function ProposalModal({ proposal, rank, deal, bls, busy, onClose, onAccept }: {
-  proposal: Proposal; rank: number; deal: DealRow; bls: Map<string, Row>; busy: boolean; onClose: () => void; onAccept: () => void;
+export function ProposalModal({ proposal, rank, deal, aimUsd, bls, busy, onClose, onAccept, onDrop }: {
+  proposal: Proposal; rank: number; deal: DealRow; aimUsd: string; bls: Map<string, Row>; busy: boolean;
+  onClose: () => void; onAccept: () => void; onDrop: (blNos: string[]) => void;
 }) {
   const { combo, reason } = proposal;
+  const [dropped, setDropped] = useState<Set<string>>(() => new Set());
   const rows = combo.bls.map(no => bls.get(no) ?? { blNo: no });
   const parts = contributions(rows.map(b => ({ blNo: str(b.blNo), usdValue: str(b.usdValue) })));
-  const before = Number(deal.remainingUsd), total = Number(combo.totalUsd), after = before - total;
+  const before = Number(deal.remainingUsd), total = Number(assignedTotal(combo, aimUsd)), after = before - total;
+  const quantity = rows.reduce((s, b) => s + Math.round(Number(str(b.quantity) || 0) * 1000), 0) / 1000;
+  const unit = str(rows[0]?.unit) || 'LBS';
+  const ways = combo.kinds?.map(k => WAY_NAME[k]).filter(Boolean).join(' · ');
+  const label = `${combo.fit === 'over' ? 'Covers the deal (outside 1%)' : combo.fit === 'under' ? 'Partial fill (outside 1%)' : rank === 1 ? 'Best match' : `Option ${rank}`}${ways ? ` · ${ways}` : ''}`;
+  const toggle = (no: string) => setDropped(d => { const n = new Set(d); if (n.has(no)) n.delete(no); else n.add(no); return n; });
   return (
-    <Modal title={`Proposal ${rank} for ${deal.dealId}`} eyebrow={rank === 1 ? 'Best match' : `Option ${rank}`}
-      subtitle={`${combo.bls.length} BL${combo.bls.length > 1 ? 's' : ''} from ${combo.tfs} trade flow${combo.tfs > 1 ? 's' : ''} · ${deal.tsfCommodity}${deal.tsfCommodityText ? ` ${deal.tsfCommodityText}` : ''}`}
+    <Modal title={`Proposal ${rank} for ${deal.dealId}`} eyebrow={label}
+      subtitle={`${combo.bls.length} BL${combo.bls.length > 1 ? 's' : ''} from ${combo.tfs} trade flow${combo.tfs > 1 ? 's' : ''} · ${fmtQty(quantity.toFixed(3))} ${unit} · ${deal.tsfCommodity}${deal.tsfCommodityText ? ` ${deal.tsfCommodityText}` : ''}`}
       size="wide" busy={busy} onClose={onClose}
       footer={<>
         <button className="button secondary" disabled={busy} onClick={onClose}>Close</button>
-        <button className="button" disabled={busy} onClick={onAccept}><CheckCircle2 size={15} />{busy ? 'Assigning…' : `Assign ${combo.bls.length} BL${combo.bls.length > 1 ? 's' : ''} to ${deal.dealId}`}</button>
+        {dropped.size > 0 && <button className="button secondary" disabled={busy} onClick={() => onDrop([...dropped])}><RefreshCw size={14} />Re-propose without {dropped.size} BL{dropped.size > 1 ? 's' : ''}</button>}
+        <button className="button" disabled={busy || dropped.size > 0} title={dropped.size ? 'Tick every BL to assign this proposal, or re-propose without the unticked ones' : undefined} onClick={onAccept}>
+          <CheckCircle2 size={15} />{busy ? 'Assigning…' : `Assign ${combo.bls.length} BL${combo.bls.length > 1 ? 's' : ''} to ${deal.dealId}`}</button>
       </>}>
       <div className="tsf-proposal">
         <section className="tsf-proposal__section">
           <h4>Effect on the deal</h4>
           <dl className="tsf-proposal__figures">
-            <div><dt>Remaining now</dt><dd>{money(before)} <small>USD</small></dd></div>
-            <div className="plus"><dt>This proposal</dt><dd>{money(total)} <small>USD</small></dd></div>
-            <div className={Math.abs(after) <= Math.abs(before) * 0.01 ? 'good' : ''}><dt>Remaining after</dt><dd>{money(after)} <small>USD</small></dd></div>
+            <div><dt>Remaining now</dt><dd>{money(before)} <small>USD</small><span className="num-short">{formatCompact(before)}</span></dd></div>
+            <div className="plus"><dt>This proposal</dt><dd>{money(total)} <small>USD</small><span className="num-short">{formatCompact(total)}</span></dd></div>
+            <div className={Math.abs(after) <= Math.abs(before) * 0.01 ? 'good' : ''}><dt>Remaining after</dt><dd>{money(after)} <small>USD</small><span className="num-short">{formatCompact(after)}</span></dd></div>
+            <div><dt>Quantity</dt><dd>{fmtQty(quantity.toFixed(3))} <small>{unit}</small><span className="num-short">{formatCompact(quantity)}</span></dd></div>
             <div><dt>Match</dt><dd>{matchPct(combo.diffPct)} <small>{combo.diffPct > 0 ? '+' : ''}{combo.diffPct.toFixed(2)}%</small></dd></div>
           </dl>
           <div className="tsf-proposal__stack" aria-hidden="true">{parts.map((s, k) => <span key={s.blNo} className={`c${k % 6}`} style={{ width: `${Math.max(s.pct, 2)}%` }} title={`${s.blNo}: ${s.pct}%`} />)}</div>
@@ -46,24 +59,31 @@ export function ProposalModal({ proposal, rank, deal, bls, busy, onClose, onAcce
           </section>
         )}
         <section className="tsf-proposal__section">
-          <h4>BLs in this proposal</h4>
+          <h4>BLs in this proposal <small className="tsf-proposal__hint">Untick a BL to propose again without it.</small></h4>
           <div className="tsf-proposal__table">
           <DataTable nativeLayout nativeExport aria-label="BLs in the proposal">
-            <thead><tr><th>BL No</th><th>Trade flow</th><th>TF date</th><th className="num">Quantity</th><th className="num">Value (USD) · share</th></tr></thead>
-            <tbody>{rows.map((b, k) => (
-              <tr key={str(b.blNo)}>
-                <td className="mono"><span className={`tsf-proposal__dot c${k % 6}`} aria-hidden="true" />{str(b.blNo)}</td>
-                <td className="mono">{str(b.tfNo)}</td>
-                <td>{formatDate(str(b.tfDate))}</td>
-                <td className="num">{fmtQty(str(b.quantity))}</td>
-                <td className="num">{formatAmount(str(b.usdValue))} <small className="tsf-proposal__share">{parts[k]?.pct ?? 0}%</small></td>
-              </tr>
-            ))}</tbody>
-            <tfoot><tr><th colSpan={4}>Total</th><th className="num">{formatAmount(combo.totalUsd)}</th></tr></tfoot>
+            <thead><tr><th>Keep</th><th>BL No</th><th>BL reference</th><th>BL date</th><th>Trade flow</th><th className="num">Quantity</th><th className="num">Value (USD) · share</th></tr></thead>
+            <tbody>{rows.map((b, k) => {
+              const no = str(b.blNo), off = dropped.has(no);
+              return (
+                <tr key={no} className={off ? 'tsf-proposal__off' : ''}>
+                  <td><input type="checkbox" checked={!off} onChange={() => toggle(no)} aria-label={`Keep BL ${no}`} /></td>
+                  <td className="mono"><span className={`tsf-proposal__dot c${k % 6}`} aria-hidden="true" />{no}</td>
+                  <td className="mono">{str(b.blNumber) || '—'}</td>
+                  <td>{str(b.blDate) ? formatDate(str(b.blDate)) : '—'}</td>
+                  <td className="mono">{str(b.tfNo)}</td>
+                  <td className="num">{fmtQty(str(b.quantity))}</td>
+                  <td className="num">{combo.cap?.blNo === no
+                    ? <>{formatAmount(combo.cap.usd)} <small className="tsf-proposal__share">of {formatAmount(str(b.usdValue))}</small></>
+                    : <>{formatAmount(str(b.usdValue))} <small className="tsf-proposal__share">{parts[k]?.pct ?? 0}%</small></>}</td>
+                </tr>
+              );
+            })}</tbody>
+            <tfoot><tr><th colSpan={5}>Total · {rows.length} BLs</th><th className="num">{fmtQty(quantity.toFixed(3))} {unit}</th><th className="num">{formatAmount(assignedTotal(combo, aimUsd))}</th></tr></tfoot>
           </DataTable>
           </div>
         </section>
-        <p className="tsf-proposal__note">Assigning writes Deal ID {deal.dealId} on these BLs and stores each BL's USD value with it. You can unassign a BL later on this screen.</p>
+        <p className="tsf-proposal__note">Assigning writes Deal ID {deal.dealId} on these BLs and stores each BL's USD value with it{combo.cap ? `; BL ${combo.cap.blNo} stores only the ${formatAmount(combo.cap.usd)} USD the deal still needed` : ''}. Check it before assigning: an assignment is final.</p>
       </div>
     </Modal>
   );

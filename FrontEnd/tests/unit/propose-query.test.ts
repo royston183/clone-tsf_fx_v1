@@ -1,96 +1,100 @@
+// Propose Tradeflows: typed conditions read into criteria (deal vs BL, strict amounts, units, BL include / exclude,
+// commodities, dates) and applied to real rows only.
 import { describe, expect, it } from 'vitest';
-import { criteriaChips, dealMatches, filterBls, NO_MATCH, type Criterion } from '@/lib/propose/query';
-import { checkAssignment, dealRows, proposalsFor } from '@/pages/propose-tradeflows/logic';
-import { sampleProposeData } from '@/pages/propose-tradeflows/data';
-import { commodityPrice } from '@/modules/commodity-price/definition';
-import { visibleRows } from '@/lib/grid/grid';
+import { blUnavailable, dealMismatch, filterBls, readConditions, readDate } from '@/lib/propose/query';
 
-const gt = (value: string, scope: 'deal' | 'bl' = 'deal', field = 'amount'): Criterion => ({ scope, field, op: 'gt', value });
+const master = [
+  { commodity: 'C112', description: 'SOYOIL', tsfCommodity: 'C112' },
+  { commodity: 'C110', description: 'RUBBER', tsfCommodity: 'C110' },
+  { commodity: 'ALMOND', description: 'Almonds', tsfCommodity: 'C001' }
+];
+const read = (t: string) => readConditions(t, master);
 
-describe('Ask AI criteria on the real rows', async () => {
-  const data = sampleProposeData();
-  const [deals, bls, commodities, rates] = await Promise.all([data.deals(), data.bls(), data.commodities(), data.rates()]);
-  const rows = dealRows(deals, bls, rates);
-
-  it('"greater than 50K" is a strict comparison with 50000', () => {
-    const d = (usd: string) => ({ dealId: 'D', usd, remainingUsd: usd, tsfCommodity: 'C130', tsfCommodityText: '' });
-    expect(dealMatches(d('50000.00'), [gt('50000.00')])).toBe(false);
-    expect(dealMatches(d('50000.01'), [gt('50000.00')])).toBe(true);
-    expect(dealMatches(d('50000.00'), [{ ...gt('50000.00'), op: 'gte' }])).toBe(true);
+describe('amounts', () => {
+  it('"greater than 50K" is strictly above 50000 and belongs to the deals across the list', () => {
+    const r = read('Show deals with an amount greater than 50K');
+    expect(r.criteria.scope).toBe('all');
+    expect(r.criteria.deal.amount).toEqual({ op: '>', value: 50000 });
+    expect(r.criteria.bl.amount).toBeUndefined();
+    expect(r.notUnderstood).toEqual([]);
+    expect(r.applied).toContain('deal amount > 50,000 USD');
   });
-  it('a deal without a USD amount never satisfies an amount condition', () => {
-    expect(dealMatches({ dealId: 'D', usd: null, remainingUsd: '', tsfCommodity: '', tsfCommodityText: '' }, [gt('1')])).toBe(false);
+  it('"50K+" is 50000 or more', () => expect(read('deals 50K+').criteria.deal.amount).toEqual({ op: '>=', value: 50000 }));
+  it('reads lakh, crore and million, and between', () => {
+    expect(read('BLs above 1.5L').criteria.bl.amount).toEqual({ op: '>', value: 150000 });
+    expect(read('deal amount at most 1 Cr').criteria.deal.amount).toEqual({ op: '<=', value: 10000000 });
+    expect(read('BL value between 1L and 2.5M').criteria.bl.amount).toEqual({ op: 'between', value: 100000, to: 2500000 });
   });
-  it('deal-level conditions never filter BLs, and BL-level conditions never filter deals', () => {
-    expect(filterBls(bls, [gt('999999999')]).length).toBe(bls.length);
-    const some = { dealId: 'D', usd: '10.00', remainingUsd: '10.00', tsfCommodity: 'C130', tsfCommodityText: 'ALMOND' };
-    expect(dealMatches(some, [gt('999999999', 'bl', 'amount')])).toBe(true);
+  it('never turns a deal condition into a BL one, and refuses an amount without a subject', () => {
+    const r = read('deals over 5L and BLs under 1.4L');
+    expect(r.criteria.deal.amount).toEqual({ op: '>', value: 500000 });
+    expect(r.criteria.bl.amount).toEqual({ op: '<', value: 140000 });
+    const bare = read('amount greater than 50K');
+    expect(bare.criteria.deal.amount).toBeUndefined();
+    expect(bare.criteria.bl.amount).toBeUndefined();
+    expect(bare.notUnderstood[0]).toMatch(/deal amount or the BL value/);
   });
-  it('BL amount and commodity conditions keep only matching BLs, and an impossible one leaves none', () => {
-    const big = filterBls(bls, [gt('90000', 'bl', 'amount')]);
-    expect(big.length).toBeGreaterThan(0);
-    expect(big.every(b => Number(b.usdValue) > 90000)).toBe(true);
-    expect(filterBls(bls, [gt('999999999', 'bl', 'amount')])).toEqual([]);
-    const almonds = filterBls(bls, [{ scope: 'bl', field: 'commodity', op: 'eq', value: 'almond' }]);
-    expect(almonds.every(b => b.commodity === 'ALMOND')).toBe(true);
-  });
-  it('proposals are generated only from BLs that pass the BL conditions', () => {
-    const deal = rows.find(r => r.dealId === 'DL26000142')!;
-    const all = proposalsFor(deal, bls, commodities, {});
-    const none = proposalsFor(deal, bls, commodities, {}, [gt('999999999', 'bl', 'amount')]);
-    expect(all.length).toBeGreaterThan(0);
-    expect(none).toEqual([]);
-    expect(NO_MATCH).toBe('No matching deals or available BLs found for the selected criteria.');
-  });
-  it('shows the applied criteria', () => {
-    expect(criteriaChips([gt('50000.00')])).toEqual(['Deal amount > 50,000 USD']);
-    expect(criteriaChips([{ scope: 'bl', field: 'commodity', op: 'eq', value: 'rubber' }], true)).toEqual(['Across all deals', 'BL commodity = rubber']);
+  it('reads the amount left and BL quantities', () => {
+    expect(read('deals with more than 1L left').criteria.deal.remaining).toEqual({ op: '>', value: 100000 });
+    expect(read('BL quantity at least 44,000 LBS').criteria.bl.quantity).toEqual({ op: '>=', value: 44000 });
   });
 });
 
-describe('allocation is revalidated against the latest BLs', async () => {
-  const data = sampleProposeData();
-  const [deals, bls, commodities, rates] = await Promise.all([data.deals(), data.bls(), data.commodities(), data.rates()]);
-  const deal = dealRows(deals, bls, rates).find(r => r.dealId === 'DL26000142')!;
-  const [first] = proposalsFor(deal, bls, commodities, {});
-  const plan = Object.fromEntries(first.bls.map(no => [no, String(bls.find(b => b.blNo === no)!.usdValue)]));
-  const guard = { dealUsd: deal.usd!, tsfCommodity: deal.tsfCommodity, commodities };
-
-  it('accepts a valid proposal once, then refuses the same proposal again (no duplicate assignment)', async () => {
-    await data.assign(deal.dealId, plan, guard);
-    await expect(data.assign(deal.dealId, plan, guard)).rejects.toThrow(/already assigned/);
+describe('BLs and trade flows by number', () => {
+  it('excludes, includes and limits to BLs, typed with or without the word BL', () => {
+    const r = read('exclude BL 4000000024, 4000000026 and include 4000000025');
+    expect(r.criteria.bl.exclude).toEqual(['4000000024', '4000000026']);
+    expect(r.criteria.bl.include).toEqual(['4000000025']);
+    expect(read('only 4000000027 4000000028').criteria.bl.only).toEqual(['4000000027', '4000000028']);
+    expect(read('keep trade flow 3000000016 out').criteria.bl.excludeTf).toEqual(['3000000016']);
+    expect(read('keep BL 4000000024 and 4000000026 out').criteria.bl.exclude).toEqual(['4000000024', '4000000026']);
+    expect(read('keep trade flow 3000000016 out').notUnderstood).toEqual([]);
+    expect(read('without trade flow 3000000016').criteria.bl.excludeTf).toEqual(['3000000016']);
   });
-  it('refuses a BL another deal took meanwhile', () => {
-    const [no] = Object.keys(plan);
-    const taken = bls.map(b => (b.blNo === no ? { ...b, dealId: 'DL26000101' } : b));
-    expect(checkAssignment(guard, deal.dealId, plan, taken)).toMatch(/just assigned to DL26000101/);
-  });
-  it('refuses a deleted or unknown BL, a wrong commodity and an over-allocation', () => {
-    const [no] = Object.keys(plan);
-    expect(checkAssignment(guard, deal.dealId, plan, bls.map(b => (b.blNo === no ? { ...b, deletedFlag: 'X' } : b)))).toMatch(/no longer exists/);
-    expect(checkAssignment(guard, deal.dealId, { NOPE: '1.00' }, bls)).toMatch(/no longer exists/);
-    expect(checkAssignment({ ...guard, tsfCommodity: 'C140' }, deal.dealId, plan, bls)).toMatch(/commodity/);
-    expect(checkAssignment({ ...guard, dealUsd: '1000.00' }, deal.dealId, plan, bls)).toMatch(/exceed/);
+  it('reads Deal IDs as a search across deals', () => {
+    const r = read('deal 7000000081');
+    expect(r.criteria).toMatchObject({ scope: 'all', deal: { dealIds: ['7000000081'] } });
   });
 });
 
-describe('Update Price: the Effective Date filter', () => {
-  const tab = commodityPrice.tabs[0];
-  const ui = (v: string) => ({ search: '', filters: (v ? { effectiveFrom: v } : {}) as Record<string, string>, columnFilters: {}, sort: tab.defaultSort, selected: [] });
-  const rows = [
-    { commodity: 'C110', effectiveFrom: '2026-11-06', price: '3.4000' },
-    { commodity: 'C112', effectiveFrom: '2026-11-06', price: '3.1500' },
-    { commodity: 'C110', effectiveFrom: '2026-11-05', price: '3.3000' },
-    { commodity: 'C112', effectiveFrom: '2026-11-04T00:00:00Z', price: '3.0000' }
-  ];
-  it('is a date picker replacing the commodity dropdown', () => {
-    expect(tab.filters).toHaveLength(1);
-    expect(tab.filters[0]).toMatchObject({ id: 'effectiveFrom', kind: 'date', all: 'Effective Date' });
+describe('other conditions', () => {
+  it('commodity by name or code, number of BLs, order and trade-flow dates', () => {
+    const r = read('soyoil, at most 3 BLs, oldest first, trade flows after 01-11-2026');
+    expect(r.criteria.commodity).toEqual(['C112']);
+    expect(r.criteria.maxBls).toBe(3);
+    expect(r.criteria.order).toEqual({ older: true });
+    expect(r.criteria.bl.tfDate).toEqual({ from: '2026-11-01', fromStrict: true });
+    expect(r.notUnderstood).toEqual([]);
   });
-  it('keeps only the records of the selected day, and clearing it restores all', () => {
-    expect(visibleRows(tab, rows, ui('2026-11-06')).map(r => r.commodity).sort()).toEqual(['C110', 'C112']);
-    expect(visibleRows(tab, rows, ui('2026-11-04')).length).toBe(1);
-    expect(visibleRows(tab, rows, ui('2026-11-03'))).toEqual([]);
-    expect(visibleRows(tab, rows, ui('')).length).toBe(4);
+  it('in a month, on a day, between two days', () => {
+    expect(read('trade flows in nov 2026').criteria.bl.tfDate).toEqual({ from: '2026-11-01', to: '2026-11-30' });
+    expect(read('dated 06/11/2026').criteria.bl.tfDate).toEqual({ from: '2026-11-06', to: '2026-11-06', fromStrict: false, toStrict: false });
+    expect(read('between 1 Nov 2026 and 2026-11-06').criteria.bl.tfDate).toEqual({ from: '2026-11-01', to: '2026-11-06' });
+    expect(readDate('Nov 6, 2026')).toBe('2026-11-06');
+  });
+  it('reports what it could not read', () => {
+    expect(read('prefer the blue ships').notUnderstood).toEqual(['prefer blue ships']);
+  });
+});
+
+describe('applying the criteria to real rows', () => {
+  const bl = (blNo: string, usdValue: string, x: Record<string, string> = {}) => ({ blNo, usdValue, tfNo: `30${blNo.slice(2)}`, tfDate: '2026-11-06', commodity: 'C112', quantity: '44000', dealId: '', deletedFlag: '', ...x });
+  const bls = [bl('4000000024', '138600'), bl('4000000025', '833348.03', { tfDate: '2026-11-01' }), bl('4000000026', '94600', { commodity: 'ALMOND' }), bl('4000000027', '138600', { dealId: '7000000081' })];
+  it('filters BLs by value, date, commodity and the exclude list', () => {
+    expect(filterBls(bls, read('BLs above 1L').criteria, master).map(b => b.blNo)).toEqual(['4000000024', '4000000025', '4000000027']);
+    expect(filterBls(bls, read('exclude 4000000024, trade flows after 05-11-2026').criteria, master).map(b => b.blNo)).toEqual(['4000000026', '4000000027']);
+    expect(filterBls(bls, read('almonds').criteria, master).map(b => b.blNo)).toEqual(['4000000026']);
+  });
+  it('checks the deal conditions on the deal', () => {
+    const deal = { dealId: '7000000081', tsfCommodity: 'C112', tsfCommodityText: 'SOYOIL', usd: '100000.00', remainingUsd: '100000.00' };
+    expect(dealMismatch(deal, read('deals greater than 50K').criteria, master)).toBe('');
+    expect(dealMismatch(deal, read('deals greater than 100K').criteria, master)).toMatch(/does not meet/);
+    expect(dealMismatch(deal, read('deals 100K+').criteria, master)).toBe('');
+    expect(dealMismatch(deal, read('rubber').criteria, master)).toMatch(/not RUBBER/);
+  });
+  it('says why a required BL cannot be used', () => {
+    expect(blUnavailable('4000000027', bls, { dealId: '7000000099' })).toBe('BL 4000000027 is already assigned to Deal ID 7000000081.');
+    expect(blUnavailable('4000000099', bls, { dealId: '7000000099' })).toBe('BL 4000000099 does not exist.');
+    expect(blUnavailable('4000000024', bls, { dealId: '7000000099' })).toBe('');
   });
 });

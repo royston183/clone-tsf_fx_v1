@@ -14,7 +14,8 @@ export function tableExportRows(table: HTMLTableElement): XlsxCell[][] {
     return label && !/^(actions?|remove|delete|select(ion)?)$/i.test(label) && !cell.querySelector('input[type=checkbox],input[type=radio]');
   });
   const rows: XlsxCell[][] = [included.map(({ cell }) => cellValue(cell))];
-  for (const row of [...table.tBodies].flatMap(body => [...body.rows]).concat([...(table.tFoot?.rows ?? [])])) {
+  // Rows a column filter hides are not exported: the file holds what the table shows.
+  for (const row of [...table.tBodies].flatMap(body => [...body.rows]).filter(r => !r.hidden).concat([...(table.tFoot?.rows ?? [])])) {
     if (row.cells.length === 1 && row.cells[0].colSpan > 1 && !row.closest('tfoot') && !row.className.includes('trm-sub')) continue;
     const cells = [...row.cells].flatMap(cell => Array.from({ length: cell.colSpan }, (_, offset) => ({ cell, offset })));
     if (cells.length !== headers.length) continue;

@@ -15,12 +15,15 @@ import { DialogSection } from './DialogSection';
 import { WizardSteps } from './WizardSteps';
 
 export interface UploadLine {
-  row: number; status: 'create' | 'update' | 'invalid'; cells: Record<string, string>; problem?: string;
+  /** `duplicate`: already stored (or repeated in the file); `invalid`: any other problem. Neither is posted. */
+  row: number; status: 'create' | 'update' | 'invalid' | 'duplicate'; cells: Record<string, string>; problem?: string;
   /** The converted file row this line previews; posted as is, so Post always sends the file on screen. */
   values?: Row;
 }
 type Filter = 'all' | UploadLine['status'];
-const FILTERS: [Filter, string][] = [['all', 'All'], ['create', 'New'], ['update', 'Update'], ['invalid', 'Invalid']];
+const FILTERS: [Filter, string][] = [['all', 'All'], ['create', 'New'], ['update', 'Update'], ['duplicate', 'Duplicate'], ['invalid', 'Invalid']];
+/** The rows that will be posted. */
+const isPostable = (l: UploadLine) => l.status === 'create' || l.status === 'update';
 
 /** Runs one parse per pick and settles only the latest pick: a slower, older parse that resolves late is dropped. */
 export function latestPick<T>() {
@@ -49,7 +52,8 @@ export function UploadDialog({ title, accept, maxBytes, columns, parse, onPost, 
   const [filter, setFilter] = useState<Filter>('all');
   const [unit, setUnit] = useState(DEFAULT_UNITS[0]);
   const [settle] = useState(() => latestPick<UploadLine[]>());
-  const valid = lines?.filter(l => l.status !== 'invalid') ?? [];
+  const valid = lines?.filter(isPostable) ?? [];
+  const duplicates = lines?.filter(l => l.status === 'duplicate').length ?? 0;
   const shown = lines?.filter(l => filter === 'all' || l.status === filter) ?? [];
   const pick = (f: File) => {
     setFile(f.name);
@@ -74,7 +78,7 @@ export function UploadDialog({ title, accept, maxBytes, columns, parse, onPost, 
       </DialogSection>
       {reading && <p className="td-muted">Reading and checking {file}…</p>}
       {error && <Notice error><AlertCircle size={16} />{error}</Notice>}
-      {lines && <DialogSection title="Review entries" description={`${valid.length} valid · ${lines.length - valid.length} invalid. Only valid rows will be posted.`}>
+      {lines && <DialogSection title="Review entries" description={`${valid.length} valid · ${duplicates ? `${duplicates} duplicate · ` : ''}${lines.length - valid.length - duplicates} invalid. Only valid rows will be posted.`}>
       {columns.some(c => c.type === 'amount') && <div className="kit-amount-toolbar"><span>Amounts in</span><AmountUnitPicker label="Upload amounts" unit={unit} onChange={setUnit} /></div>}
       <div className="ds-filters"><div className="trm-seg" role="radiogroup" aria-label="Rows">{FILTERS.map(([id, label]) => (
         <button key={id} type="button" role="radio" aria-checked={filter === id} className={filter === id ? 'on' : ''} onClick={() => setFilter(id)}>
@@ -84,7 +88,7 @@ export function UploadDialog({ title, accept, maxBytes, columns, parse, onPost, 
       <div className="ds-grid-wrap"><DataTable columns={[{ kind: 'number' }, { kind: 'text', width: 108 }, ...columnsFor(columns), { kind: 'text' }]} className="ds-table tb-table">
         <thead><tr><th>Row</th><th>Status</th>{columns.map(c => <th key={c.field} className={alignClass(c.align ?? 'left') || undefined}>{c.label}</th>)}<th>Problem</th></tr></thead>
         <tbody>{shown.map(l => (
-          <tr key={l.row} className={l.status === 'invalid' ? 'tb-bad' : ''}>
+          <tr key={l.row} className={isPostable(l) ? '' : 'tb-bad'}>
             <td>{l.row}</td><td><StatusBadge status={l.status} /></td>{columns.map(c => <td key={c.field} className={alignClass(c.align ?? 'left') || undefined}>{c.type === 'amount' ? formatAmount(amountInUnit(l.values?.[c.field] ?? l.cells[c.field], unit, c.scale)) : l.cells[c.field]}</td>)}<td className="tb-wide">{l.problem}</td>
           </tr>
         ))}</tbody>

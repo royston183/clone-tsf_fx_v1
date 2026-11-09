@@ -26,7 +26,7 @@ export const date = (value: unknown): string => (value ? sapDate(value) : '');
 
 /** An amount that shows as zero is blank. */
 const blankZero = (t: string): string => (/^-?0(\.0+)?$/.test(t) ? '' : t);
-const inr = new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const inr = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 /** An amount with lakh grouping and its currency ("61,500.00 INR"); blank for none or zero. */
 export const money = (value: unknown, currency?: unknown): string => {
   if (value === null || value === undefined || value === '') return '';
@@ -36,7 +36,7 @@ export const money = (value: unknown, currency?: unknown): string => {
 const rateFormats: Record<number, Intl.NumberFormat> = {};
 /** A rate or a number of units with lakh grouping and up to `digits` decimals. */
 export const rate = (value: unknown, digits = 6): string => (value === null || value === undefined || value === '' || !Number.isFinite(Number(value))
-  ? '' : (rateFormats[digits] ??= new Intl.NumberFormat('en-IN', { maximumFractionDigits: digits })).format(Number(value)));
+  ? '' : (rateFormats[digits] ??= new Intl.NumberFormat('en-US', { maximumFractionDigits: digits })).format(Number(value)));
 /** A number without SAP's leading zeros ("0000001900004" → "1900004"). */
 export const stripZeros = (value: unknown): string => text(value).replace(/^0+(?=\d)/, '');
 /** "26E · Inv: Equity". */

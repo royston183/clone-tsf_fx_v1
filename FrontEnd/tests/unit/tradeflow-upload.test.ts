@@ -78,12 +78,12 @@ describe('tradeflow upload on sample data', () => {
   it('rejects a BL Number twice in one file', async () => {
     const { rows } = await rowsOf([ROW, ROW.map((v, i) => (i === 0 ? 2 : v))]);
     const check = await uploadService(freshConfig(), 'tradeflow-upload').check(actingAs(), { rows });
-    expect(check.lines.map(l => [l.status, l.problems])).toEqual([['create', []], ['invalid', ['Same key as row 1.']]]);
+    expect(check.lines.map(l => [l.status, l.problems])).toEqual([['create', []], ['duplicate', ['Same key as row 1.']]]);
   });
   it('rejects a BL Number that is already stored', async () => {
     const { rows } = await rowsOf([ROW]);
     const svc = uploadService(freshConfig(), 'tradeflow-upload');
-    expect(await svc.post(actingAs(), { rows })).toEqual({ created: 1, updated: 0, invalid: 0 });
-    expect((await svc.check(actingAs(), { rows })).lines[0].problems).toEqual(['NAM6036645 already exists.']);
+    expect(await svc.post(actingAs(), { rows })).toEqual({ created: 1, updated: 0, invalid: 0, duplicate: 0 });
+    expect((await svc.check(actingAs(), { rows })).lines[0]).toMatchObject({ status: 'duplicate', problems: ['NAM6036645 already exists.'] });
   });
 });

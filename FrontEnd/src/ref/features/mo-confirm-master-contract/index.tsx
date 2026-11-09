@@ -403,9 +403,9 @@ function ConfirmScreen({ onRefresh }: { onRefresh: () => void }) {
             <div
               key={c.key}
               className={`metric-card ${c.cls}${statusFilter === c.key ? ' active' : ''}`}
-              onClick={() => setStatusFilter(c.key)}
+              onClick={() => setStatusFilter(statusFilter === c.key ? 'ALL' : c.key)}
               role="button" tabIndex={0} aria-pressed={statusFilter === c.key}
-              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setStatusFilter(c.key) } }}
+              onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setStatusFilter(statusFilter === c.key ? 'ALL' : c.key) } }}
             >
               <div className="metric-inner">
                 <div className="metric-val">{c.val}</div>
