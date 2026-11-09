@@ -13,9 +13,17 @@ import type { Row } from '@/lib/grid/types'
 import { fmtQty } from '@/pages/manage-tradeflows/logic'
 import './deal-bls.css'
 
-// Every BL is read once per visit (about 3,500 rows) and filtered by Deal ID here.
+// Every BL is read (about 3,500 rows) and filtered by Deal ID here. The read is shared for a few seconds only: BLs assigned in
+// Propose Tradeflow a moment ago must show up when the Deal ID is opened, not after a page reload.
 let all: Promise<Row[]> | null = null
-const readBls = () => (all ??= moduleView('bl-assign').then(v => v.tables.bls ?? []).catch(e => { all = null; throw e }))
+let readAt = 0
+const readBls = () => {
+  if (!all || Date.now() - readAt > 10_000) {
+    readAt = Date.now()
+    all = moduleView('bl-assign').then(v => v.tables.bls ?? []).catch(e => { all = null; throw e })
+  }
+  return all
+}
 
 export interface DealBls { rows: Row[]; usd: number; quantity: number; unit: string; loading: boolean; error: string }
 

@@ -13,6 +13,7 @@ import { loadPartnerBanks, type PartnerBank } from '../../shared/fx/partner-bank
 import { txt } from '../../shared/fx/masters.ts'
 import { fxList, isAbort } from '../../shared/fx/mw.ts'
 import { ResultQueue, type ResultItem } from '../../shared/ui/ResultQueue.tsx'
+import { ResultDialog } from '../../shared/ui/ResultDialog.tsx'
 import {
   BANK_WAITING,
   actionWaiting,
@@ -31,6 +32,7 @@ import { DEAL_INVOICE_STATUS, canReverseInvoice, isFinalInvoiceStatus, type Invo
 import { amendDealStatus, confirmInvoiceGeneration, pcMismatches, reconcileInvoicePc, reverseInvoiceConfirmation, type WorkflowResult } from './workflow.ts'
 import { ComplianceModal } from './ComplianceModal.tsx'
 import { ConfirmModal } from './ConfirmModal.tsx'
+import { downloadPdfs, pdfFiles } from './invoice-pdf.ts'
 import { setStatusTexts } from './data.ts'
 import { DateCell } from './DateCell.tsx'
 import { DealLookupModal } from './DealLookupModal.tsx'
@@ -157,6 +159,9 @@ export default function MoGenerateInvoicesDealId() {
   const [pendingInvoiceStatus, setPendingInvoiceStatus] = useState<InvoiceFinalStatus>(DEAL_INVOICE_STATUS.INVOICE_CREATED)
   const [busy, setBusy] = useState(false)
   const [complianceOpen, setComplianceOpen] = useState(false)
+  // The Deal ID whose invoices were just confirmed: the "Download PDF" offer at the top right is shown for it.
+  const [pdfOffer, setPdfOffer] = useState<string | null>(null)
+  const [pdfBusy, setPdfBusy] = useState(false)
   // The invoice review (BLs, amounts, confirm) that comes before the compliance check.
   const [review, setReview] = useState<{ message: string; status: InvoiceFinalStatus } | null>(null)
   const [blOpen, setBlOpen] = useState(false)
@@ -261,11 +266,13 @@ export default function MoGenerateInvoicesDealId() {
       setDeal(loaded.deal)
       setCtx(loaded.ctx)
       if (loaded.notice && !quiet) toast(loaded.notice, 'warn')
+      return loaded.deal
     } catch (e) {
-      if (isAbort(e) || seq !== loadSeq.current) return
+      if (isAbort(e) || seq !== loadSeq.current) return undefined
       setDeal(null)
       setCtx(null)
       toast(`Deal ID ${id} could not be read from SAP: ${messageOf(e)}`, 'error')
+      return undefined
     } finally {
       if (seq === loadSeq.current) setLoading(false)
     }
@@ -337,13 +344,17 @@ export default function MoGenerateInvoicesDealId() {
   }
 
   /** Runs a multi-step operation, shows exactly where it stopped, and reloads SAP's state either way. */
-  const runWorkflow = async (run: () => Promise<WorkflowResult>, dealId: string, after?: () => void) => {
+  const runWorkflow = async (run: () => Promise<WorkflowResult>, dealId: string, after?: () => void, quietOk = false) => {
     setBusy(true)
     try {
       const result = await run()
-      toast(result.message, result.ok ? (result.steps.some((x) => x.status === 'skipped') ? 'warn' : 'success') : 'error')
+      // A confirmed invoice is announced by the "Invoice generated" dialog (with Download PDF); only a failure is a warning here.
+      if (!(result.ok && quietOk)) toast(result.message, result.ok ? (result.steps.some((x) => x.status === 'skipped') ? 'warn' : 'success') : 'error')
       if (result.ok) after?.()
-      await fetchDeal(dealId, true)
+      const fresh = await fetchDeal(dealId, true)
+      // The status shown must be the one SAP now holds: say it, and refresh the Deal ID list that carries it too.
+      if (result.ok && fresh && !quietOk) note(`Deal ID ${dealId} status: ${fresh.status} – ${statusText(fresh.status)}`)
+      void loadDealList().then((r) => { if (r.ok) setDealList(r.value) }, () => undefined)
     } catch (e) {
       toast(messageOf(e), 'error')
     } finally {
@@ -401,8 +412,32 @@ export default function MoGenerateInvoicesDealId() {
     await runWorkflow(
       () => confirmInvoiceGeneration({ deal, dealRows: ctx.dealRows, diffRule: ctx.diffRule, status, sellers }, middlewarePorts),
       deal.dealId,
-      resetView,
+      () => {
+        resetView()
+        setPdfOffer(deal.dealId)
+      },
+      true,
     )
+  }
+
+  /** Creates the Commercial Invoice and the sales document of every confirmed leg and downloads them. */
+  const downloadPdf = async () => {
+    if (!deal) return
+    const files = pdfFiles(deal)
+    if (!files.length) {
+      toast('No confirmed invoice with an invoice number was found for this Deal ID, so there is nothing to print.', 'warn')
+      return
+    }
+    setPdfBusy(true)
+    try {
+      await downloadPdfs(files)
+      note(`${files.length} PDF files were created for Deal ID ${deal.dealId}.`)
+      setPdfOffer(null)
+    } catch (e) {
+      toast(`The PDFs could not be created: ${messageOf(e)}`, 'error')
+    } finally {
+      setPdfBusy(false)
+    }
   }
 
   const cancelInvoice = () => {
@@ -561,6 +596,12 @@ export default function MoGenerateInvoicesDealId() {
                 <path d="M12 5v14M5 12h14" />
               </svg>
               <span>Confirm Invoice</span>
+            </button>
+            <button className="hdr-btn" type="button" disabled={!deal || pdfBusy || !isFinalInvoiceStatus(deal.status) || !deal.inv.some((r) => r.invNo)} title="Available once the invoice is confirmed (status 05 / 07)" onClick={() => void downloadPdf()}>
+              <svg viewBox="0 0 24 24">
+                <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
+              </svg>
+              <span>Download PDF</span>
             </button>
             <span className="live-dot" title="Workbench active" />
             <button className="hdr-btn" type="button" disabled={!deal || deal.dm} onClick={() => setBlOpen(true)}>
@@ -979,6 +1020,20 @@ export default function MoGenerateInvoicesDealId() {
           </div>
         ))}
       </div>
+
+      {pdfOffer && deal && deal.dealId === pdfOffer && isFinalInvoiceStatus(deal.status) && deal.inv.some((r) => r.invNo) ? (
+        <ResultDialog
+          tone="success"
+          title="Invoice generated"
+          message={`Deal ID ${deal.dealId} is now ${deal.status} – ${statusText(deal.status)}.`}
+          reference={{ label: 'Invoice numbers', value: deal.inv.filter((r) => r.invNo).map((r) => `${r.ttype}: ${r.invNo}`).join('  ·  ') }}
+          actions={[
+            { label: pdfBusy ? 'Creating…' : 'Download PDF', kind: 'primary', disabled: pdfBusy, onClick: () => void downloadPdf() },
+            { label: 'Close', kind: 'secondary', onClick: () => setPdfOffer(null) },
+          ]}
+          onClose={() => setPdfOffer(null)}
+        />
+      ) : null}
 
       <ResultQueue items={outcomes} onDismiss={(id) => setOutcomes((r) => r.filter((x) => x.id !== id))} />
 

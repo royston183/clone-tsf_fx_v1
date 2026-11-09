@@ -49,6 +49,10 @@ export interface ProposeData {
   assign(target: AssignTarget, usdByBl: Record<string, string>, values: Record<string, string>): Promise<void>;
   /** Typed conditions → criteria. */
   interpret(text: string, context: InterpretContext): Promise<Interpretation>;
+  /** Moves every Deal ID that has BLs assigned to status 04 (from 01–03); returns the Deal IDs moved. */
+  syncStatuses?(bls: Row[]): Promise<string[]>;
+  /** Writes the invoice rows (ZSGTSFTR_BL) of a Deal ID's assigned BLs that have none; returns the BL numbers written. */
+  repairMiddleware?(dealId: string): Promise<string[]>;
   ai(request: AiRequest): Promise<AiAnswer>;
   /** Answers a question about the proposals; it may also return rules to apply. */
   ask(request: AskRequest): Promise<AskAnswer>;

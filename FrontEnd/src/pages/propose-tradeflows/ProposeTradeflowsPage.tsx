@@ -89,10 +89,13 @@ export default function ProposeTradeflowsPage() {
       tick('commodities', data.commodities(), c => `${c.length} commodities`),
       tick('rates', data.rates(), r => `${Object.keys(r).length} currencies`)
     ]).then(([deals, bls, commodities, rates]) => {
-      if (live) setLoaded({ deals: dealRows(deals, bls, rates), bls, commodities });
+      if (!live) return;
+      setLoaded({ deals: dealRows(deals, bls, rates), bls, commodities });
+      // Deal IDs whose BLs were assigned while their status stayed behind (01–03) are moved to 04 now.
+      data.syncStatuses?.(bls).then(ids => { if (live && ids.length) notify(`Deal ID status set to 04 for ${ids.join(', ')}: invoices can be generated.`, 'success'); }, (e: Error) => { if (live) notify(e.message, 'error'); });
     }, (e: Error) => { if (live) setError(e.message); });
     return () => { live = false; };
-  }, [data, reload]);
+  }, [data, reload, notify]);
 
   const criteria = useMemo(() => mergeCriteria(entries.map(e => e.reading.criteria)), [entries]);
   const acrossDeals = criteria.scope === 'all';

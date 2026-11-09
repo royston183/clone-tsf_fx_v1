@@ -200,3 +200,22 @@
 .invblotter table { border: none; }
 .invblotter table th,
 .invblotter table td { border-left: none; border-right: none; }
+
+/* "Download PDF" offer after the invoices are confirmed: top right, above the result dialogs' backdrop. */
+.invblotter .pdf-offer {position:fixed;right:18px;top:68px;z-index:950;display:flex;align-items:center;gap:12px;min-width:300px;max-width:460px;background:#fff;border:1px solid #CFDCE7;border-left:4px solid #2F9E69;border-radius:7px;box-shadow:0 10px 26px rgba(20,42,63,.17);padding:10px 12px;color:#334B61}
+.invblotter .pdf-offer-text {display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;font-size:12px}
+.invblotter .pdf-offer-text span {overflow-wrap:anywhere;color:#5B7288}
+.invblotter .pdf-offer-close {border:0;background:transparent;font-size:18px;line-height:1;cursor:pointer;color:#5B7288}
+:root[data-theme='dark'] .invblotter .pdf-offer {background:#1B2733;border-color:#2E4256;color:#D6E2EE}
+:root[data-theme='dark'] .invblotter .pdf-offer-text span {color:#9FB4C8}
+
+/* Basic Details spans the page like the cards below it, so its right margin equals its left one; the fields share the width. */
+@media (min-width: 1101px) {
+  .invblotter #basicCard {align-self:stretch;width:auto;max-width:none}
+  .invblotter .basic-row {width:100%;grid-template-columns:repeat(8, minmax(0, 1fr))}
+}
+
+/* FX Deals shows every row at once (no vertical scroll); the two grids size to their content. */
+.invblotter .tables {grid-template-rows:auto auto}
+.invblotter .tables > .table-card {overflow:visible}
+.invblotter .tables > .table-card > .grid-wrap {flex:none;min-height:0;max-height:none;overflow-x:auto;overflow-y:visible}

@@ -70,8 +70,8 @@ export function headerJoin(deal: MwRow | undefined, mcs: readonly MwRow[], rules
   const rule = first(rules, 'ZMOD_ID', txt(mc, 'ZMOD_ID'))
   if (!rule) return undefined
   const trader = first(traders, 'ZTCODE', txt(deal, 'ZTRD_CODE'))
-  if (!trader) return undefined
-  return { deal, mc, rule, trader }
+  // A Deal ID created without a trader code still has its master contract and rule: the header shows, the trader name stays blank.
+  return { deal, mc, rule, trader: trader ?? ({} as MwRow) }
 }
 
 /** One Deal ID of the value help / View Deals list. */

@@ -59,3 +59,6 @@
 .dealbls__check .kit-status { flex: 0 0 auto; }
 /* The invoice date cells show the whole date (dd-mm-yyyy) beside the calendar button. */
 .invblotter .date-cell .cell-input.date { width: 132px; min-width: 132px; padding-right: 26px; font-variant-numeric: tabular-nums; }
+
+/* The BLs table fills the whole card width. */
+.dealbls__scroll > *, .dealbls__scroll table { width: 100%; min-width: 100%; }

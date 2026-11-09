@@ -228,3 +228,18 @@ export function assignmentProblems(target: AssignTarget, plan: Record<string, st
   if (!out.length && total > limit) out.push(`The proposal (${(total / 100).toFixed(2)} USD) is more than what is left of Deal ID ${target.dealId} (${left.toFixed(2)} USD) plus 1%.`);
   return out;
 }
+
+/** The Deal ID status once BLs are assigned to it ("04 - BL Assigned to Deal ID for Invoicing"). */
+export const BL_ASSIGNED_STATUS = '04';
+
+/**
+ * The status a Deal ID moves to when it has active BLs assigned: 04 from any earlier status (01–03). A Deal ID already
+ * at 04 or beyond (invoiced, settled) is never moved back; null means leave it.
+ */
+export function statusWithBls(status: string): string | null {
+  const n = parseInt(status, 10);
+  return Number.isFinite(n) && n >= 1 && n < 4 ? BL_ASSIGNED_STATUS : null;
+}
+
+/** The Deal IDs that have an active BL assigned (what the status follows). */
+export const dealsWithBls = (bls: Row[]): string[] => [...new Set(bls.filter(b => str(b.dealId) && str(b.deletedFlag) !== 'X').map(b => str(b.dealId)))];

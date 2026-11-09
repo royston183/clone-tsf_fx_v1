@@ -2,7 +2,7 @@
 // trade flows and commodities from SAP (through the relay), SAP's exchange rates (type M), and the AI through the
 // BackEnd (/api/ai/proposals). Every read and write goes through the data client.
 import { backendApi } from '@/lib/client/backend-api';
-import { moduleChange, moduleQuery, moduleView } from '@/lib/client/data';
+import { moduleChange, moduleQuery, moduleView, objectWrite } from '@/lib/client/data';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { rankByCloseness, toUsd } from '@/lib/propose/match';
@@ -10,7 +10,9 @@ import { valueOf } from '@/modules/tradeflow/pricing';
 import { loadExchangeRate } from '@/ref/shared/fx/exchange-rate-api';
 import { describeCriteria, readConditions, type Criteria, mergeCriteria } from '@/lib/propose/query';
 import type { AiAnswer, AskAnswer, Deal, Interpretation, ProposeData } from './data';
-import { assignmentProblems } from './logic';
+import { fxCreate, fxList } from '@/ref/shared/fx/mw';
+import { assignmentProblems, BL_ASSIGNED_STATUS, dealsWithBls, statusWithBls } from './logic';
+import { middlewareBlRow, mwBlKey } from './mwbl';
 
 /** The deal amount's currency: the first one of the deal currency chain ("USD-USD-INR" → USD). */
 export const dealCurrency = (chain: string): string => (/^([A-Z]{3})/.exec(str(chain).toUpperCase())?.[1] ?? '');
@@ -62,6 +64,42 @@ async function all(id: string, table: string, pageSize: number): Promise<Row[]> 
 
 const today = () => new Date().toISOString().slice(0, 10);
 
+/**
+ * Writes the middleware BL row (ZSGTSFTR_BL) of each assigned BL that has none yet: what the invoice screen builds
+ * T1, T2 and T3 from. Rows already there are left as they are. Returns the BL numbers written.
+ */
+async function writeMiddlewareBls(dealId: string, assigned: { bl: Row; usd: string }[]): Promise<string[]> {
+  if (!assigned.length) return [];
+  const [have, commodities] = await Promise.all([fxList('billOfLading', { ZDEAL_ID: dealId }), moduleView('commodity').then(v => v.tables.commodities ?? [])]);
+  const present = new Set(have.map(r => mwBlKey(r)));
+  const written: string[] = [];
+  for (const { bl, usd } of assigned) {
+    const row = middlewareBlRow(dealId, bl, usd, commodities.find(c => str(c.commodity) === str(bl.commodity)), today());
+    if (present.has(mwBlKey(row))) continue;
+    await fxCreate('billOfLading', row);
+    written.push(str(bl.blNo));
+  }
+  return written;
+}
+
+/**
+ * Moves each Deal ID that has BLs to status 04 (from 01–03 only), on the middleware record just read again so the write
+ * carries its current ETag. Returns the Deal IDs that were moved.
+ */
+async function setBlStatus(dealIds: string[]): Promise<string[]> {
+  if (!dealIds.length) return [];
+  const rows = (await moduleQuery('tsf-deal-id', 'dealIds', { page: 1, pageSize: 500, filters: [{ field: 'dealId', op: 'in', values: dealIds }] })).rows;
+  const moved: string[] = [];
+  for (const row of rows) {
+    const next = statusWithBls(str(row.status));
+    if (!next) continue;
+    const { __etag, ...record } = row as Row & { __etag?: string };
+    await objectWrite('tsf-deal-id', 'update', { key: { dealId: str(row.dealId), dealType: str(row.dealType), subType: str(row.subType) }, etag: str(__etag), header: { ...record, status: next } });
+    moved.push(str(row.dealId));
+  }
+  return [...new Set(moved)];
+}
+
 export function liveProposeData(): ProposeData {
   let ratesCache: Promise<Record<string, string>> | null = null;
   let dealsCache: Promise<Deal[]> | null = null;
@@ -99,7 +137,19 @@ export function liveProposeData(): ProposeData {
       // The fresh rows carry their ETags: SAP refuses the write (409) if any of them changes before it lands.
       const rows = bls.filter(b => usdByBl[b.blNo] !== undefined).map(b => ({ ...b, dealId: target.dealId, assignedUsd: usdByBl[b.blNo] }));
       await moduleChange('bl-assign', 'bls', 'update', rows);
+      // The Deal ID now has BLs: it moves to status 04, which is what lets its invoice be generated.
+      try { await setBlStatus([target.dealId]); }
+      catch (e) { throw new Error(`The BLs are assigned to ${target.dealId}, but its status could not be set to ${BL_ASSIGNED_STATUS}: ${(e as Error).message}`); }
+      // And each BL gets its middleware row, so the invoice screen shows T1, T2 and T3 for the Deal ID.
+      try { await writeMiddlewareBls(target.dealId, bls.filter(b => usdByBl[str(b.blNo)] !== undefined).map(b => ({ bl: b, usd: usdByBl[str(b.blNo)] }))); }
+      catch (e) { throw new Error(`The BLs are assigned to ${target.dealId}, but their invoice rows (ZSGTSFTR_BL) could not be written: ${(e as Error).message}`); }
     },
+    /** Repairs a Deal ID whose BLs were assigned before the middleware rows were written. */
+    async repairMiddleware(dealId) {
+      const bls = ((await moduleView('bl-assign')).tables.bls ?? []).filter(b => str(b.dealId) === dealId && str(b.deletedFlag) !== 'X');
+      return writeMiddlewareBls(dealId, bls.map(b => ({ bl: b, usd: str(b.assignedUsd) })));
+    },
+    async syncStatuses(bls) { return setBlStatus(dealsWithBls(bls)); },
     async interpret(text, context): Promise<Interpretation> {
       const own = readConditions(text, context.commodities, { known: context.known, today: context.today });
       if (!own.notUnderstood.length) return { ...own, model: 'none' };
