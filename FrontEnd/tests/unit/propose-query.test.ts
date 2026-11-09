@@ -25,14 +25,14 @@ describe('amounts', () => {
     expect(read('deal amount at most 1 Cr').criteria.deal.amount).toEqual({ op: '<=', value: 10000000 });
     expect(read('BL value between 1L and 2.5M').criteria.bl.amount).toEqual({ op: 'between', value: 100000, to: 2500000 });
   });
-  it('never turns a deal condition into a BL one, and refuses an amount without a subject', () => {
+  it('never turns a deal condition into a BL one; an amount alone, on a deal, is a BL value (2026-11-08)', () => {
     const r = read('deals over 5L and BLs under 1.4L');
     expect(r.criteria.deal.amount).toEqual({ op: '>', value: 500000 });
     expect(r.criteria.bl.amount).toEqual({ op: '<', value: 140000 });
     const bare = read('amount greater than 50K');
     expect(bare.criteria.deal.amount).toBeUndefined();
-    expect(bare.criteria.bl.amount).toBeUndefined();
-    expect(bare.notUnderstood[0]).toMatch(/deal amount or the BL value/);
+    expect(bare.criteria.bl.amount).toEqual({ op: '>', value: 50000 });
+    expect(bare.applied).toEqual(['BL value > 50,000 USD']);
   });
   it('reads the amount left and BL quantities', () => {
     expect(read('deals with more than 1L left').criteria.deal.remaining).toEqual({ op: '>', value: 100000 });
@@ -73,7 +73,7 @@ describe('other conditions', () => {
     expect(readDate('Nov 6, 2026')).toBe('2026-11-06');
   });
   it('reports what it could not read', () => {
-    expect(read('prefer the blue ships').notUnderstood).toEqual(['prefer blue ships']);
+    expect(read('prefer the blue ships').notUnderstood).toEqual(['blue ships']);
   });
 });
 

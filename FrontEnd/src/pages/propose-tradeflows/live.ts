@@ -162,7 +162,9 @@ export function liveProposeData(): ProposeData {
         const both = mergeCriteria([own.criteria, ai.criteria]);
         return { criteria: both, applied: describeCriteria(both), notUnderstood: ai.notUnderstood, model: ai.model };
       } catch (e) {
-        return { ...own, notUnderstood: own.notUnderstood.map(n => `${n} (${(e as Error).message || 'the AI is not available'})`), model: 'none' };
+        // Without the AI the app's own reading stands; what it could not place is said as typed (no technical reason).
+        console.warn('[propose] AI reading unavailable', e);
+        return { ...own, model: 'none' };
       }
     },
     async ai(request): Promise<AiAnswer> {

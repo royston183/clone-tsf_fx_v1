@@ -125,6 +125,46 @@ Swap; the MC picker had no search (10 per page) → search added.
   DealId) and the review modal before the existing compliance + save (1 Review BLs, 2 Check amounts, 3 Confirm). No new
   write path.
 - Demo script: records/test-cases/TC-008-propose-demo-script.md.
+- Later on 2026-11-07 (UI for approval):
+  - Proposal pop-up: a # column; the colour strip, BL dots and share % removed.
+  - Propose: the Deal ID list steps aside once a deal is open (All Deal IDs, previous / next). The header shows the
+    Deal amount and Unassigned (or Over by) as large figures, and the deal list's status reads Unassigned / Partially
+    assigned / Fully assigned (the filter is now To assign).
+  - The bar now reads, like an assistant: "top 10 largest BLs" (and smallest / oldest / newest / by quantity, with
+    include, only or exclude), turned into this deal's BL numbers; "min" / "max" for values and counts. The answer
+    appears under the bar: what was done, or what could not be placed.
+  - Invoice Finalisation Blotter redesigned:
+    - one deal card: picker, state, SAP status, Deal amount / Assigned / Unassigned, progress;
+    - short one-line details (ellipsis, full text in the tooltip);
+    - Assigned BLs with a # column.
+    - The figures and the BLs now come from the same source and the same calculation as Propose Tradeflow, read fresh
+      on each visit and on Refresh. Before, a module cache kept the BLs of the first visit (it missed new assignments).
+  - Live check (DS4): 7000000081 shows 26.7M deal, 221 BLs, over by 21.18 USD on both screens. "top 10 largest BLs"
+    on 7000000080 took 0.66s.
+  - Less height: the deal navigation, deal line and progress now sit in one block beside the two figures. "Fill with"
+    and Clear all moved onto the tabs row, "What can I type?" onto the Try row, and the proposal rows are tighter. On
+    1820×990 the 6 proposals now end at y≈560 (≈945 before).
+  - 2026-11-08: the open deal keeps a 1240px column on wide screens: the figures and "Fill with" (set off by a divider)
+    share the proposals' right edge, not the monitor's.
+  - 2026-11-08: **Export to Excel** in the proposal pop-up (`proposal-export.ts`, tested). The sheet holds the deal
+    (ID, description, commodity, amount and USD amount, assigned, unassigned), the proposal (way, USD, unassigned after,
+    match, BLs kept, quantity, export date), then every BL (#, BL No, reference, BL date, trade flow and its date,
+    contract, notify party, quantity, USD value, Keep) and a total. Amounts are number cells. Live check on
+    7000000080 proposal 3: 387 BLs, 19,981,325.94 USD and 20,183,157.476 LBS, the same as the pop-up.
+    **Template candidate:** `sheetXlsx(rows, name, widths)` now takes optional column widths (no ####).
+  - 2026-11-08, the bar reads plain words (54-phrase probe, all read; 20 now in propose-bar.test.ts):
+    - Subject words (quantity, qty, weight, LBS, worth) are no longer reported as "not understood".
+    - "exclude / remove BLs under 30K" keeps BLs of 30K and more.
+    - An amount with no subject is a BL value on a deal; in a deals search it is the deal amount.
+    - Counts: more / fewer than, between, around N BLs.
+    - Number words ("top ten"); bottom / last N BLs; "half of the deal"; month names alone or after from / during.
+    - "fewest BLs" / "biggest first" / "closest amount" set the Fill with chips; "clear" / "reset" clear everything.
+    - The technical "(AI is not configured.)" note is gone.
+  - 2026-11-08, Invoice Finalisation Blotter UI pass:
+    - A Deal ID picker (DealPicker.tsx, tested) replaces the browser datalist, whose popup drew the ID over its text.
+    - The details keep their natural width (dates no longer cut); the SAP status shows as SAP writes it.
+    - The key figure keeps contrast in Night mode (here and in Propose).
+    - Narrow screens wrap the figures, the title and the header buttons (390px: no sideways scroll).
 
 ## Delivery checks
 

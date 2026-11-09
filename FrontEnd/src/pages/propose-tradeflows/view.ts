@@ -102,3 +102,9 @@ function renumber<C extends { kinds?: string[]; alt?: number }>(list: C[]): C[] 
     return { ...c, alt: n };
   });
 }
+
+/** How much of a deal has BLs: Unassigned, Partially assigned, Fully assigned (within 1%), or no USD rate. */
+export type AssignState = 'Unassigned' | 'Partially assigned' | 'Fully assigned' | 'No USD rate';
+export const assignState = (d: { status: string; assignedUsd: string }): AssignState =>
+  d.status === 'No USD rate' ? 'No USD rate' : d.status === 'Filled' ? 'Fully assigned' : Number(d.assignedUsd || 0) > 0 ? 'Partially assigned' : 'Unassigned';
+export const STATE_TONE: Record<AssignState, 'green' | 'amber' | 'red'> = { Unassigned: 'red', 'Partially assigned': 'amber', 'Fully assigned': 'green', 'No USD rate': 'red' };

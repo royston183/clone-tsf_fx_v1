@@ -1,7 +1,7 @@
 // The command bar of Propose Tradeflow: BL number ranges, BL date / ETD / ETA, references, a fill target, and
 // conditions that stack (one Apply after another) into one set of criteria.
 import { describe, expect, it } from 'vitest';
-import { describeCriteria, filterBls, mergeCriteria, readConditions, targetOf } from '@/lib/propose/query';
+import { describeCriteria, filterBls, mergeCriteria, readConditions, resolveTop, targetOf } from '@/lib/propose/query';
 
 const read = (t: string) => readConditions(t, []);
 const bl = (blNo: string, x: Record<string, string> = {}) => ({
@@ -86,5 +86,71 @@ describe('plain words a user may type', () => {
     expect(say('BLs older than 15 Oct 2026').criteria.bl.blDate).toEqual({ to: '2026-10-15', toStrict: true });
     expect(say('BL date from August to September').criteria.bl.blDate).toEqual({ from: '2026-08-01', to: '2026-09-30' });
     expect(say('ignore Northwind, BLs above 60K').notUnderstood).toEqual([]);
+  });
+});
+
+describe('top N, min and max', () => {
+  const pool = [bl('4000002001', { usdValue: '10000', quantity: '9000', blDate: '2026-09-01' }), bl('4000002002', { usdValue: '90000', quantity: '80000', blDate: '2026-10-01' }),
+    bl('4000002003', { usdValue: '50000', quantity: '95000', blDate: '2026-08-01' }), bl('4000002004', { usdValue: '70000', quantity: '20000', blDate: '2026-11-01' })];
+  it('reads "top 10 largest BLs" and its variants, with the verb deciding include / only / exclude', () => {
+    expect(read('top 10 largest BLs').criteria.bl.top).toEqual([{ n: 10, by: 'usdValue', desc: true, mode: 'include' }]);
+    expect(read('exclude the 20 smallest BLs').criteria.bl.top).toEqual([{ n: 20, by: 'usdValue', desc: false, mode: 'exclude' }]);
+    expect(read('only the 400 oldest BLs').criteria.bl.top).toEqual([{ n: 400, by: 'blDate', desc: false, mode: 'only' }]);
+    expect(read('top 5 BLs by quantity').criteria.bl.top).toEqual([{ n: 5, by: 'quantity', desc: true, mode: 'include' }]);
+    expect(read('largest 3 BLs').notUnderstood).toEqual([]);
+  });
+  it('turns top N into the BL numbers of the pool', () => {
+    const r = resolveTop(read('top 2 largest BLs').criteria, pool);
+    expect(r.criteria.bl.include).toEqual(['4000002002', '4000002004']);
+    expect(r.criteria.bl.top).toBeUndefined();
+    expect(resolveTop(read('exclude the 1 oldest BL').criteria, pool).criteria.bl.exclude).toEqual(['4000002003']);
+    expect(resolveTop(read('only top 2 BLs by quantity').criteria, pool).criteria.bl.only).toEqual(['4000002003', '4000002002']);
+    expect(resolveTop(read('top 9 largest BLs').criteria, pool).picked[0]).toContain('only 4 free');
+  });
+  it('reads min and max for values and counts', () => {
+    expect(read('BL value min 40K').criteria.bl.amount).toEqual({ op: '>=', value: 40000 });
+    expect(read('BL value max 80K').criteria.bl.amount).toEqual({ op: '<=', value: 80000 });
+    expect(read('min 320 BLs').criteria.minBls).toBe(320);
+    expect(read('max 450 BLs').criteria.maxBls).toBe(450);
+  });
+});
+
+describe('the bar reads plain words (2026-11-08)', () => {
+  const r = (t: string) => readConditions(t, [], { today: '2026-11-08', known: { notifyParty: ['Olam Viet Nam Ltd'] } });
+  const cases: [string, string[]][] = [
+    ['BL quantity more than 200', ['BL quantity > 200']],
+    ['qty < 45000 lbs', ['BL quantity < 45,000']],
+    ['weight over 70,000 LBS', ['BL quantity > 70,000']],
+    ['value above 50k', ['BL value > 50,000 USD']],
+    ['amount above 50k', ['BL value > 50,000 USD']],
+    ['BLs worth more than 50000 USD', ['BL value > 50,000 USD']],
+    ['remove BLs below 40k', ['BL value >= 40,000 USD']],
+    ['exclude BLs under 30K', ['BL value >= 30,000 USD']],
+    ['more than 300 BLs', ['more than 300 BLs']],
+    ['less than 350 BLs', ['fewer than 350 BLs']],
+    ['between 300 and 400 BLs', ['between 300 and 400 BLs']],
+    ['around 350 BLs', ['about 350 BLs (332–368)']],
+    ['top ten largest BLs', ['must include the 10 largest BLs by value']],
+    ['bottom 10 BLs', ['must include the 10 smallest BLs by value']],
+    ['BLs from September', ['BL dated 01-09-2026 – 30-09-2026']],
+    ['half of the deal', ['fill 50% of what is left']],
+    ['show me the biggest BLs', ['fill with Fewest BLs']],
+    ['closest amount', ['fill with Closest amount']],
+    ['prefer newer BLs', ['newest trade flows first']],
+    ['BLs with value at least 60K and quantity under 70000', ['BL quantity < 70,000', 'BL value >= 60,000 USD']]
+  ];
+  it.each(cases)('%s', (text, applied) => {
+    const got = r(text);
+    expect(got.applied).toEqual(applied);
+    expect(got.notUnderstood).toEqual([]);
+  });
+  it('sets the ways of filling and keeps deal amounts for deal searches', () => {
+    expect(r('fewest BLs, exact match').criteria.ways).toEqual(['fewest', 'closest']);
+    expect(r('show deals above 1 Cr').criteria.deal.amount).toEqual({ op: '>', value: 1e7 });
+    expect(r('deal amount above 5L').criteria.deal.amount).toEqual({ op: '>', value: 5e5 });
+  });
+  it('says what it cannot use, with a hint, and never guesses', () => {
+    expect(r('smallest first').notUnderstood[0]).toContain('bottom 50 BLs');
+    expect(r('blue moon').notUnderstood).toEqual(['blue moon']);
   });
 });

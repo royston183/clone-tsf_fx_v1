@@ -113,7 +113,10 @@ test('Propose Tradeflow: options and typed conditions shape the proposals, accep
   await deals.getByRole('button', { name: 'All', exact: true }).click();
   await expect(deals.getByRole('row').filter({ hasText: '7000000160' })).toContainText('No USD rate');
   await deals.getByRole('button', { name: 'Deal 7000000142' }).click();
-  await expect(page.locator('.tsf-propose__hero')).toContainText('283,800.00');
+  // The list steps aside while a deal is open; the deal amount and what is unassigned stand out.
+  await expect(deals).toHaveCount(0);
+  await expect(page.locator('.tsf-dealhero')).toContainText('283,800.00');
+  await expect(page.locator('.tsf-dealhero')).toContainText('Unassigned');
   // Multiple-choice ways of filling, all three chosen by default; each can be turned off alone, never the last one.
   await expect(page.getByRole('button', { name: 'Fewest BLs' })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Oldest trade flows' })).toHaveAttribute('aria-pressed', 'true');
@@ -162,10 +165,12 @@ test('Propose Tradeflow: options and typed conditions shape the proposals, accep
   await expect(modal.getByRole('table', { name: 'BLs in the proposal' })).toBeVisible();
   await modal.getByRole('button', { name: /Assign \d+ BLs? to 7000000142/ }).click();
   await expect(page.locator('.ds-toast')).toContainText('assigned to 7000000142');
-  await expect(deals.getByRole('row').filter({ hasText: '7000000142' })).toContainText('Filled');
+  await expect(page.locator('.tsf-dealhero')).toContainText('Fully assigned');
   // The deal's assigned BLs, by trade flow: on the page and from the deal list.
   await expect(page.getByRole('table', { name: 'BLs assigned to 7000000142' })).toBeVisible();
   if (shots) { await page.waitForTimeout(500); await page.screenshot({ path: `${shots}/4-assigned.png`, fullPage: true }); }
+  await page.getByRole('button', { name: 'All Deal IDs' }).click();
+  await expect(deals.getByRole('row').filter({ hasText: '7000000142' })).toContainText('Fully assigned');
   await deals.getByRole('button', { name: 'With BLs' }).click();
   await deals.getByRole('button', { name: 'View the BLs assigned to 7000000142' }).click();
   const list = page.getByRole('dialog', { name: 'BLs assigned to 7000000142' });

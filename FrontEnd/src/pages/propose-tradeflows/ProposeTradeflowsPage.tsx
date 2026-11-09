@@ -3,7 +3,7 @@
 // conditions filter what it may use (read by the app, or by the AI for what the app cannot read); the AI ranks and
 // explains. A proposal opens in a modal, where it is accepted after the BLs are checked again against SAP.
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertCircle, HelpCircle, ListChecks, Search, SlidersHorizontal, Sparkles, Wand2, X } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChevronLeft, ChevronRight, HelpCircle, ListChecks, Search, SlidersHorizontal, Sparkles, Wand2, X } from 'lucide-react';
 import { DataTable } from '@/components/table/DataTable';
 import { TrafficLightTag } from '@/components/ui/Badge';
 import { Notice } from '@/components/ui/Notice';
@@ -13,14 +13,14 @@ import { formatAmount, formatCompact, formatDate } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { assignedTotal, candidates, type Combination } from '@/lib/propose/match';
-import { dealMismatch, mergeCriteria, readConditions, targetOf, type Criteria } from '@/lib/propose/query';
+import { dealMismatch, mergeCriteria, readConditions, resolveTop, targetOf, type Criteria } from '@/lib/propose/query';
 import { sampleProposeData, type Interpretation, type ProposeData } from './data';
 import { liveProposeData } from './live';
 import { acceptPlan, assignedByTradeflow, commodityNote, dealRows, DEFAULT_ANSWERS, waysOf, distinctProposals, proposalsUnder, rulesOf, type DealRow, type Fill, type FillAnswers } from './logic';
 import { AssignedGroups, AssignedModal } from './parts';
 import { BeanLoader } from './BeanLoader';
 import { ProposalModal } from './ProposalModal';
-import { orderByRules, progressPct } from './view';
+import { assignState, orderByRules, progressPct, STATE_TONE } from './view';
 import './propose.css';
 
 interface Loaded { deals: DealRow[]; bls: Row[]; commodities: Row[] }
@@ -30,7 +30,7 @@ export interface Entry { id: number; text: string; reading: Interpretation }
 const usd = (v: string | null) => (v === null || v === '' ? '—' : `${formatAmount(v)} USD`);
 /** The most BL detail rows one AI request carries (the BackEnd accepts 1,000). */
 const AI_BL_ROWS = 1000;
-const STATUS_TONE = { Open: 'amber', Filled: 'green', 'No USD rate': 'red' } as const;
+const StateTag = ({ deal }: { deal: DealRow }) => { const s = assignState(deal); return <TrafficLightTag tone={STATE_TONE[s]}>{s}</TrafficLightTag>; };
 const FIT_LABEL = { over: 'Covers the deal', under: 'Partial fill' } as const;
 const FILLS: [Fill, string][] = [['fewest', 'Fewest BLs'], ['closest', 'Closest amount'], ['oldest', 'Oldest trade flows']];
 /** What each way of filling means for the person choosing (shown under the proposal). */
@@ -47,11 +47,12 @@ const totalLeft = (deals: DealRow[]) => (deals.filter(d => d.status === 'Open').
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 /** What can be typed in the bar, by kind (the guide under "What can I type?"). */
 const GUIDE: [string, string[]][] = [
+  ['Largest, smallest, oldest', ['top 10 largest BLs', 'exclude the 20 smallest BLs', 'only the 400 oldest BLs', 'top 5 BLs by quantity']],
   ['Leave BLs out or keep them in', ['exclude BL 4000001234', 'exclude BLs 4000001000 to 4000001100', 'only BLs 4000001000 to 4000001600', 'must include BL 4000001234', 'exclude trade flow 3000001234']],
   ['Dates', ['BL date in October', 'BLs dated after 15 Oct 2026', 'shipped before 01 Nov 2026', 'ETA between 01 Nov 2026 and 30 Nov 2026']],
-  ['Value and quantity', ['BLs above 50K', 'BLs between 20K and 60K', 'quantity above 60000 LBS']],
+  ['Value and quantity', ['BLs above 50K', 'BL value min 40K', 'BL value max 80K', 'BLs between 20K and 60K', 'quantity above 60000 LBS']],
   ['Contract, notify party, invoice', ['only contract VAR-CTR-ARA', 'exclude notify party Olam', 'exclude invoice VAR-INV-12', 'BL reference VAR-ARA-00*']],
-  ['How many BLs, which first', ['at least 300 BLs', 'at most 450 BLs', 'oldest first', 'fewest trade flows']],
+  ['How many BLs, which first', ['at least 300 BLs', 'max 450 BLs', 'min 320 BLs', 'oldest first', 'fewest trade flows']],
   ['Part of the deal', ['fill 50%', 'propose 1 Cr only']],
   ['Across deals', ['show deals above 1 Cr', 'deals with left above 50L']]
 ];
@@ -114,6 +115,8 @@ export default function ProposeTradeflowsPage() {
   // The list marks the deal at once; its panel (proposals for 300-500 BLs) follows in the background.
   const opened = useDeferredValue(selected);
   const deal = loaded?.deals.find(d => d.dealId === opened) ?? null;
+  /** The deal before / after the chosen one in the list as filtered (the list itself is hidden while a deal is open). */
+  const neighbour = (step: number) => { const i = shown.findIndex(d => d.dealId === selected); return i < 0 ? '' : shown[i + step]?.dealId ?? ''; };
 
   return (
     <section className="tsf-propose">
@@ -121,15 +124,15 @@ export default function ProposeTradeflowsPage() {
       {error && <Notice error><AlertCircle size={16} />{error}</Notice>}
       {!loaded && !error && <BeanLoader steps={['deals', 'bls', 'commodities', 'rates'].map(k => ({ done: k in ready }))} />}
       {loaded && (
-        <div className="tsf-propose__layout">
-          <aside className="panel tsf-propose__deals" aria-label="Deal IDs">
+        <div className={`tsf-propose__layout${selected ? ' tsf-propose__layout--deal' : ''}`}>
+          {!selected && <aside className="panel tsf-propose__deals" aria-label="Deal IDs">
             <div className="tsf-propose__deals-head">
               <h2>Deal IDs <span>{shown.length}</span></h2>
               <label className="tsf-propose__search"><Search size={13} />
                 <input className="input" placeholder="Search Deal ID, description, commodity" value={search} onChange={e => setSearch(e.target.value)} aria-label="Search Deal IDs" />
               </label>
               <div className="tsf-propose__filter tsf-tabs" role="group" aria-label="Show deals">
-                {([['open', 'Open'], ['assigned', 'With BLs'], ['all', 'All']] as const).map(([id, label]) => (
+                {([['open', 'To assign'], ['assigned', 'With BLs'], ['all', 'All']] as const).map(([id, label]) => (
                   <button key={id} className={view === id ? 'on' : ''} aria-pressed={view === id} onClick={() => setView(id)}>{label}<span className="count" aria-hidden="true">{
                     (loaded.deals).filter(d => id === 'all' || (id === 'open' ? d.status === 'Open' : (assignedCount.get(d.dealId) ?? 0) > 0)).length}</span></button>
                 ))}
@@ -144,11 +147,11 @@ export default function ProposeTradeflowsPage() {
                   const n = assignedCount.get(d.dealId) ?? 0;
                   return (
                     <tr key={d.dealId} data-table-row="" className={d.dealId === selected ? 'selected' : ''} onClick={() => setSelected(d.dealId)}>
-                      <td><button className="tsf-propose__dealid mono" onClick={e => { e.stopPropagation(); setSelected(d.dealId); }} aria-pressed={d.dealId === selected} aria-label={`Deal ${d.dealId} ${d.status}`}>{d.dealId}</button>
+                      <td><button className="tsf-propose__dealid mono" onClick={e => { e.stopPropagation(); setSelected(d.dealId); }} aria-pressed={d.dealId === selected} aria-label={`Deal ${d.dealId} ${assignState(d)}`}>{d.dealId}</button>
                         {n > 0 && <button className="tsf-propose__bls-link" onClick={e => { e.stopPropagation(); setViewing(d); }} aria-label={`View the BLs assigned to ${d.dealId}`} title={`${n} BLs assigned · ${formatAmount(d.assignedUsd)} USD`}><ListChecks size={11} />{n}</button>}</td>
                       <td>{d.tsfCommodity ? `${d.tsfCommodity}${d.tsfCommodityText ? ` · ${d.tsfCommodityText}` : ''}` : '—'}</td>
                       <td className="num">{d.remainingUsd ? formatAmount(d.remainingUsd) : '—'}</td>
-                      <td><TrafficLightTag tone={STATUS_TONE[d.status]}>{d.status}</TrafficLightTag></td>
+                      <td><StateTag deal={d} /></td>
                     </tr>
                   );
                 })}</tbody>
@@ -156,17 +159,18 @@ export default function ProposeTradeflowsPage() {
               </DataTable>
               </div>
             ) : <p className="tsf-propose__muted tsf-propose__pad">{acrossDeals ? 'No matching deals or available BLs found for the selected criteria.' : view === 'assigned' ? 'No deal has BLs assigned yet. Assign a proposal and its deal shows here.' : 'No Deal IDs match.'}</p>}
-          </aside>
+          </aside>}
           <div className="tsf-propose__main">
             {selected !== opened && <p className="tsf-propose__updating" role="status"><span aria-hidden="true" />Opening {selected}…</p>}
-            {!deal && (
+            {!deal && !selected && (
               <div className="panel tsf-propose__empty">
                 <Wand2 size={24} />
                 <h3>Choose a Deal ID</h3>
                 <p>Its proposals appear here: free BLs of the same commodity whose USD value comes within 1% of what is left of the deal.</p>
               </div>
             )}
-            {deal && <DealPanel key={deal.dealId} deal={deal} loaded={loaded} data={data} answers={answers} onAnswers={setAnswers}
+            {deal && selected && <DealPanel key={deal.dealId} deal={deal} loaded={loaded} data={data} answers={answers} onAnswers={setAnswers}
+              nav={{ back: () => setSelected(''), prev: neighbour(-1), next: neighbour(1), go: setSelected, at: Math.max(0, shown.findIndex(d => d.dealId === deal.dealId)) + 1, of: shown.length }}
               entries={entries} onEntries={setEntries} criteria={criteria}
               firstTab={view === 'assigned' || deal.status !== 'Open' ? 'assigned' : 'proposals'}
               onChanged={text => { notify(text, 'success'); setReload(r => r + 1); }} onError={text => notify(text, 'error')} />}
@@ -179,12 +183,16 @@ export default function ProposeTradeflowsPage() {
   );
 }
 
-function DealPanel({ deal, loaded, data, answers, onAnswers, entries, onEntries, criteria, firstTab, onChanged, onError }: {
-  deal: DealRow; loaded: Loaded; data: ProposeData; answers: FillAnswers; onAnswers: (a: FillAnswers) => void;
+interface DealNav { back: () => void; prev: string; next: string; go: (id: string) => void; at: number; of: number }
+
+function DealPanel({ deal, nav, loaded, data, answers, onAnswers, entries, onEntries, criteria, firstTab, onChanged, onError }: {
+  deal: DealRow; nav: DealNav; loaded: Loaded; data: ProposeData; answers: FillAnswers; onAnswers: (a: FillAnswers) => void;
   entries: Entry[]; onEntries: (e: Entry[] | ((list: Entry[]) => Entry[])) => void; criteria: Criteria; firstTab: 'proposals' | 'assigned';
   onChanged: (t: string) => void; onError: (t: string) => void;
 }) {
   const [typed, setTyped] = useState('');
+  // The assistant's answer to the last request: what it understood and did, or what it could not place.
+  const [reply, setReply] = useState<{ applied: string[]; notUnderstood: string[] } | null>(null);
   const [tab, setTab] = useState<'proposals' | 'assigned'>(firstTab);
   const input = useRef<HTMLInputElement>(null);
   const [reading_, setReadingBusy] = useState(false);
@@ -239,7 +247,7 @@ function DealPanel({ deal, loaded, data, answers, onAnswers, entries, onEntries,
     const first = free.map(b => str(b.blDate).slice(5, 7)).filter(Boolean).sort()[0];
     const month = first ? MONTH_NAMES[Number(first) - 1] : '';
     const contract = most('contractRef');
-    return [`exclude BLs ${at(0.1)} to ${at(0.2)}`, month ? `BL date in ${month}` : '', contract ? `only contract ${contract}` : '', 'BLs above 50K', 'fill 50%', 'at least 300 BLs'].filter(Boolean);
+    return [`exclude BLs ${at(0.1)} to ${at(0.2)}`, month ? `BL date in ${month}` : '', contract ? `only contract ${contract}` : '', 'top 10 largest BLs', 'BLs above 50K', 'fill 50%', 'min 300 BLs'].filter(Boolean);
   }, [loaded, deal.tsfCommodity]);
   // A chip applies at once (the bar stays clear for the next condition).
   // The names the deal's free BLs carry: a notify party or contract typed on its own is understood.
@@ -267,15 +275,23 @@ function DealPanel({ deal, loaded, data, answers, onAnswers, entries, onEntries,
   };
   /** Clear all: every way of filling back on, no conditions, an empty bar. */
   // Clear all: no way chosen (the proposals then use all three), no conditions, an empty bar.
-  const clearAll = () => { onAnswers({ ...DEFAULT_ANSWERS, fill: [] }); onEntries([]); setTyped(''); };
+  const clearAll = () => { onAnswers({ ...DEFAULT_ANSWERS, fill: [] }); onEntries([]); setTyped(''); setReply(null); };
 
   const apply = async (given?: string) => {
     const text = (given ?? typed).trim() || hint;
     if (!text) return;
+    // "clear", "reset", "start over": the same as Clear all.
+    if (/^(?:clear|reset|clear all|reset all|start over|remove all|undo all)$/i.test(text)) { clearAll(); setReply({ applied: ['cleared every condition and way of filling'], notUnderstood: [] }); return; }
     setReadingBusy(true);
     try {
-      const reading = await data.interpret(text, { deal: { dealId: deal.dealId, tsfCommodity: deal.tsfCommodity }, commodities: loaded.commodities, today: todayIso(), known });
+      const read = await data.interpret(text, { deal: { dealId: deal.dealId, tsfCommodity: deal.tsfCommodity }, commodities: loaded.commodities, today: todayIso(), known });
+      // "top 10 largest BLs" becomes the BL numbers of this deal's free BLs (listed in the chip's tooltip).
+      const top = resolveTop(read.criteria, candidates(loaded.bls, deal.tsfCommodity, loaded.commodities, {}));
+      const reading = top.picked.length ? { ...read, criteria: top.criteria, picked: top.picked } : read;
+      // "fewest BLs" / "closest amount" typed in the bar choose the way of filling (the Fill with chips show it).
+      if (reading.criteria.ways?.length) onAnswers({ ...answers, fill: reading.criteria.ways });
       onEntries(list => [...list, { id: list.reduce((m, x) => Math.max(m, x.id), 0) + 1, text, reading }]);
+      setReply({ applied: reading.applied, notUnderstood: reading.notUnderstood });
       setTyped('');
     }
     catch (e) { onError((e as Error).message); }
@@ -297,70 +313,94 @@ function DealPanel({ deal, loaded, data, answers, onAnswers, entries, onEntries,
 
   return (
     <>
-      <div className="tsf-propose__hero">
-        <div className="tsf-propose__hero-title">
-          <h2><span className="mono">{deal.dealId}</span> <TrafficLightTag tone={STATUS_TONE[deal.status]}>{deal.status}</TrafficLightTag></h2>
-          <p className="tsf-propose__muted">{deal.dealDesc || '—'} · {deal.tsfCommodity || 'no commodity'}{deal.tsfCommodityText ? ` ${deal.tsfCommodityText}` : ''}</p>
-          <p className="tsf-propose__net">Deal amount {formatAmount(deal.amount)} {deal.currency}<small className="num-short">{formatCompact(deal.amount)}</small> · Assigned {formatAmount(deal.assignedUsd)} USD<small className="num-short">{formatCompact(deal.assignedUsd)}</small> ({assignedCountHere} BL{assignedCountHere === 1 ? '' : 's'}) · Left <b>{deal.remainingUsd ? `${formatAmount(deal.remainingUsd)} USD` : '—'}</b>{deal.remainingUsd && <small className="num-short">{formatCompact(deal.remainingUsd)}</small>}</p>
+      <div className="panel tsf-dealhero">
+        <div className="tsf-dealhero__id">
+          <div className="tsf-dealhero__nav">
+            <button type="button" className="button secondary small" onClick={nav.back}><ArrowLeft size={14} />All Deal IDs</button>
+            <span className="tsf-propose__muted">{nav.at} of {nav.of}</span>
+            <button type="button" className="button secondary small" disabled={!nav.prev} onClick={() => nav.go(nav.prev)} aria-label="Previous Deal ID" title={nav.prev ? `Previous: ${nav.prev}` : undefined}><ChevronLeft size={14} /></button>
+            <button type="button" className="button secondary small" disabled={!nav.next} onClick={() => nav.go(nav.next)} aria-label="Next Deal ID" title={nav.next ? `Next: ${nav.next}` : undefined}><ChevronRight size={14} /></button>
+          </div>
+          <h2><span className="mono">{deal.dealId}</span> <StateTag deal={deal} /><span className="tsf-propose__muted tsf-dealhero__desc">{deal.tsfCommodityText || deal.tsfCommodity || 'no commodity'}{deal.dealDesc ? ` · ${deal.dealDesc}` : ''}</span></h2>
+          <div className="tsf-dealhero__bar">
+            <div className="tsf-propose__progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Assigned share of the deal"><span style={{ width: `${pct}%` }} /></div>
+            <span>{pct}% assigned · {assignedCountHere} BL{assignedCountHere === 1 ? '' : 's'}</span>
+          </div>
         </div>
-        <div className="tsf-propose__progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Assigned share of the deal"><span style={{ width: `${pct}%` }} /></div>
+        <dl className="tsf-dealhero__figs">
+          <div><dt>Deal amount</dt><dd>{formatCompact(deal.amount)} <small>{deal.currency}</small></dd><span>{formatAmount(deal.amount)}</span></div>
+          <div className="key"><dt>{Number(deal.remainingUsd) < 0 ? 'Over by' : 'Unassigned'}</dt><dd>{deal.remainingUsd ? formatCompact(Math.abs(Number(deal.remainingUsd))) : '—'} <small>USD</small></dd><span>{deal.remainingUsd ? formatAmount(Math.abs(Number(deal.remainingUsd)).toFixed(2)) : ''}</span></div>
+        </dl>
       </div>
       {deal.status === 'No USD rate' && <Notice kind="warn">No USD rate for {deal.currency} today: this Deal ID gets no proposals until SAP has one (rate type M).</Notice>}
-      {deal.status === 'Filled' && <Notice>This Deal ID is filled within 1%.</Notice>}
+      {deal.status === 'Filled' && <Notice>This Deal ID is fully assigned (within 1%).</Notice>}
       {note && <Notice kind="warn">{note}</Notice>}
 
-      <div className="tsf-tabs tsf-propose__tabs" role="tablist" aria-label={`${deal.dealId} views`}>
-        <button role="tab" aria-selected={tab === 'proposals'} className={tab === 'proposals' ? 'on' : ''} onClick={() => setTab('proposals')}>Proposals<span className="count">{deal.status === 'Open' ? proposals.length : 0}</span></button>
-        <button role="tab" aria-selected={tab === 'assigned'} className={tab === 'assigned' ? 'on' : ''} onClick={() => setTab('assigned')}>Assigned BLs<span className="count">{assignedCountHere}</span></button>
+      <div className="tsf-propose__tabrow">
+        <div className="tsf-tabs tsf-propose__tabs" role="tablist" aria-label={`${deal.dealId} views`}>
+          <button role="tab" aria-selected={tab === 'proposals'} className={tab === 'proposals' ? 'on' : ''} onClick={() => setTab('proposals')}>Proposals<span className="count">{deal.status === 'Open' ? proposals.length : 0}</span></button>
+          <button role="tab" aria-selected={tab === 'assigned'} className={tab === 'assigned' ? 'on' : ''} onClick={() => setTab('assigned')}>Assigned BLs<span className="count">{assignedCountHere}</span></button>
+        </div>
+      {tab === 'proposals' && deal.status === 'Open' && (
+      <div className="tsf-propose__options">
+        <div role="group" aria-label="Fill the deal with">
+          <span>Fill with</span>
+          {FILLS.map(([id, label]) => <button key={id} className={`tsf-propose__opt${answers.fill.includes(id) ? ' on' : ''}`} aria-pressed={answers.fill.includes(id)} onClick={() => toggleFill(id)}>{label}</button>)}
+          <button type="button" className="tsf-propose__reset" aria-label="Clear all selections and conditions" onClick={clearAll}><X size={12} />Clear all</button>
+          {!answers.fill.length && <span className="tsf-propose__allways">All ways</span>}
+        </div>
+        {criteria.target && <span className="tsf-propose__aim">Aiming at <b>{formatAmount(aimUsd)} USD</b> of {formatAmount(deal.remainingUsd)} left</span>}
+      </div>
+      )}
       </div>
 
-      {tab === 'proposals' && deal.status !== 'Open' && <p className="tsf-propose__muted tsf-propose__pad">No proposals: {deal.status === 'Filled' ? 'the deal is filled.' : 'the deal has no USD rate.'}</p>}
+      {tab === 'proposals' && deal.status !== 'Open' && <p className="tsf-propose__muted tsf-propose__pad">No proposals: {deal.status === 'Filled' ? 'the deal is fully assigned.' : 'the deal has no USD rate.'}</p>}
       {tab === 'proposals' && deal.status === 'Open' && (
         <div className="panel tsf-propose__proposals">
           <form className="tsf-cmd" onSubmit={e => { e.preventDefault(); void apply(); }}>
             <div className="tsf-cmd__bar">
-              <Sparkles size={16} className="tsf-cmd__icon" aria-hidden="true" />
+              <span className="tsf-cmd__ai" aria-hidden="true"><Sparkles size={14} /></span>
               <input ref={input} value={typed} onChange={e => setTyped(e.target.value)} aria-label="Conditions"
-                placeholder={hint ? `Try: ${hint}` : 'Tell the app which BLs to use'} />
-              <button className="button small" disabled={reading_ || (!typed.trim() && !hint)} title={typed.trim() ? undefined : `Applies: ${hint}`}>{reading_ ? 'Reading…' : 'Apply'}</button>            </div>
-            {examples.length > 0 && (
-              <div className="tsf-cmd__try" aria-label="Examples to try">
-                <span>Try</span>
-                {examples.map(x => <button key={x} type="button" className="tsf-cmd__eg" onClick={() => use(x)}>{x}</button>)}
+                placeholder={hint ? `Ask anything, e.g. ${hint}` : 'Ask anything: which BLs to use, leave out, how many…'} />
+              <button className="button small" disabled={reading_ || (!typed.trim() && !hint)} title={typed.trim() ? undefined : `Applies: ${hint}`}>{reading_ ? 'Thinking…' : 'Apply'}</button>
+            </div>
+            {(reading_ || reply) && (
+              <div className="tsf-cmd__reply" role="status" aria-live="polite">
+                <span className="tsf-cmd__ai" aria-hidden="true"><Sparkles size={12} /></span>
+                {reading_ ? <p className="tsf-cmd__typing" aria-label="Thinking"><i /><i /><i /></p> : reply && (
+                  <p>{reply.applied.length > 0 && <>Done: {reply.applied.map(short).join('; ')}. {updating ? 'Updating the proposals…' : proposals.length ? `${proposals.length} proposal${proposals.length > 1 ? 's' : ''} below.` : 'No proposal fits that: remove a condition to widen it.'}</>}
+                    {reply.notUnderstood.length > 0 && <> I could not place “{reply.notUnderstood.map(n => n.replace(/\s*\([^)]*\)\s*$/, '')).join('; ')}”. Try words like <i>top 10 largest BLs</i>, <i>exclude …</i>, <i>min 300 BLs</i> or <i>BLs above 50K</i>.</>}
+                    <button type="button" className="tsf-cmd__x" aria-label="Dismiss the answer" onClick={() => setReply(null)}><X size={11} /></button></p>
+                )}
               </div>
             )}
-            <details className="tsf-cmd__help">
-              <summary><HelpCircle size={13} />What can I type?</summary>
-              <div className="tsf-cmd__guide">
-                {GUIDE.map(([title, list]) => (
-                  <div key={title}><h5>{title}</h5>{list.map(x => <button key={x} type="button" className="tsf-cmd__eg" onClick={() => use(x)}>{x}</button>)}</div>
-                ))}
-                <p>Conditions stack: apply one, then another; remove any with its ×. Words the app cannot place go to the AI when it is connected; anything still not understood is shown and never guessed.</p>
-              </div>
-            </details>
+            <div className="tsf-cmd__try" aria-label="Examples to try">
+              {examples.length > 0 && <span>Try</span>}
+              {examples.map(x => <button key={x} type="button" className="tsf-cmd__eg" onClick={() => use(x)}>{x}</button>)}
+              <details className="tsf-cmd__help">
+                <summary><HelpCircle size={13} />What can I type?</summary>
+                <div className="tsf-cmd__guide">
+                  {GUIDE.map(([title, list]) => (
+                    <div key={title}><h5>{title}</h5>{list.map(x => <button key={x} type="button" className="tsf-cmd__eg" onClick={() => use(x)}>{x}</button>)}</div>
+                  ))}
+                  <p>Type it the way you would say it: include, exclude, only, min, max, at least, top, largest, oldest… Conditions stack; remove any with its ×. Anything not understood is said so, never guessed.</p>
+                </div>
+              </details>
+            </div>
           </form>
           {entries.length > 0 && (
             <div className="tsf-propose__understood" aria-label="Applied conditions">
               {entries.map(e => (
-                <span key={e.id} className="tsf-cmd__chip" title={e.text}>
+                <span key={e.id} className="tsf-cmd__chip" title={[e.text, ...(e.reading.picked ?? [])].join('\n')}>
                   {e.reading.applied.map(a => <span key={a} className="tsf-propose__rule">{short(a)}</span>)}
                   {e.reading.notUnderstood.map(n => <span key={n} className="tsf-propose__not">Not applied: {n}</span>)}
                   <button type="button" className="tsf-cmd__x" aria-label={`Remove condition: ${e.text}`} onClick={() => remove(e.id)}><X size={11} /></button>
                 </span>
               ))}
-              <button className="tsf-propose__link" aria-label="Clear conditions" onClick={() => { onEntries([]); setTyped(''); }}><X size={12} />Clear conditions</button>
+              <button className="tsf-propose__link" aria-label="Clear conditions" onClick={() => { onEntries([]); setTyped(''); setReply(null); }}><X size={12} />Clear conditions</button>
             </div>
           )}
 
-          <div className="tsf-propose__options">
-            <div role="group" aria-label="Fill the deal with">
-              <span>Fill with</span>
-              {FILLS.map(([id, label]) => <button key={id} className={`tsf-propose__opt${answers.fill.includes(id) ? ' on' : ''}`} aria-pressed={answers.fill.includes(id)} onClick={() => toggleFill(id)}>{label}</button>)}
-              <button type="button" className="tsf-propose__reset" aria-label="Clear all selections and conditions" onClick={clearAll}><X size={12} />Clear all</button>
-              {!answers.fill.length && <span className="tsf-propose__allways">All ways</span>}
-            </div>
-            {criteria.target && <span className="tsf-propose__aim">Aiming at <b>{formatAmount(aimUsd)} USD</b> of {formatAmount(deal.remainingUsd)} left</span>}
-          </div>
           {updating && <p className="tsf-propose__updating" role="status"><span aria-hidden="true" />Updating proposals…</p>}
           {computed.reason && <p className="tsf-propose__none" role="status">{computed.reason}</p>}
           {!computed.reason && outside && <p className="tsf-propose__hint">Nothing comes within 1% of {usd(aimUsd)}: these are the closest. <b>Covers the deal</b> caps its last BL at what is left; <b>Partial fill</b> leaves part open.</p>}

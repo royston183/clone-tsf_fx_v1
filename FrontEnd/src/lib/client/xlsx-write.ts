@@ -50,9 +50,13 @@ const STYLES = '<fonts count="1"><font><sz val="11"/><name val="Calibri"/></font
   + '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/></cellXfs>'
   + '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>';
 
-/** A one-sheet workbook: strings are text cells, `{ number }` cells are numbers (anything not a plain number stays text). */
-export function sheetXlsx(rows: XlsxCell[][], sheetName = 'Data'): Uint8Array<ArrayBuffer> {
+/**
+ * A one-sheet workbook: strings are text cells, `{ number }` cells are numbers (anything not a plain number stays text).
+ * `widths` (characters, optional) sets the column widths, so long amounts do not show as ####.
+ */
+export function sheetXlsx(rows: XlsxCell[][], sheetName = 'Data', widths: number[] = []): Uint8Array<ArrayBuffer> {
   const ns = 'http://schemas.openxmlformats.org/', rel = `${ns}officeDocument/2006/relationships`;
+  const cols = widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '';
   const data = rows.map((cells, r) => `<row r="${r + 1}">${cells.map((v, c) => cellXml(v, `${letter(c)}${r + 1}`)).join('')}</row>`).join('');
   return zip({
     '[Content_Types].xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="${ns}package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`,
@@ -60,7 +64,7 @@ export function sheetXlsx(rows: XlsxCell[][], sheetName = 'Data'): Uint8Array<Ar
     'xl/workbook.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="${ns}spreadsheetml/2006/main" xmlns:r="${rel}"><sheets><sheet name="${escapeXml(sheetName.slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`,
     'xl/_rels/workbook.xml.rels': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="${ns}package/2006/relationships"><Relationship Id="rId1" Type="${rel}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${rel}/styles" Target="styles.xml"/></Relationships>`,
     'xl/styles.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="${ns}spreadsheetml/2006/main">${STYLES}</styleSheet>`,
-    'xl/worksheets/sheet1.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${ns}spreadsheetml/2006/main"><sheetData>${data}</sheetData></worksheet>`
+    'xl/worksheets/sheet1.xml': `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="${ns}spreadsheetml/2006/main">${cols}<sheetData>${data}</sheetData></worksheet>`
   });
 }
 

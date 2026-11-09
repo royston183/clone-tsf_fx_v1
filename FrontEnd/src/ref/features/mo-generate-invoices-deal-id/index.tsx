@@ -36,7 +36,11 @@ import { downloadPdfs, pdfFiles } from './invoice-pdf.ts'
 import { setStatusTexts } from './data.ts'
 import { DateCell } from './DateCell.tsx'
 import { DealLookupModal } from './DealLookupModal.tsx'
+import { DealPicker } from './DealPicker.tsx'
 import { AssignedBlsModal, DealBlsPanel, InvoiceReviewModal, useDealBls } from './DealBls.tsx'
+import { TrafficLightTag } from '@/components/ui/Badge'
+import { formatAmount, formatCompact } from '@/lib/fields/parse'
+import { assignState, progressPct, STATE_TONE } from '@/pages/propose-tradeflows/view'
 import { DiffModal } from './DiffModal.tsx'
 import { money, parseNum, statusText, validDMY } from './format.ts'
 import {
@@ -306,6 +310,7 @@ export default function MoGenerateInvoicesDealId() {
       toast('Select a Deal ID to load invoice data.', 'info')
       return
     }
+    setBlVersion((v) => v + 1)
     void fetchDeal(deal.dealId, true).then(() => note('Workbench refreshed from SAP.'))
   }
 
@@ -328,7 +333,13 @@ export default function MoGenerateInvoicesDealId() {
   const amendable = deal ? isFinalInvoiceStatus(deal.status) : false
   // 04 starts a finalisation; at 05 / 07 a row still without its BL invoice type means a finalisation stopped part-way.
   const finalisationPending = !!deal && isFinalInvoiceStatus(deal.status) && deal.inv.some((r) => !r.locked)
-  const dealBls = useDealBls(deal?.dealId ?? '')
+  // The BLs and the deal figures, read as Propose Tradeflow reads them; again on Refresh and after a write.
+  const [blVersion, setBlVersion] = useState(0)
+  const dealBls = useDealBls(deal?.dealId ?? '', blVersion)
+  const figures = dealBls.figures
+  const assignedPct = figures ? progressPct(figures) : 0
+  // A deal filled within its 1% can end a little over: shown as "Over by", never as a negative amount left.
+  const over = Number(figures?.remainingUsd || 0) < 0
   const canConfirmInvoice = !!deal && !deal.dm && !busy && (deal.status === DEAL_INVOICE_STATUS.INVOICE_REVERSED || finalisationPending)
   const pcStale = deal && ctx ? pcMismatches(deal.status, ctx.bilAdj).length : 0
   const rollover = hasRollover(deal)
@@ -351,6 +362,7 @@ export default function MoGenerateInvoicesDealId() {
       // A confirmed invoice is announced by the "Invoice generated" dialog (with Download PDF); only a failure is a warning here.
       if (!(result.ok && quietOk)) toast(result.message, result.ok ? (result.steps.some((x) => x.status === 'skipped') ? 'warn' : 'success') : 'error')
       if (result.ok) after?.()
+      setBlVersion((v) => v + 1)
       const fresh = await fetchDeal(dealId, true)
       // The status shown must be the one SAP now holds: say it, and refresh the Deal ID list that carries it too.
       if (result.ok && fresh && !quietOk) note(`Deal ID ${dealId} status: ${fresh.status} – ${statusText(fresh.status)}`)
@@ -663,131 +675,78 @@ export default function MoGenerateInvoicesDealId() {
         </header>
 
         <main className="workspace">
-          <section className="card context-card selection-card">
-            <div className="section-head">
-              <div className="section-title">Selection Criteria</div>
-              <div className="section-meta">{dealListReason ? `Deal IDs (ZSGTSFTR_DEALID) unavailable: ${dealListReason}` : loading ? 'Loading Deal ID from SAP…' : 'Select a Deal ID to load invoice data'}</div>
+          <section className="card inv-hero" aria-label="Deal ID">
+            <div className="inv-hero__pick">
+              <label htmlFor="invDealId">Deal ID</label>
+              <DealPicker deals={dealList} value={dealLookupInput} onChange={setDealLookupInput} onPick={selectDeal} onEnter={loadTypedDeal} />
+              <button className="button secondary small" type="button" onClick={() => setDealLookupOpen(true)}>
+                View Deals
+              </button>
+              <span className="inv-hero__meta" title={dealListReason || undefined}>{dealListReason ? 'Deal IDs unavailable' : loading ? 'Loading from SAP…' : ''}</span>
             </div>
-            <div className="selection-grid">
-              <div className="field">
-                <label>
-                  Deal ID <span className="req">*</span>
-                </label>
-                <div className="deal-picker">
-                  <input
-                    className="control"
-                    list="dealOptions"
-                    placeholder="Type / select Deal ID..."
-                    autoComplete="off"
-                    value={dealLookupInput}
-                    onChange={(e) => setDealLookupInput(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && loadTypedDeal(dealLookupInput)}
-                  />
-                  <datalist id="dealOptions">
-                    {dealList.map((d) => (
-                      <option key={d.dealId} value={d.dealId}>
-                        {`${d.entityString} — ${d.statusLabel}`}
-                      </option>
-                    ))}
-                  </datalist>
-                  <button className="view-deals-btn" type="button" onClick={() => setDealLookupOpen(true)}>
-                    View Deals
-                  </button>
+            {deal ? (
+              <div className="inv-hero__body">
+                <div className="inv-hero__id">
+                  <h2>
+                    <span className="mono">{deal.dealId}</span>
+                    {figures ? <TrafficLightTag tone={STATE_TONE[assignState(figures)]}>{assignState(figures)}</TrafficLightTag> : null}
+                    <span className="inv-hero__status" title={statusText(deal.status)}>{statusText(deal.status)}</span>
+                  </h2>
+                  <p title={`${deal.mcDesc} · ${deal.entityString}`}>{[figures?.tsfCommodityText, deal.mcDesc, deal.entityString].filter(Boolean).join(' · ') || '—'}</p>
+                </div>
+                <dl className="inv-hero__figs">
+                  <div>
+                    <dt>Deal amount</dt>
+                    <dd>{figures?.usd ? formatCompact(figures.usd) : '—'} <small>USD</small></dd>
+                    <span>{figures?.usd ? formatAmount(figures.usd) : ''}</span>
+                  </div>
+                  <div>
+                    <dt>Assigned · {dealBls.rows.length} BLs</dt>
+                    <dd>{figures ? formatCompact(figures.assignedUsd) : formatCompact(dealBls.usd)} <small>USD</small></dd>
+                    <span>{formatAmount(figures ? figures.assignedUsd : dealBls.usd.toFixed(2))}</span>
+                  </div>
+                  <div className="key">
+                    <dt>{over ? 'Over by' : 'Unassigned'}</dt>
+                    <dd>{figures?.remainingUsd ? formatCompact(Math.abs(Number(figures.remainingUsd))) : '—'} <small>USD</small></dd>
+                    <span>{figures?.remainingUsd ? formatAmount(Math.abs(Number(figures.remainingUsd)).toFixed(2)) : dealBls.loading ? 'Reading…' : ''}</span>
+                  </div>
+                </dl>
+                <div className="inv-hero__bar">
+                  <div className="inv-hero__progress" role="progressbar" aria-valuenow={assignedPct} aria-valuemin={0} aria-valuemax={100} aria-label="Assigned share of the deal"><span style={{ width: `${assignedPct}%` }} /></div>
+                  <span>{assignedPct}% assigned · tolerance {deal.tolerance === null ? '—' : `${money(deal.tolerance, 2)}%`}</span>
                 </div>
               </div>
-              <div className="selection-note">Type a Deal ID and press Enter, or use View Deals to search and select.</div>
-            </div>
-          </section>
-
-          <section className="card context-card" id="basicCard">
-            <div className="section-head">
-              <div className="section-title">Basic Details</div>
-              <div className="section-meta">{deal ? `Deal ${deal.dealId} • ${statusText(deal.status)} • Tolerance ${deal.tolerance === null ? '—' : money(deal.tolerance, 2)}%` : 'Select a Deal ID to load invoice data'}</div>
-            </div>
-            <div className="basic-grid">
-              <div className="basic-row row-deal">
-                <div className="field">
-                  <label>Deal ID Reference</label>
-                  <input className="control readonly" disabled value={deal?.dealRef ?? ''} />
-                </div>
-                <div className="field">
-                  <label>Deal Start Date</label>
-                  <div className="date-value">{deal?.dealStart || '—'}</div>
-                </div>
-                <div className="field">
-                  <label>Deal End Date</label>
-                  <div className="date-value">{deal?.dealEnd || '—'}</div>
-                </div>
-                <div className="field">
-                  <label>Deal ID Status</label>
-                  <select className="control status-control" disabled value={deal?.status ?? ''}>
-                    {deal ? <option value={deal.status}>{statusText(deal.status)}</option> : null}
-                  </select>
-                </div>
-              </div>
-
-              <div className="basic-row row-contract">
-                <div className="field">
-                  <label>MC Ref No</label>
-                  <input className="control readonly" disabled value={deal?.mcRef ?? ''} />
-                </div>
-                <div className="field">
-                  <label>MC Description</label>
-                  <input className="control readonly" disabled value={deal?.mcDesc ?? ''} />
-                </div>
-                <div className="field">
-                  <label>MC Date</label>
-                  <div className="date-value">{deal?.mcDate || '—'}</div>
-                </div>
-                <div className="field">
-                  <label>Ship Start Date</label>
-                  <div className="date-value">{deal?.shipStart || '—'}</div>
-                </div>
-                <div className="field">
-                  <label>Ship End Date</label>
-                  <div className="date-value">{deal?.shipEnd || '—'}</div>
-                </div>
-              </div>
-
-              <div className="basic-row row-structure">
-                <div className="field">
-                  <label>Entity String</label>
-                  <input className="control readonly" disabled value={deal?.entityString ?? ''} />
-                </div>
-                <div className="field">
-                  <label>Currency String</label>
-                  <input className="control readonly" disabled value={deal?.currencyString ?? ''} />
-                </div>
-                <div className="field">
-                  <label>Trader</label>
-                  <input className="control readonly" disabled value={deal?.trader ?? ''} />
-                </div>
-                <div className="field">
-                  <label>Trader Name</label>
-                  <input className="control readonly" disabled value={deal?.traderDesc ?? ''} />
-                </div>
-                <div className="field">
-                  <label>FX Model ID</label>
-                  <input className="control readonly" disabled value={deal?.modelId ?? ''} />
-                </div>
-                <div className="field">
-                  <label>FX Inv Model</label>
-                  <input className="control readonly" disabled value={deal?.fxInvModel ?? ''} />
-                </div>
-              </div>
-
-              <div className="basic-row row-model">
-                <div className="field">
-                  <label>Model Description</label>
-                  <input className="control readonly" disabled value={deal?.modelDesc ?? ''} />
-                </div>
-              </div>
-            </div>
+            ) : (
+              <p className="inv-hero__empty">Choose a Deal ID to see its BLs and generate its invoice.</p>
+            )}
           </section>
 
           {deal ? (
+            <section className="card inv-details" aria-label="Deal details">
+              <dl>
+                {([
+                  ['Reference', deal.dealRef],
+                  ['Deal dates', deal.dealStart || deal.dealEnd ? `${deal.dealStart || '—'} → ${deal.dealEnd || '—'}` : ''],
+                  ['Shipment', deal.shipStart || deal.shipEnd ? `${deal.shipStart || '—'} → ${deal.shipEnd || '—'}` : ''],
+                  ['Master contract', [deal.mcRef, deal.mcDate].filter(Boolean).join(' · ')],
+                  ['Entity', deal.entityString],
+                  ['Currency', deal.currencyString],
+                  ['Trader', deal.traderDesc || deal.trader],
+                  ['FX model', [deal.modelId, deal.modelDesc].filter(Boolean).join(' · ')],
+                  ['Inv model', deal.fxInvModel],
+                ] as const).map(([k, v]) => (
+                  <div key={k}>
+                    <dt>{k}</dt>
+                    <dd title={v || undefined}>{v || '—'}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          ) : null}
+
+          {deal ? (
             <DealBlsPanel dealId={deal.dealId} bls={dealBls} canConfirm={canConfirmInvoice} onReview={initiateInvoiceConfirmation}
-              why={deal.dm ? 'This Deal ID is invoiced through its Deal Monitor, not here.' : busy ? '' : `The invoice can be generated once the Deal ID is at status 04 (${statusText('04')}); it is now at ${statusText(deal.status)}.`} />
+              why={deal.dm ? 'Invoiced through its Deal Monitor' : busy ? '' : `Opens at status 04 · now ${deal.status}`} />
           ) : null}
 
           <div className="tables">
