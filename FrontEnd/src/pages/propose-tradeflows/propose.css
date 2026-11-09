@@ -344,3 +344,24 @@
 .tsf-propose__tabrow .tsf-propose__options [role=group] > span:first-child { padding-left: 14px; border-left: 1px solid var(--line); }
 /* The key figure keeps white-on-blue contrast in Night mode (the dark theme's --blue is light). */
 .tsf-dealhero__figs .key { background: linear-gradient(135deg, #1d4ed8, #6d28d9); }
+
+/* Deal list figures: USD millions, right-aligned, tabular; a negative balance or a flagged figure stands out. */
+.tsf-propose__dealtable th.num, .tsf-propose__dealtable td.num { text-align: center; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tsf-propose__dealtable thead th { white-space: normal; line-height: 1.2; vertical-align: bottom; }
+.tsf-propose__neg { color: var(--red, #c0392b); font-weight: 600; }
+.tsf-propose__flag { margin-left: 4px; vertical-align: -1px; color: var(--amber, #b7791f); }
+@media (min-width: 1101px) {
+  .tsf-propose__layout:not(.tsf-propose__layout--deal) { grid-template-columns: minmax(660px, 1.5fr) minmax(0, 1fr); }
+}
+.tsf-propose__dealtable th, .tsf-propose__dealtable td { padding-left: 8px; padding-right: 8px; }
+.tsf-propose__dealtable td:nth-child(2) { max-width: 170px; }
+.tsf-propose__dealtable thead th.num { white-space: normal; }
+@media (min-width: 1101px) {
+  .tsf-propose__layout:not(.tsf-propose__layout--deal) { grid-template-columns: minmax(985px, 2.5fr) minmax(0, 1fr); }
+}
+.tsf-propose__dealtable th.num, .tsf-propose__dealtable td.num { width: 1%; min-width: 0; }
+.tsf-propose__dealtable thead th.num { min-width: 78px; }
+.tsf-propose__dealscroll table.tsf-propose__dealtable { table-layout: auto; width: 100%; min-width: 0; }
+/* The shared table plan right-aligns number columns (!important); this list centres them, headers and values. */
+.kit-data-table.tsf-propose__dealtable :is(th, td)[data-table-align=right] { text-align: center !important; }
+.kit-data-table.tsf-propose__dealtable th[data-table-align=right] .kit-table-sort { justify-content: center; }

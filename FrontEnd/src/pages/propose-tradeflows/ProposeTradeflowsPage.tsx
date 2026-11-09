@@ -16,7 +16,7 @@ import { assignedTotal, candidates, type Combination } from '@/lib/propose/match
 import { dealMismatch, mergeCriteria, readConditions, resolveTop, targetOf, type Criteria } from '@/lib/propose/query';
 import { sampleProposeData, type Interpretation, type ProposeData } from './data';
 import { liveProposeData } from './live';
-import { acceptPlan, assignedByTradeflow, commodityNote, dealRows, DEFAULT_ANSWERS, waysOf, distinctProposals, proposalsUnder, rulesOf, type DealRow, type Fill, type FillAnswers } from './logic';
+import { acceptPlan, assignedByTradeflow, commodityNote, dealFigures, dealRows, dealTotals, pctText, usdMn, DEFAULT_ANSWERS, waysOf, distinctProposals, proposalsUnder, rulesOf, type DealRow, type Fill, type FillAnswers } from './logic';
 import { AssignedGroups, AssignedModal } from './parts';
 import { BeanLoader } from './BeanLoader';
 import { ProposalModal } from './ProposalModal';
@@ -43,7 +43,6 @@ const WAY: Record<string, { name: string; note: string }> = {
 };
 const SHOWN = 6;
 /** What is left of the deals shown, open ones only (a filled deal can be a little over or under). */
-const totalLeft = (deals: DealRow[]) => (deals.filter(d => d.status === 'Open').reduce((sum, d) => sum + Math.round(Number(d.remainingUsd || 0) * 100), 0) / 100).toFixed(2);
 const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 /** What can be typed in the bar, by kind (the guide under "What can I type?"). */
 const GUIDE: [string, string[]][] = [
@@ -142,20 +141,25 @@ export default function ProposeTradeflowsPage() {
             {shown.length > 0 ? (
               <div className="tsf-propose__dealscroll">
               <DataTable nativeLayout nativeExport aria-label="Deal IDs" className="tsf-propose__dealtable">
-                <thead><tr><th>Deal ID</th><th>Commodity</th><th className="num">Left (USD)</th><th>Status</th></tr></thead>
+                <thead><tr><th>Deal ID</th><th>Commodity</th><th className="num">Total (USD Mn)</th><th className="num">Utilized (USD Mn)</th><th className="num">Balance (USD Mn)</th><th className="num">Remaining %</th><th>Status</th></tr></thead>
                 <tbody>{shown.map(d => {
                   const n = assignedCount.get(d.dealId) ?? 0;
+                  const f = dealFigures(d);
+                  const full = (v: string | null) => (v === null ? 'Not available' : `${formatAmount(v)} USD`);
                   return (
                     <tr key={d.dealId} data-table-row="" className={d.dealId === selected ? 'selected' : ''} onClick={() => setSelected(d.dealId)}>
                       <td><button className="tsf-propose__dealid mono" onClick={e => { e.stopPropagation(); setSelected(d.dealId); }} aria-pressed={d.dealId === selected} aria-label={`Deal ${d.dealId} ${assignState(d)}`}>{d.dealId}</button>
                         {n > 0 && <button className="tsf-propose__bls-link" onClick={e => { e.stopPropagation(); setViewing(d); }} aria-label={`View the BLs assigned to ${d.dealId}`} title={`${n} BLs assigned · ${formatAmount(d.assignedUsd)} USD`}><ListChecks size={11} />{n}</button>}</td>
                       <td>{d.tsfCommodity ? `${d.tsfCommodity}${d.tsfCommodityText ? ` · ${d.tsfCommodityText}` : ''}` : '—'}</td>
-                      <td className="num">{d.remainingUsd ? formatAmount(d.remainingUsd) : '—'}</td>
+                      <td className="num" title={full(f.total)}>{usdMn(f.total)}</td>
+                      <td className="num" title={full(f.utilized)}>{usdMn(f.utilized)}</td>
+                      <td className={`num${f.balance !== null && Number(f.balance) < 0 ? ' tsf-propose__neg' : ''}`} title={f.issue ? `${f.issue} (${full(f.balance)})` : full(f.balance)}>{usdMn(f.balance)}{f.issue && <AlertCircle size={11} className="tsf-propose__flag" aria-label={f.issue} />}</td>
+                      <td className="num" title={f.remainingPct === null ? f.issue : undefined}>{pctText(f.remainingPct)}</td>
                       <td><StateTag deal={d} /></td>
                     </tr>
                   );
                 })}</tbody>
-                <tfoot><tr><th>Total</th><th>{shown.length} deal{shown.length === 1 ? '' : 's'}</th><th className="num">{formatAmount(totalLeft(shown))}</th><th /></tr></tfoot>
+                <tfoot>{(() => { const t = dealTotals(shown); return <tr><th>Total</th><th>{shown.length} deal{shown.length === 1 ? '' : 's'}</th><th className="num" title={`${formatAmount(t.total ?? '0')} USD`}>{usdMn(t.total)}</th><th className="num" title={`${formatAmount(t.utilized)} USD`}>{usdMn(t.utilized)}</th><th className="num" title={t.issue || `${formatAmount(t.balance ?? '0')} USD`}>{usdMn(t.balance)}</th><th className="num">{pctText(t.remainingPct)}</th><th /></tr>; })()}</tfoot>
               </DataTable>
               </div>
             ) : <p className="tsf-propose__muted tsf-propose__pad">{acrossDeals ? 'No matching deals or available BLs found for the selected criteria.' : view === 'assigned' ? 'No deal has BLs assigned yet. Assign a proposal and its deal shows here.' : 'No Deal IDs match.'}</p>}

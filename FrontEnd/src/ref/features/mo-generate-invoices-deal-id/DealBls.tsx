@@ -78,13 +78,14 @@ function BlTable({ dealId, bls, label }: { dealId: string; bls: DealBls; label: 
 }
 
 /** The panel on the screen: the BLs of the Deal ID before anything is invoiced. */
-export function DealBlsPanel({ dealId, bls, canConfirm, why, onReview }: { dealId: string; bls: DealBls; canConfirm: boolean; why: string; onReview: () => void }) {
+export function DealBlsPanel({ dealId, bls, canConfirm, why, onReview, action }: { dealId: string; bls: DealBls; canConfirm: boolean; why: string; onReview: () => void; action?: { label: string; busy: boolean; run: () => void } | undefined }) {
   return (
     <section className="card dealbls" aria-label={`BLs assigned to ${dealId}`}>
       <div className="dealbls__top">
         <div className="section-title">Assigned BLs <span className="dealbls__count">{bls.loading ? '…' : bls.rows.length}</span></div>
-        <span className="dealbls__meta">{bls.loading ? 'Reading from SAP…' : bls.error ? bls.error : bls.rows.length ? `${formatCompact(bls.quantity)} ${bls.unit} · ${formatCompact(bls.usd)} USD` : ''}</span>
+        <span className="dealbls__meta">{bls.loading ? 'Reading from SAP…' : bls.error ? bls.error : ''}</span>
         {!canConfirm && why && <span className="dealbls__why" title={why}>{why}</span>}
+        {action && <button className="button small" type="button" disabled={action.busy} onClick={action.run}>{action.label}</button>}
         <button className="button small dealbls__go" type="button" disabled={!canConfirm || bls.loading} title={canConfirm ? undefined : why} onClick={onReview}><FileCheck2 size={14} />Review &amp; confirm invoice</button>
       </div>
       {!bls.loading && !bls.error && (bls.rows.length

@@ -22,6 +22,7 @@ import type { FxRow as MwRow } from '../../shared/fx/mw.ts'
 import { dec, num } from '../../shared/fx/sap.ts'
 import { ADJ_KEY, adjRecordOf, amendDealWrites, dealBls, messageOf, toWire } from './api.ts'
 import { DEAL_INVOICE_STATUS, canReverseInvoice, isFinalInvoiceStatus, pcForStatus, toggledStatus, type InvoiceFinalStatus } from './invoice-status.ts'
+import { invoiceKeyProblem } from './confirm-guard.ts'
 import { dats, invoiceDifference } from './invoice.ts'
 import type { AdjRecord, Deal, InvRow } from './types.ts'
 
@@ -222,7 +223,9 @@ export async function confirmInvoiceGeneration(input: ConfirmInput, ports: Ports
       name: 'check',
       run: async () => {
         if (!isFinalInvoiceStatus(status)) throw new Error(`${status} is not an invoice status.`)
-        if (!rows.length) throw new Error('No invoice row is left to finalise.')
+        if (!rows.length) throw new Error('There is no invoice row left to confirm for this Deal ID: it has no invoice rows (Adjusted Price / Qty), or every row already carries an invoice type.')
+        const keyProblem = invoiceKeyProblem(dealId, deal.inv)
+        if (keyProblem) throw new Error(keyProblem)
         await requireResource(ports, RESOURCE.ifInv)
         const saved = await ports.list(RESOURCE.billAdj, { ZDEAL_ID: dealId })
         const needNumber = rows.some((r) => !r.invNo && !txt(savedRow(saved, adjRecordOf(r, dealId)) ?? {}, 'ZINV_NO'))

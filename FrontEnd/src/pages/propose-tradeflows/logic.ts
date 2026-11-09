@@ -243,3 +243,47 @@ export function statusWithBls(status: string): string | null {
 
 /** The Deal IDs that have an active BL assigned (what the status follows). */
 export const dealsWithBls = (bls: Row[]): string[] => [...new Set(bls.filter(b => str(b.dealId) && str(b.deletedFlag) !== 'X').map(b => str(b.dealId)))];
+
+/* ------------------------------------------------------------------ deal list: total, utilized, balance (USD Mn) */
+
+/** What the deal list shows for one Deal ID. All amounts are USD strings (cents); null when SAP gave no figure. */
+export interface DealFigures {
+  total: string | null;
+  utilized: string;
+  balance: string | null;
+  /** Balance / total × 100, two decimals; null for a missing or zero total. */
+  remainingPct: string | null;
+  /** Why a figure is missing or suspect (shown as a flag), '' when the figures are consistent. */
+  issue: string;
+}
+
+export function dealFigures(d: DealRow): DealFigures {
+  const total = d.usd;
+  const utilized = d.assignedUsd;
+  if (total === null || !Number.isFinite(Number(total))) return { total: null, utilized, balance: null, remainingPct: null, issue: 'The deal has no USD amount (no USD rate), so total, balance and remaining % cannot be worked out.' };
+  const balance = money(cents(total) - cents(utilized));
+  const totalCents = cents(total);
+  const pct = totalCents > 0 ? ((cents(balance) / totalCents) * 100).toFixed(2) : null;
+  const issue = totalCents <= 0 ? 'The deal amount is zero.' : cents(balance) < 0 ? 'More is assigned than the deal amount: shown as SAP holds it.' : '';
+  return { total, utilized, balance, remainingPct: pct, issue };
+}
+
+/** USD → USD millions, two decimals with thousands separators ('23894000' → '23.89'); '—' when there is no figure. */
+export function usdMn(v: string | null | undefined): string {
+  if (v === null || v === undefined || v === '' || !Number.isFinite(Number(v))) return '—';
+  return (Number(v) / 1_000_000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+export const pctText = (p: string | null): string => (p === null ? '—' : `${Number(p).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`);
+
+/** Totals of a list of deals; a deal without a total is left out of the sums. */
+export function dealTotals(deals: DealRow[]): DealFigures {
+  let total = 0, utilized = 0, balance = 0, counted = 0;
+  for (const d of deals) {
+    const f = dealFigures(d);
+    utilized += cents(f.utilized);
+    if (f.total === null || f.balance === null) continue;
+    total += cents(f.total); balance += cents(f.balance); counted++;
+  }
+  return { total: money(total), utilized: money(utilized), balance: money(balance), remainingPct: total > 0 ? ((balance / total) * 100).toFixed(2) : null, issue: counted < deals.length ? `${deals.length - counted} deal(s) without a USD amount are left out of the total and balance.` : '' };
+}

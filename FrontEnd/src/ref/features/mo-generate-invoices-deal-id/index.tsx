@@ -13,7 +13,6 @@ import { loadPartnerBanks, type PartnerBank } from '../../shared/fx/partner-bank
 import { txt } from '../../shared/fx/masters.ts'
 import { fxList, isAbort } from '../../shared/fx/mw.ts'
 import { ResultQueue, type ResultItem } from '../../shared/ui/ResultQueue.tsx'
-import { ResultDialog } from '../../shared/ui/ResultDialog.tsx'
 import {
   BANK_WAITING,
   actionWaiting,
@@ -33,6 +32,11 @@ import { amendDealStatus, confirmInvoiceGeneration, pcMismatches, reconcileInvoi
 import { ComplianceModal } from './ComplianceModal.tsx'
 import { ConfirmModal } from './ConfirmModal.tsx'
 import { downloadPdfs, pdfFiles } from './invoice-pdf.ts'
+import { loadLogo } from './branding.ts'
+import { loadCompanies } from './companies.ts'
+import { InvoiceGeneratedModal } from './InvoiceGeneratedModal.tsx'
+import { confirmBlocker } from './confirm-guard.ts'
+import { liveProposeData } from '@/pages/propose-tradeflows/live'
 import { setStatusTexts } from './data.ts'
 import { DateCell } from './DateCell.tsx'
 import { DealLookupModal } from './DealLookupModal.tsx'
@@ -342,7 +346,10 @@ export default function MoGenerateInvoicesDealId() {
   const assignedPct = figures ? progressPct(figures) : 0
   // A deal filled within its 1% can end a little over: shown as "Over by", never as a negative amount left.
   const over = Number(figures?.remainingUsd || 0) < 0
-  const canConfirmInvoice = !!deal && !deal.dm && !busy && (deal.status === DEAL_INVOICE_STATUS.INVOICE_REVERSED || finalisationPending)
+  // What is missing before a confirmation can start (no BLs, BLs without invoice rows, …): said in words, and the button waits.
+  const blocker = deal ? confirmBlocker(deal, { loading: dealBls.loading, error: dealBls.error, count: dealBls.rows.length }) : { code: '' as const, message: '' }
+  const statusOpens = !!deal && !deal.dm && (deal.status === DEAL_INVOICE_STATUS.INVOICE_REVERSED || finalisationPending)
+  const canConfirmInvoice = statusOpens && !busy && !blocker.message
   const pcStale = deal && ctx ? pcMismatches(deal.status, ctx.bilAdj).length : 0
   const rollover = hasRollover(deal)
 
@@ -385,6 +392,10 @@ export default function MoGenerateInvoicesDealId() {
 
   const initiateInvoiceConfirmation = () => {
     if (!deal || invoiceGridMissing()) return
+    if (blocker.message) {
+      toast(blocker.message, 'warn')
+      return
+    }
     const profitError = profitCheckError(deal)
     if (profitError) {
       toast(profitError, 'error')
@@ -437,7 +448,14 @@ export default function MoGenerateInvoicesDealId() {
   /** Creates the Commercial Invoice and the sales document of every confirmed leg and downloads them. */
   const downloadPdf = async () => {
     if (!deal) return
-    const files = pdfFiles(deal)
+    let files: ReturnType<typeof pdfFiles>
+    try {
+      const [logo, companies] = await Promise.all([loadLogo(), loadCompanies()])
+      files = pdfFiles(deal, logo, companies)
+    } catch (e) {
+      toast(`The PDFs could not be created: ${messageOf(e)}`, 'error')
+      return
+    }
     if (!files.length) {
       toast('No confirmed invoice with an invoice number was found for this Deal ID, so there is nothing to print.', 'warn')
       return
@@ -452,6 +470,39 @@ export default function MoGenerateInvoicesDealId() {
     } finally {
       setPdfBusy(false)
     }
+  }
+
+  const [syncing, setSyncing] = useState(false)
+  /**
+   * Builds the missing invoice rows (the middleware BL rows the invoice grid is made from) out of the BLs that really are
+   * assigned to this Deal ID in SAP. Only on the user's click; rows that exist are never written again.
+   */
+  const createInvoiceRows = () => {
+    if (!deal) return
+    const id = deal.dealId
+    setConfirmState({
+      title: 'Create invoice rows',
+      text: `Create the invoice rows of Deal ID ${id} from the ${dealBls.rows.length} BL(s) assigned to it in SAP?`,
+      note: 'One invoice row is written per assigned BL; rows that already exist are skipped. Nothing is invoiced yet.',
+      yesLabel: 'Create',
+      onYes: () => {
+        setConfirmState(null)
+        const data = liveProposeData()
+        if (!data.repairMiddleware) {
+          toast('This version cannot create invoice rows.', 'error')
+          return
+        }
+        setSyncing(true)
+        data.repairMiddleware(id)
+          .then(async (written) => {
+            toast(written.length ? `${written.length} invoice row(s) created for Deal ID ${id}.` : `Deal ID ${id} already had all its invoice rows.`, 'success')
+            setBlVersion((v) => v + 1)
+            await fetchDeal(id, true)
+          })
+          .catch((e) => toast(`The invoice rows could not be created: ${messageOf(e)}`, 'error'))
+          .finally(() => setSyncing(false))
+      },
+    })
   }
 
   const cancelInvoice = () => {
@@ -754,7 +805,8 @@ export default function MoGenerateInvoicesDealId() {
 
           {deal ? (
             <DealBlsPanel dealId={deal.dealId} bls={dealBls} canConfirm={canConfirmInvoice} onReview={initiateInvoiceConfirmation}
-              why={deal.dm ? 'Invoiced through its Deal Monitor' : busy ? '' : `Opens at status 04 · now ${deal.status}`} />
+              why={deal.dm ? 'Invoiced through its Deal Monitor' : busy ? '' : statusOpens ? blocker.message : `Opens at status 04 · now ${deal.status}`}
+              action={statusOpens && blocker.code === 'no-rows' ? { label: syncing ? 'Creating…' : 'Create invoice rows', busy: syncing || busy, run: createInvoiceRows } : undefined} />
           ) : null}
 
           <div className="tables">
@@ -989,17 +1041,7 @@ export default function MoGenerateInvoicesDealId() {
       </div>
 
       {pdfOffer && deal && deal.dealId === pdfOffer && isFinalInvoiceStatus(deal.status) && deal.inv.some((r) => r.invNo) ? (
-        <ResultDialog
-          tone="success"
-          title="Invoice generated"
-          message={`Deal ID ${deal.dealId} is now ${deal.status} – ${statusText(deal.status)}.`}
-          reference={{ label: 'Invoice numbers', value: deal.inv.filter((r) => r.invNo).map((r) => `${r.ttype}: ${r.invNo}`).join('  ·  ') }}
-          actions={[
-            { label: pdfBusy ? 'Creating…' : 'Download PDF', kind: 'primary', disabled: pdfBusy, onClick: () => void downloadPdf() },
-            { label: 'Close', kind: 'secondary', onClick: () => setPdfOffer(null) },
-          ]}
-          onClose={() => setPdfOffer(null)}
-        />
+        <InvoiceGeneratedModal deal={deal} onClose={() => setPdfOffer(null)} />
       ) : null}
 
       <ResultQueue items={outcomes} onDismiss={(id) => setOutcomes((r) => r.filter((x) => x.id !== id))} />
