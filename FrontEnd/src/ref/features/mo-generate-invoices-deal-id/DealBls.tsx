@@ -1,66 +1,78 @@
 // Invoice Finalisation: the BLs assigned to the Deal ID (in Propose Tradeflow, BillOfLading.DealId in SAP) shown on the
 // screen, and the invoice review that comes before the invoice is generated: 1 Review BLs, 2 Check amounts, 3 Confirm.
 // Read only: the confirmation itself is the screen's existing one (compliance, then the save).
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2, ChevronLeft, ChevronRight, FileCheck2 } from 'lucide-react'
 import { DataTable } from '@/components/table/DataTable'
 import { TrafficLightTag } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
-import { moduleView } from '@/lib/client/data'
+import { onSampleData } from '@/lib/client/data'
 import { formatAmount, formatCompact, formatDate } from '@/lib/fields/parse'
 import { str } from '@/lib/grid/grid'
 import type { Row } from '@/lib/grid/types'
 import { fmtQty } from '@/pages/manage-tradeflows/logic'
+import { sampleProposeData } from '@/pages/propose-tradeflows/data'
+import { liveProposeData } from '@/pages/propose-tradeflows/live'
+import { dealRows, type DealRow } from '@/pages/propose-tradeflows/logic'
 import './deal-bls.css'
 
-// Every BL is read once per visit (about 3,500 rows) and filtered by Deal ID here.
-let all: Promise<Row[]> | null = null
-const readBls = () => (all ??= moduleView('bl-assign').then(v => v.tables.bls ?? []).catch(e => { all = null; throw e }))
+export interface DealBls { rows: Row[]; usd: number; quantity: number; unit: string; loading: boolean; error: string;
+  /** The deal as Propose Tradeflow sees it: amount in USD, assigned, unassigned and its assignment state (null: not a Propose deal). */
+  figures: DealRow | null }
 
-export interface DealBls { rows: Row[]; usd: number; quantity: number; unit: string; loading: boolean; error: string }
+interface Snapshot { version: number; deals: DealRow[]; bls: Row[]; error: string }
 
-/** The active BLs assigned to a Deal ID, largest first, with their totals. */
-export function useDealBls(dealId: string, version = 0): DealBls {
-  const [got, setGot] = useState<{ key: string; rows: Row[]; error: string } | null>(null)
-  const key = `${dealId}|${version}`
+/**
+ * The BLs and the deal figures from the same source and the same calculation as Propose Tradeflow (Deal IDs, BLs with
+ * their USD value, rates), read fresh on every visit and again on each `version` (Refresh, after a write).
+ */
+function useProposeSnapshot(version: number): Snapshot | null {
+  const [snap, setSnap] = useState<Snapshot | null>(null)
   useEffect(() => {
-    if (!dealId) return
     let live = true
-    if (version) all = null
-    readBls().then(
-      bls => { if (live) setGot({ key, rows: bls.filter(b => str(b.dealId) === dealId && str(b.deletedFlag) !== 'X').sort((a, b) => Number(str(b.assignedUsd)) - Number(str(a.assignedUsd))), error: '' }) },
-      (e: Error) => { if (live) setGot({ key, rows: [], error: e.message || 'The BLs could not be read from SAP.' }) }
+    const data = onSampleData('bl-assign') ? sampleProposeData() : liveProposeData()
+    Promise.all([data.deals(), data.bls(), data.rates()]).then(
+      ([deals, bls, rates]) => { if (live) setSnap({ version, deals: dealRows(deals, bls, rates), bls, error: '' }) },
+      (e: Error) => { if (live) setSnap({ version, deals: [], bls: [], error: e.message || 'The BLs could not be read from SAP.' }) }
     )
     return () => { live = false }
-  }, [dealId, version, key])
-  const rows = got?.key === key ? got.rows : []
+  }, [version])
+  return snap?.version === version ? snap : null
+}
+
+/** The active BLs assigned to a Deal ID, largest first, with their totals and the deal's Propose figures. */
+export function useDealBls(dealId: string, version = 0): DealBls {
+  const snap = useProposeSnapshot(version)
+  const rows = useMemo(() => (snap && dealId ? snap.bls.filter(b => str(b.dealId) === dealId && str(b.deletedFlag) !== 'X')
+    .sort((a, b) => Number(str(b.assignedUsd)) - Number(str(a.assignedUsd))) : []), [snap, dealId])
   return {
     rows,
     usd: rows.reduce((s, b) => s + Math.round(Number(str(b.assignedUsd) || 0) * 100), 0) / 100,
     quantity: rows.reduce((s, b) => s + Math.round(Number(str(b.quantity) || 0) * 1000), 0) / 1000,
     unit: str(rows[0]?.unit) || 'LBS',
-    loading: !!dealId && got?.key !== key,
-    error: got?.key === key ? got.error : ''
+    loading: !!dealId && !snap,
+    error: snap?.error ?? '',
+    figures: snap?.deals.find(d => d.dealId === dealId) ?? null
   }
 }
 
 function BlTable({ dealId, bls, label }: { dealId: string; bls: DealBls; label: string }) {
-  const total = bls.usd || 1
   return (
     <DataTable nativeLayout nativeExport aria-label={label}>
-      <thead><tr><th>BL No</th><th>BL reference</th><th>BL date</th><th>Trade flow</th><th>Contract</th><th className="num">Quantity ({bls.unit})</th><th className="num">Assigned (USD) · share</th></tr></thead>
-      <tbody>{bls.rows.map(b => (
+      <thead><tr><th className="num">#</th><th>BL No</th><th>BL reference</th><th>BL date</th><th>Trade flow</th><th>Contract</th><th className="num">Quantity ({bls.unit})</th><th className="num">Assigned (USD)</th></tr></thead>
+      <tbody>{bls.rows.map((b, i) => (
         <tr key={str(b.blNo)}>
+          <td className="num dealbls__sno">{i + 1}</td>
           <td className="mono">{str(b.blNo)}</td>
           <td className="mono">{str(b.blNumber) || '—'}</td>
           <td>{str(b.blDate) ? formatDate(str(b.blDate)) : '—'}</td>
           <td className="mono">{str(b.tfNo)}</td>
           <td>{str(b.contractRef) || '—'}</td>
           <td className="num">{fmtQty(str(b.quantity))}</td>
-          <td className="num">{formatAmount(str(b.assignedUsd))} <small className="dealbls__share">{Math.round((Number(str(b.assignedUsd)) / total) * 100)}%</small></td>
+          <td className="num">{formatAmount(str(b.assignedUsd))}</td>
         </tr>
       ))}</tbody>
-      <tfoot><tr><th colSpan={5}>Total · {bls.rows.length} BL{bls.rows.length === 1 ? '' : 's'} on {dealId}</th><th className="num">{fmtQty(bls.quantity.toFixed(3))}</th><th className="num">{formatAmount(bls.usd.toFixed(2))}</th></tr></tfoot>
+      <tfoot><tr><th colSpan={6}>Total · {bls.rows.length} BL{bls.rows.length === 1 ? '' : 's'} on {dealId}</th><th className="num">{fmtQty(bls.quantity.toFixed(3))}</th><th className="num">{formatAmount(bls.usd.toFixed(2))}</th></tr></tfoot>
     </DataTable>
   )
 }
@@ -68,18 +80,16 @@ function BlTable({ dealId, bls, label }: { dealId: string; bls: DealBls; label: 
 /** The panel on the screen: the BLs of the Deal ID before anything is invoiced. */
 export function DealBlsPanel({ dealId, bls, canConfirm, why, onReview }: { dealId: string; bls: DealBls; canConfirm: boolean; why: string; onReview: () => void }) {
   return (
-    <section className="card context-card dealbls" aria-label={`BLs assigned to ${dealId}`}>
-      <div className="section-head">
-        <div className="section-title">BLs assigned to this Deal ID</div>
-        <div className="dealbls__head">
-          <span className="section-meta">{bls.loading ? 'Reading the BLs from SAP…' : bls.error ? bls.error : `${bls.rows.length} BL${bls.rows.length === 1 ? '' : 's'} · ${fmtQty(bls.quantity.toFixed(3))} ${bls.unit} · ${formatAmount(bls.usd.toFixed(2))} USD (${formatCompact(bls.usd)})`}</span>
-          <button className="button small dealbls__go" type="button" disabled={!canConfirm || bls.loading} title={canConfirm ? undefined : why} onClick={onReview}><FileCheck2 size={14} />Review &amp; confirm invoice</button>
-        </div>
+    <section className="card dealbls" aria-label={`BLs assigned to ${dealId}`}>
+      <div className="dealbls__top">
+        <div className="section-title">Assigned BLs <span className="dealbls__count">{bls.loading ? '…' : bls.rows.length}</span></div>
+        <span className="dealbls__meta">{bls.loading ? 'Reading from SAP…' : bls.error ? bls.error : bls.rows.length ? `${formatCompact(bls.quantity)} ${bls.unit} · ${formatCompact(bls.usd)} USD` : ''}</span>
+        {!canConfirm && why && <span className="dealbls__why" title={why}>{why}</span>}
+        <button className="button small dealbls__go" type="button" disabled={!canConfirm || bls.loading} title={canConfirm ? undefined : why} onClick={onReview}><FileCheck2 size={14} />Review &amp; confirm invoice</button>
       </div>
-      {!canConfirm && why && <p className="dealbls__why">{why}</p>}
       {!bls.loading && !bls.error && (bls.rows.length
         ? <div className="dealbls__scroll"><BlTable dealId={dealId} bls={bls} label={`BLs assigned to ${dealId}`} /></div>
-        : <p className="dealbls__empty">No BLs are assigned to Deal ID {dealId} yet. Assign them in Trade Flows → Propose Tradeflow.</p>)}
+        : <p className="dealbls__empty">No BLs on {dealId} yet: assign them in Trade Flows → Propose Tradeflow.</p>)}
     </section>
   )
 }

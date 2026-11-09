@@ -10,7 +10,7 @@ of 2026-11-07; they move as BLs get assigned.
 | # | Do | Say / expect |
 |---|---|---|
 | 1 | Trade Flows → **Propose Tradeflow** | The loading screen shows the client's product lines (Cocoa, Coffee, Nuts, Spices, Dairy). |
-| 2 | Choose **7000000006** (Coffee Arabica, 23,924,000 USD left) | "This deal needs over 300 BLs. Nobody picks those by hand." The tabs: **Proposals** and **Assigned BLs**. |
+| 2 | Choose **7000000006** (Coffee Arabica, 23,924,000 USD left) | The list steps aside (**All Deal IDs** brings it back, ‹ › go to the previous / next deal). Deal amount and **Unassigned** stand out. "This deal needs over 300 BLs. Nobody picks those by hand." Status reads Unassigned / Partially assigned / Fully assigned. |
 | 3 | Read the proposals | Each row is a different way to fill: **Fewest BLs** (≈317 BLs, −0.78%), **Closest amount** (≈320 BLs, 0.00%), **Oldest BLs** (≈406 BLs, BL dates 01-08 → 06-09). Columns show BLs, contracts · parties and the BL date span: the trade-offs to weigh. |
 | 4 | Turn **Oldest trade flows** off and on in *Fill with* | The chip changes at once ("Updating proposals…" while the list follows); the last option cannot be turned off. |
 
@@ -29,6 +29,8 @@ Every condition becomes a chip; **×** removes one, **Clear conditions** removes
 | 10 | **Clear all**, then `propose 1 Cr only, at most 150 BLs` | Proposals of 120–150 BLs at 10,000,000 USD. |
 | 11 | `don't use BL <a number from the list>` | That BL leaves every proposal. |
 | 12 | `show deals above 2.5 Cr` | The Deal ID list keeps only those deals ("across all deals"). Clear it after. |
+| 12b | `top 10 largest BLs`, then `exclude the 20 smallest BLs`, `max 450 BLs` | The answer under the bar says what was done ("Done: must include the 10 largest BLs by value. 6 proposals below."); the chip's tooltip lists the BLs it took. |
+| 12c | `exclude BLs under 30K`, `around 350 BLs`, `fewest BLs`, then `reset` | "BL value >= 30,000 USD"; "about 350 BLs (332–368)"; the Fill with chip turns to Fewest BLs; reset clears everything. |
 | 13 | Anything else, e.g. `BL date from August to September`, `ETA before 30 Nov 2026`, `BLs above 80K`, `quantity above 60000 LBS` | A chip says what was applied; a part the app cannot place says "Not applied" and is never guessed. |
 
 Other forms it reads: `only BLs between 4000001000 and 4000001600`, `must include BL …`, `exclude trade flow 3000…`,
@@ -40,6 +42,7 @@ Other forms it reads: `only BLs between 4000001000 and 4000001600`, `must includ
 | # | Do | Expect |
 |---|---|---|
 | 14 | Open proposal 1 | Effect on the deal (remaining now / after), Quantity, Match; the BLs with BL reference, BL date, quantity and value; **Total** row with quantity and USD. |
+| 14b | **Export to Excel** | Proposal-N-<Deal ID>-<date>.xlsx: the deal and proposal figures on top, the BLs (numbered, with Keep) and a total that matches the pop-up. |
 | 15 | Untick 2 BLs → **Re-propose without 2 BLs** | A chip "exclude BL …"; new proposals without them. |
 | 16 | (Writes to SAP: only with approval) **Assign N BLs** | Deal shows under **With BLs**; the **Assigned BLs** tab lists them with the quantity total. An assignment is final. |
 
@@ -47,7 +50,7 @@ Other forms it reads: `only BLs between 4000001000 and 4000001600`, `must includ
 
 | # | Do | Expect |
 |---|---|---|
-| 17 | Deal ID **7000000074** | Panel **BLs assigned to this Deal ID**: 142 BLs · 10,817,154.149 LBS · 9,951,781.80 USD. |
+| 17 | Deal ID **7000000074** | The deal card shows Deal amount, Assigned and Unassigned: the same figures as Propose Tradeflow. **Assigned BLs**: 142 BLs (10.8M LBS · 9.95M USD), numbered. |
 | 18 | **Review & confirm invoice** | Steps **1 Review BLs** (the 142 BLs with totals) → **2 Check amounts** (FX deal 10,000,000 USD; BLs −0.48% within 0.50%; invoice amount and full / partial) → **3 Confirm**. |
 | 19 | (Writes: only with approval) **Confirm invoice generation** | The compliance check, then the invoice is generated (the screen's existing save). |
 

@@ -59,3 +59,80 @@
 .dealbls__check .kit-status { flex: 0 0 auto; }
 /* The invoice date cells show the whole date (dd-mm-yyyy) beside the calendar button. */
 .invblotter .date-cell .cell-input.date { width: 132px; min-width: 132px; padding-right: 26px; font-variant-numeric: tabular-nums; }
+
+/* 2026-11-07 redesign: one deal card (picker, the Propose figures, progress), short one-line details, the BLs. Nothing
+   wraps: long values end in … with the full text in the tooltip. */
+.invblotter .workspace { gap: 10px; }
+.inv-hero { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+.inv-hero__pick { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+.inv-hero__pick label { font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.inv-hero__pick > .control { width: 220px; height: 32px; }
+.inv-hero__pick .button { height: 32px; }
+.inv-hero__meta { margin-left: auto; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.inv-hero__empty { margin: 0; font-size: 12.5px; color: var(--muted); }
+.inv-hero__body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 24px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
+.inv-hero__id { min-width: 0; }
+.inv-hero__id h2 { margin: 0; font-size: 20px; font-weight: 800; display: flex; align-items: center; gap: 10px; white-space: nowrap; min-width: 0; }
+.inv-hero__status { font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 2px 10px; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.inv-hero__id p { margin: 3px 0 0; font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.inv-hero__figs { display: flex; gap: 10px; margin: 0; }
+.inv-hero__figs > div { min-width: 150px; padding: 8px 14px; border-radius: 12px; background: var(--bg); border: 1px solid var(--line); }
+.inv-hero__figs dt { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); white-space: nowrap; }
+.inv-hero__figs dd { margin: 2px 0 0; font-size: 24px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); }
+.inv-hero__figs dd small { font-size: 12px; font-weight: 600; color: var(--muted); }
+.inv-hero__figs > div > span { display: block; font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inv-hero__figs .key { background: linear-gradient(135deg, var(--blue), color-mix(in srgb, var(--blue) 70%, #7c3aed)); border-color: transparent; box-shadow: 0 6px 18px color-mix(in srgb, var(--blue) 30%, transparent); }
+.inv-hero__figs .key :is(dt, dd, dd small, span) { color: #fff; }
+.inv-hero__figs .key :is(dt, dd small, span) { opacity: .85; }
+.inv-hero__bar { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.inv-hero__progress { flex: 1; height: 6px; border-radius: 999px; background: var(--line); overflow: hidden; }
+.inv-hero__progress span { display: block; height: 100%; background: var(--blue); }
+.inv-details { padding: 10px 16px; }
+.inv-details dl { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px 20px; margin: 0; }
+.inv-details dl > div { min-width: 0; }
+.inv-details dt { font-size: 11px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+.inv-details dd { margin: 1px 0 0; font-size: 13px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.invblotter .dealbls { padding: 0 0 4px; }
+.dealbls__top { display: flex; align-items: center; gap: 12px; padding: 10px 16px 8px; white-space: nowrap; min-width: 0; }
+.dealbls__count { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; font-size: 11.5px; background: var(--pale); color: var(--blue); }
+.dealbls__meta { font-size: 12px; font-weight: 600; color: var(--text); }
+.dealbls__top .dealbls__why { margin: 0 0 0 auto; padding: 0; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.dealbls__top .dealbls__go { margin-left: auto; flex: 0 0 auto; }
+.dealbls__top .dealbls__why + .dealbls__go { margin-left: 0; }
+.dealbls__sno { color: var(--muted); width: 1%; }
+.invblotter .dealbls__scroll td, .invblotter .dealbls__scroll th { white-space: nowrap; }
+@media (max-width: 1000px) {
+  .inv-hero__body { grid-template-columns: 1fr; }
+  .inv-hero__figs > div { flex: 1; min-width: 0; }
+  .inv-hero__figs dd { font-size: 18px; }
+  .inv-hero__pick .control { width: auto; flex: 1; min-width: 0; }
+  .dealbls__top { flex-wrap: wrap; }
+}
+/* The table ends where its data ends (compact columns): the frame hugs it instead of leaving an empty strip. */
+.dealbls__scroll { width: fit-content; max-width: calc(100% - 32px); }
+.dealbls__review .dealbls__scroll { max-width: 100%; }
+/* The Deal ID picker (replaces the browser's datalist): one line per deal, ID then entity · status. */
+.inv-picker { position: relative; }
+.inv-picker .control { width: 240px; height: 32px; }
+.inv-picker__list { position: absolute; z-index: 30; top: calc(100% + 4px); left: 0; width: 460px; max-height: 320px; overflow: auto; margin: 0; padding: 4px; list-style: none;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 28px rgb(15 23 42 / 14%); }
+.inv-picker__list li { display: flex; align-items: baseline; gap: 10px; padding: 7px 10px; border-radius: 7px; cursor: pointer; white-space: nowrap; min-width: 0; }
+.inv-picker__list li b { flex: 0 0 auto; font-size: 13px; color: var(--blue); }
+.inv-picker__list li span { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.inv-picker__list li.on { background: var(--pale); }
+@media (max-width: 1000px) { .inv-picker { flex: 1; min-width: 0; } .inv-picker .control { width: 100%; } .inv-picker__list { width: min(460px, calc(100vw - 48px)); } }
+/* UI pass 2026-11-08: details keep their natural width (dates are never cut); SAP status as SAP writes it; the key
+   figure keeps white-on-blue contrast in Night mode; narrow screens wrap the figures, the title and the header buttons. */
+.inv-details dl { display: flex; flex-wrap: wrap; gap: 8px 32px; }
+.inv-details dl > div { flex: 0 0 auto; max-width: 340px; }
+.inv-hero__id h2, .inv-hero__id h2 * { text-transform: none; }
+.inv-hero__figs .key { background: linear-gradient(135deg, #1d4ed8, #6d28d9); }
+@media (max-width: 1000px) {
+  .inv-hero__id h2 { flex-wrap: wrap; white-space: normal; row-gap: 4px; }
+  .inv-hero__figs { flex-wrap: wrap; }
+  .inv-hero__figs > div { flex: 1 1 130px; }
+  .inv-hero__bar { white-space: normal; flex-wrap: wrap; }
+  .inv-details dl > div { flex: 1 1 140px; }
+  .invblotter .topbar { flex-wrap: wrap; height: auto; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+  .invblotter .top-right { flex-wrap: wrap; gap: 6px; }
+}

@@ -202,3 +202,20 @@ Numbering starts at L-001.
 - **Lesson:** Edit regex-heavy TypeScript with the Edit tool, not Python heredocs; after any scripted edit grep for
   `\b`. Optional suffixes after a removed word need a word boundary (`(?!\w)`).
 - **Applies to:** every scripted edit in this application
+
+## L-018 Two screens, one figure (2026-11-07)
+- **What happened:** the Invoice Finalisation Blotter read the BLs through its own module-level cache. It showed the
+  BLs of its first visit (it missed assignments made in Propose since), and it had no deal figures.
+- **Lesson:** a screen that shows what another screen computes reads it through that screen's own source and
+  calculation (here `liveProposeData` + `dealRows`), fresh on each visit and on Refresh. No module-level cache of rows
+  that another screen writes.
+- **Applies to:** every screen showing Propose / BL assignment figures
+
+## L-019 Probe the bar with what people type; no native datalist (2026-11-08)
+- **What happened:** the bar used "quantity" to read "BL quantity more than 200", then reported "quantity" as not
+  understood. "exclude BLs under 30K" was refused. The invoice screen's datalist popup drew the Deal ID over its
+  description.
+- **Lesson:** test a free-text reader with a list of everyday phrases (not only the ones it was built for). Words that
+  name a subject or a unit are spent with the condition, and exclude inverts a comparison. Use our own combobox, not
+  `<datalist>`: browsers draw its options however they like.
+- **Applies to:** the Propose bar, every Deal ID / value-help input

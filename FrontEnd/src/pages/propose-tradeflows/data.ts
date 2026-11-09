@@ -24,7 +24,7 @@ export interface AiAnswer { ranked: { index: number; reason: string }[]; rules: 
 export interface AskRequest extends Omit<AiRequest, 'preferences'> { question: string; history: { question: string; answer: string }[] }
 export interface AskAnswer { answer: string; rules: Rules; notUnderstood: string[]; model: string }
 /** Typed conditions as criteria: read by the app, or (for what it could not read) by the AI, validated. */
-export interface Interpretation extends Reading { model: string }
+export interface Interpretation extends Reading { model: string; /** "top N" conditions with the BL numbers they took. */ picked?: string[] }
 /** What the AI may know to read the conditions: the chosen deal and the commodity master (no names, no references). */
 export interface InterpretContext {
   deal: { dealId: string; tsfCommodity: string } | null; commodities: Row[]; today: string;
