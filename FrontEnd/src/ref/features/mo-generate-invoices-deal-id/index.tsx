@@ -42,6 +42,7 @@ import { TrafficLightTag } from '@/components/ui/Badge'
 import { formatAmount, formatCompact } from '@/lib/fields/parse'
 import { assignState, progressPct, STATE_TONE } from '@/pages/propose-tradeflows/view'
 import { DiffModal } from './DiffModal.tsx'
+import { InvoiceNumbersModal } from './InvoiceNumbersModal.tsx'
 import { money, parseNum, statusText, validDMY } from './format.ts'
 import {
   canCancelInvoice,
@@ -170,6 +171,7 @@ export default function MoGenerateInvoicesDealId() {
   const [review, setReview] = useState<{ message: string; status: InvoiceFinalStatus } | null>(null)
   const [blOpen, setBlOpen] = useState(false)
   const [diffOpen, setDiffOpen] = useState(false)
+  const [numbersOpen, setNumbersOpen] = useState(false)
   const [bankRow, setBankRow] = useState(-1)
   // House bank accounts (HouseBankAccount) and each entity's company code (ZSGTSFTR_COMP) for the bank popup.
   const [houseBanks, setHouseBanks] = useState<HouseBankAccount[]>([])
@@ -615,6 +617,12 @@ export default function MoGenerateInvoicesDealId() {
               </svg>
               <span>Download PDF</span>
             </button>
+            <button className="hdr-btn" type="button" disabled={!deal || !isFinalInvoiceStatus(deal.status) || !deal.inv.some((r) => r.invNo)} title="Available once the invoice numbers are generated (status 05 / 07)" onClick={() => setNumbersOpen(true)}>
+              <svg viewBox="0 0 24 24">
+                <path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5" />
+              </svg>
+              <span>Invoice Numbers</span>
+            </button>
             <span className="live-dot" title="Workbench active" />
             <button className="hdr-btn" type="button" disabled={!deal || deal.dm} onClick={() => setBlOpen(true)}>
               <svg viewBox="0 0 24 24">
@@ -1017,6 +1025,7 @@ export default function MoGenerateInvoicesDealId() {
       {complianceOpen && deal ? <ComplianceModal resultingStatus={pendingInvoiceStatus} onClose={() => setComplianceOpen(false)} onProceed={() => void saveInvoice()} /> : null}
       {/* View BLs: the BLs assigned to the Deal ID in Propose Tradeflow (no de-assign: an assignment is final). */}
       {blOpen && deal ? <AssignedBlsModal dealId={deal.dealId} bls={dealBls} dealUsd={getDealUsdAmount(deal)} tolerancePct={deal.tolerance ?? 0} onClose={() => setBlOpen(false)} /> : null}
+      {numbersOpen && deal ? <InvoiceNumbersModal dealId={deal.dealId} status={deal.status} rows={deal.inv.filter((r) => r.invNo)} onClose={() => setNumbersOpen(false)} /> : null}
       {diffOpen && deal ? <DiffModal rows={deal.diff} fxReason={deal.fxReason} onClose={() => setDiffOpen(false)} /> : null}
       {bankRow >= 0 && deal ? (
         <BankModal
