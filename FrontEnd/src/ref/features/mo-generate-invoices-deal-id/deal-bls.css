@@ -140,3 +140,30 @@
 /* The BLs table fills the whole card width. */
 .dealbls__scroll > *, .dealbls__scroll table { width: 100%; min-width: 100%; }
 .dealbls__scroll { width: 100%; box-sizing: border-box; }
+
+/* "Invoice Generated Successfully" dialog and the in-app PDF preview. ALM tokens; light and dark. */
+.invgen { display: flex; flex-direction: column; gap: 14px; }
+.invgen__ok { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; background: color-mix(in srgb, var(--green, #16a34a) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--green, #16a34a) 35%, var(--line)); }
+.invgen__ok svg { color: var(--green, #16a34a); flex: none; }
+.invgen__ok div { display: flex; flex-direction: column; gap: 2px; }
+.invgen__ok span { font-size: 12.5px; color: var(--muted); }
+.invgen__facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin: 0; }
+.invgen__facts div { padding: 8px 12px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+.invgen__facts dt { font-size: 11.5px; color: var(--muted); }
+.invgen__facts dd { margin: 2px 0 0; font-size: 14px; font-weight: 700; }
+.invgen__table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.invgen__table th, .invgen__table td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; }
+.invgen__table th { font-size: 11.5px; color: var(--muted); font-weight: 600; }
+.invgen__table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.invgen__preview { border-top: 1px dashed var(--line); padding-top: 12px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.invgen__preview p { margin: 0; font-size: 12.5px; color: var(--muted); }
+.invgen__error { color: var(--red, #c0392b) !important; }
+.invgen__note { margin: 0; font-size: 12.5px; color: var(--muted); }
+.invgen__muted { color: var(--muted); font-size: 13px; }
+.invgen__tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.invgen__tab { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 4px 12px; font-size: 12px; cursor: pointer; }
+.invgen__tab.on { border-color: var(--blue); color: var(--blue); font-weight: 600; }
+.invgen__frame { width: 100%; height: min(68vh, 760px); border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+
+/* The reason a confirmation cannot start is read in full, on its own line under the panel header. */
+.dealbls__top .dealbls__why { white-space: normal; flex: 1 1 100%; order: 9; overflow: visible; text-overflow: clip; }

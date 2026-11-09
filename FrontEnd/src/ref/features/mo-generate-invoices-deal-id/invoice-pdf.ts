@@ -5,23 +5,23 @@
  * A4, the built-in Helvetica fonts, text and ruled boxes only (no logo image).
  * Pure: `invoicePdf` / `salesDocPdf` return the file bytes, `pdfLegs` reads them off the confirmed deal.
  */
+import type { Logo } from './branding.ts'
+import { PRINT_NAMES } from './party-names.ts'
 import type { Deal, InvRow } from './types.ts'
 
 /* ------------------------------------------------------------------ the parties and terms */
 
-type Party = { name: string; lines: string[]; footer?: string[] }
+/** A company as SAP holds it (ZSGTSFTR_COMP): its TSF entity code, company code, name and country. */
+export type Company = { entity: string; companyCode: string; name: string; country: string }
+export type Companies = Readonly<Record<string, Company>>
 
-/** Seller / buyer codes of the Deal ID's legs, as the reference documents name them. */
-export const PARTIES: Record<string, Party> = {
-  DMCC: { name: 'OLAM INTERNATIONAL FZCO', lines: ['Rm 905, Building,', 'Mazaya Business Avenue, Tower- BB2,Jumeirah Lakes Towers, Dubai,', 'UAE. 643521.'] },
-  OGA: { name: 'Olam Global Agri Pte. Ltd', lines: ['7 Straits View, Marina One East Tower #20-01,', 'Singapore 018936.'] },
-  OSIPL: {
-    name: 'Olam Agri India Pvt Ltd',
-    lines: ['2nd Floor, Building No 8,', 'Tower A, DLF Cyber City, Phase II,Gurugram, Haryana 122002.'],
-    footer: ['CIN No:U51909KL1996PTC009977'],
-  },
+type Party = { name: string; lines: string[] }
+
+/** The seller / buyer of a leg: the company's document name for its entity, else the name SAP holds. Only the name. */
+export function party(code: string, companies: Companies = {}): Party {
+  const key = code.toUpperCase()
+  return { name: PRINT_NAMES[key] ?? companies[key]?.name ?? code, lines: [] }
 }
-const party = (code: string): Party => PARTIES[code.toUpperCase()] ?? { name: code, lines: [] }
 
 const INCOTERMS: Record<string, string> = { FOB: 'Free on board', FCA: 'Free carrier', CIF: 'Cost, insurance and freight', CFR: 'Cost and freight', EXW: 'Ex works', DAP: 'Delivered at place', DDP: 'Delivered duty paid' }
 const CURRENCY_WORDS: Record<string, [string, string]> = { INR: ['RUPEE', 'PAISE'], USD: ['US DOLLAR', 'CENTS'], EUR: ['EURO', 'CENTS'], SGD: ['SINGAPORE DOLLAR', 'CENTS'], AED: ['DIRHAM', 'FILS'] }
@@ -179,6 +179,17 @@ class Page {
     }
     return at
   }
+  /** Draws the logo with its artwork box (crop) fitted into a box of `width` pt at (x, top y), without distortion. */
+  logo(l: Logo, x: number, y: number, width: number): number {
+    this.usesLogo = true
+    const s = width / l.crop.w
+    const height = l.crop.h * s
+    const left = x - l.crop.x * s
+    const bottom = H - (y - l.crop.y * s + l.height * s)
+    this.ops.push(`q ${n2(x)} ${n2(H - y - height)} ${n2(width)} ${n2(height)} re W n ${n2(l.width * s)} 0 0 ${n2(l.height * s)} ${n2(left)} ${n2(bottom)} cm /Im1 Do Q`)
+    return height
+  }
+  usesLogo = false
   line(x1: number, y1: number, x2: number, y2: number): void {
     this.ops.push(`0.5 w 0 0 0 RG ${n2(x1)} ${n2(H - y1)} m ${n2(x2)} ${n2(H - y2)} l S`)
   }
@@ -187,52 +198,88 @@ class Page {
   }
 }
 
-/** Assembles the pages into one PDF file (Type1 Helvetica / Helvetica-Bold, WinAnsi). */
-export function buildPdf(pages: readonly Page[], title: string): Uint8Array {
-  const objects: string[] = []
-  const add = (body: string): number => objects.push(body)
+/** Assembles the pages into one PDF file (Type1 Helvetica / Helvetica-Bold, WinAnsi; the logo as a DCT/JPEG image). */
+export function buildPdf(pages: readonly Page[], title: string, logo?: Logo): Uint8Array {
+  const objects: (string | { dict: string; data: Uint8Array })[] = []
+  const add = (body: string | { dict: string; data: Uint8Array }): number => objects.push(body)
   add('<< /Type /Catalog /Pages 2 0 R >>')
   add('') // pages, filled below
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>')
   add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>')
+  const imageId = logo ? add({ dict: `/Type /XObject /Subtype /Image /Width ${logo.width} /Height ${logo.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode`, data: logo.bytes }) : 0
   const kids: number[] = []
   for (const p of pages) {
     const content = p.ops.join('\n')
-    const contentId = add(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
-    kids.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${contentId} 0 R >>`))
+    const contentId = add(`<< /Length ${content.length} >>
+stream
+${content}
+endstream`)
+    const xobject = p.usesLogo && imageId ? ` /XObject << /Im1 ${imageId} 0 R >>` : ''
+    kids.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xobject} >> /Contents ${contentId} 0 R >>`))
   }
   const info = add(`<< /Title (${esc(title)}) /Producer (TSF_FX) >>`)
   objects[1] = `<< /Type /Pages /Count ${kids.length} /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] >>`
-  let out = '%PDF-1.4\n'
+  const chunks: Uint8Array[] = []
+  let length = 0
+  const put = (x: string | Uint8Array) => {
+    const bytes = typeof x === 'string' ? Uint8Array.from(x, (c) => c.charCodeAt(0) & 0xff) : x
+    chunks.push(bytes)
+    length += bytes.length
+  }
+  put('%PDF-1.4\n')
   const offsets: number[] = []
   objects.forEach((body, i) => {
-    offsets.push(out.length)
-    out += `${i + 1} 0 obj\n${body}\nendobj\n`
+    offsets.push(length)
+    if (typeof body === 'string') put(`${i + 1} 0 obj
+${body}
+endobj
+`)
+    else {
+      put(`${i + 1} 0 obj
+<< ${body.dict} /Length ${body.data.length} >>
+stream
+`)
+      put(body.data)
+      put('\nendstream\nendobj\n')
+    }
   })
-  const xref = out.length
-  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`
-  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xref}\n%%EOF`
-  const bytes = new Uint8Array(out.length)
-  for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 0xff
-  return bytes
+  const xref = length
+  put(`xref
+0 ${objects.length + 1}
+0000000000 65535 f 
+${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n 
+`).join('')}`)
+  put(`trailer
+<< /Size ${objects.length + 1} /Root 1 0 R /Info ${info} 0 R >>
+startxref
+${xref}
+%%EOF`)
+  const out = new Uint8Array(length)
+  let at = 0
+  for (const c of chunks) {
+    out.set(c, at)
+    at += c.length
+  }
+  return out
 }
 
 /* ------------------------------------------------------------------ Commercial Invoice */
 
-const ORANGE: [number, number, number] = [0.93, 0.42, 0.1]
+const PURPLE: [number, number, number] = [0.53, 0.02, 0.38]
 
-function brand(p: Page): void {
-  p.text('Olam Agri', 44, 56, { size: 20, font: 'F2', color: ORANGE })
+/** The company mark at the top left: the ofi logo (when it is loaded), else the name as text. */
+function brand(p: Page, logo?: Logo): void {
+  if (logo) p.logo(logo, 44, 22, 64)
+  else p.text('ofi', 44, 56, { size: 22, font: 'F2', color: PURPLE })
 }
 
 /** The Commercial Invoice of one leg: Sales_Invoice-<invNo>.pdf. */
-export function invoicePdf(l: PdfLeg): Uint8Array {
+export function invoicePdf(l: PdfLeg, logo?: Logo, companies?: Companies): Uint8Array {
   const p = new Page()
-  const seller = party(l.sellerCode)
-  const buyer = party(l.buyerCode)
-  brand(p)
+  const seller = party(l.sellerCode, companies)
+  const buyer = party(l.buyerCode, companies)
+  brand(p, logo)
   p.text('Commercial Invoice', 297, 52, { size: 14, font: 'F2', align: 'c' })
-  if (seller.footer) p.text(seller.footer[0] ?? '', 440, 82, { size: 7, align: 'c' })
   const L = 28
   const R = 567
   const M = 335 // the vertical rule between the party column and the reference column
@@ -320,19 +367,19 @@ export function invoicePdf(l: PdfLeg): Uint8Array {
   p.text('Signature & Date', M - 24, foot + 14, { size: 9, font: 'F2' })
   p.text('For', M + 30, top + 750 - 10, { size: 9, font: 'F2' })
   p.text(seller.name, M + 46, top + 750 - 10, { size: 9 })
-  return buildPdf([p], `Commercial Invoice ${l.invNo}`)
+  return buildPdf([p], `Commercial Invoice ${l.invNo}`, logo)
 }
 
 /* ------------------------------------------------------------------ Sales document (addendum) */
 
 /** The addendum of the sale order of one leg: Sales_doc-<soNo>.pdf (two pages). */
-export function salesDocPdf(l: PdfLeg): Uint8Array {
-  const seller = party(l.sellerCode)
-  const buyer = party(l.buyerCode)
+export function salesDocPdf(l: PdfLeg, logo?: Logo, companies?: Companies): Uint8Array {
+  const seller = party(l.sellerCode, companies)
+  const buyer = party(l.buyerCode, companies)
   const date = longDate(l.invDate)
   const effective = longDate(l.soDate)
   const letterhead = (p: Page) => {
-    brand(p)
+    brand(p, logo)
     p.text(seller.name, 430, 52, { size: 7, font: 'F2' })
     let y = 61
     for (const s of seller.lines) y = p.para(s, 430, y, 140, { size: 7, lead: 9 })
@@ -380,7 +427,7 @@ export function salesDocPdf(l: PdfLeg): Uint8Array {
   b.text(seller.name, 64, 777, { size: 9, font: 'F2' })
   b.text('AUTHORISED SIGNATORY FOR', 300, 765, { size: 9, font: 'F2' })
   b.text(buyer.name, 300, 777, { size: 9, font: 'F2' })
-  return buildPdf([a, b], `Sales document ${l.soNo}`)
+  return buildPdf([a, b], `Sales document ${l.soNo}`, logo)
 }
 
 /* ------------------------------------------------------------------ the files, and their download */
@@ -388,10 +435,10 @@ export function salesDocPdf(l: PdfLeg): Uint8Array {
 export type PdfFile = { name: string; bytes: Uint8Array }
 
 /** Every file the confirmed deal produces: an invoice and an addendum per leg. */
-export function pdfFiles(deal: Deal): PdfFile[] {
+export function pdfFiles(deal: Deal, logo?: Logo, companies?: Companies): PdfFile[] {
   return pdfLegs(deal).flatMap((l) => [
-    { name: `Sales_Invoice-${l.invNo}.pdf`, bytes: invoicePdf(l) },
-    { name: `Sales_doc-${l.soNo}.pdf`, bytes: salesDocPdf(l) },
+    { name: `Sales_Invoice-${l.invNo}.pdf`, bytes: invoicePdf(l, logo, companies) },
+    { name: `Sales_doc-${l.soNo}.pdf`, bytes: salesDocPdf(l, logo, companies) },
   ])
 }
 
