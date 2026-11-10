@@ -62,3 +62,11 @@
   .bean-loader__slide, .bean-loader *, .bean-loader .bl-steam path { animation: none !important; }
   .bean-loader .bl-steam path { opacity: .7; }
 }
+
+/* "Did you know?": a short fact under each product line; ofi facts and general facts are labelled apart. */
+.bean-loader__fact { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: color-mix(in srgb, var(--bl-cream) 14%, transparent); border-left: 3px solid var(--bl-cream); }
+.bean-loader__fact-head { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text); }
+.bean-loader__fact-head strong { font-weight: 700; }
+.bean-loader__tag { font-style: normal; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 7px; border-radius: 999px; background: var(--line); color: var(--muted); }
+.bean-loader__tag--ofi { background: color-mix(in srgb, var(--blue, #0B5CD5) 16%, transparent); color: var(--blue, #0B5CD5); }
+.bean-loader__fact p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--muted); }

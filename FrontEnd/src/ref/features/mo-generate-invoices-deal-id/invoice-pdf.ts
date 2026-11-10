@@ -432,13 +432,19 @@ export function salesDocPdf(l: PdfLeg, logo?: Logo, companies?: Companies): Uint
 
 /* ------------------------------------------------------------------ the files, and their download */
 
-export type PdfFile = { name: string; bytes: Uint8Array }
+/** A generated document with what it belongs to: Deal ID, trade leg, the leg's invoice number and the kind. */
+export type PdfFile = { name: string; bytes: Uint8Array; dealId: string; leg: string; invNo: string; kind: 'invoice' | 'sales-doc' }
+
+/** Sales_Invoice-{trade invoice number}-{leg}.pdf and Sales_doc-{Deal ID}-{leg}.pdf, safe characters only. */
+const safe = (v: string): string => v.replace(/[^A-Za-z0-9._-]+/g, '_')
+export const invoiceFileName = (l: Pick<PdfLeg, 'invNo' | 'legId'>): string => `Sales_Invoice-${safe(l.invNo)}-${safe(l.legId)}.pdf`
+export const salesDocFileName = (l: Pick<PdfLeg, 'dealId' | 'legId'>): string => `Sales_doc-${safe(l.dealId)}-${safe(l.legId)}.pdf`
 
 /** Every file the confirmed deal produces: an invoice and an addendum per leg. */
 export function pdfFiles(deal: Deal, logo?: Logo, companies?: Companies): PdfFile[] {
   return pdfLegs(deal).flatMap((l) => [
-    { name: `Sales_Invoice-${l.invNo}.pdf`, bytes: invoicePdf(l, logo, companies) },
-    { name: `Sales_doc-${l.soNo}.pdf`, bytes: salesDocPdf(l, logo, companies) },
+    { name: invoiceFileName(l), bytes: invoicePdf(l, logo, companies), dealId: l.dealId, leg: l.legId, invNo: l.invNo, kind: 'invoice' as const },
+    { name: salesDocFileName(l), bytes: salesDocPdf(l, logo, companies), dealId: l.dealId, leg: l.legId, invNo: l.invNo, kind: 'sales-doc' as const },
   ])
 }
 

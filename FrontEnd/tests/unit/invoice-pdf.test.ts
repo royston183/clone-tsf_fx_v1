@@ -63,3 +63,38 @@ describe('ofi branding', () => {
     expect(asText(invoicePdf({ ...leg, buyerCode: 'ZZZ' }, logo, { ZZZ: { entity: 'ZZZ', companyCode: 'X1', name: 'Name From SAP', country: 'XX' } }))).toContain('Name From SAP');
   });
 });
+
+import { invoiceFileName, salesDocFileName, pdfFiles } from '@/ref/features/mo-generate-invoices-deal-id/invoice-pdf';
+import { mapLimit } from '@/ref/shared/fx/pool';
+import type { Deal, InvRow } from '@/ref/features/mo-generate-invoices-deal-id/types';
+
+describe('document names', () => {
+  it('follow Sales_doc-{Deal ID}-{leg} and Sales_Invoice-{invoice no}-{leg}', () => {
+    expect(salesDocFileName({ dealId: '7000000086', legId: 'T1' })).toBe('Sales_doc-7000000086-T1.pdf');
+    expect(invoiceFileName({ invNo: '6000000194', legId: 'T1' })).toBe('Sales_Invoice-6000000194-T1.pdf');
+    expect(invoiceFileName({ invNo: '60/00 01', legId: 'T2' })).toBe('Sales_Invoice-60_00_01-T2.pdf');
+  });
+  it('each leg has its own files, mapped to its own invoice number', () => {
+    const row = (ttype: string, invNo: string) => ({ ttype, invNo, seller: 'OGA', buyer: 'DMCC', invDate: '2026-11-10', dueDate: '2026-12-10', commodity: 'C', gtComm: 'C131', qty: 1, price: 1, amt: 1, rec: {} }) as unknown as InvRow;
+    const deal = { dealId: '7000000086', dealRef: '', mcRef: 'M', inv: [row('T1', '6000000194'), row('T2', '6000000195'), row('T3', '6000000196')] } as unknown as Deal;
+    const files = pdfFiles(deal);
+    expect(files.map((f) => f.name)).toEqual([
+      'Sales_Invoice-6000000194-T1.pdf', 'Sales_doc-7000000086-T1.pdf', 'Sales_Invoice-6000000195-T2.pdf', 'Sales_doc-7000000086-T2.pdf', 'Sales_Invoice-6000000196-T3.pdf', 'Sales_doc-7000000086-T3.pdf',
+    ]);
+    expect(files.filter((f) => f.leg === 'T2').map((f) => f.invNo)).toEqual(['6000000195', '6000000195']);
+  });
+});
+
+describe('mapLimit (independent writes a few at a time)', () => {
+  it('never runs more than the limit at once and keeps the order', async () => {
+    let live = 0, peak = 0;
+    const out = await mapLimit([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 3, async (n) => { live++; peak = Math.max(peak, live); await new Promise((r) => setTimeout(r, 5)); live--; return n * 2; });
+    expect(out).toEqual([2, 4, 6, 8, 10, 12, 14, 16, 18, 20]);
+    expect(peak).toBeLessThanOrEqual(3);
+  });
+  it('stops starting new calls after a failure and throws it', async () => {
+    let started = 0;
+    await expect(mapLimit(Array.from({ length: 20 }, (_, i) => i), 2, async (i) => { started++; if (i === 3) throw new Error('boom'); await new Promise((r) => setTimeout(r, 2)); return i; })).rejects.toThrow('boom');
+    expect(started).toBeLessThan(20);
+  });
+});

@@ -8,6 +8,7 @@ import type { Row } from '@/lib/grid/types';
 import { rankByCloseness, toUsd } from '@/lib/propose/match';
 import { valueOf } from '@/modules/tradeflow/pricing';
 import { loadExchangeRate } from '@/ref/shared/fx/exchange-rate-api';
+import { mapLimit } from '@/ref/shared/fx/pool';
 import { describeCriteria, readConditions, type Criteria, mergeCriteria } from '@/lib/propose/query';
 import type { AiAnswer, AskAnswer, Deal, Interpretation, ProposeData } from './data';
 import { fxCreate, fxList } from '@/ref/shared/fx/mw';
@@ -72,14 +73,12 @@ async function writeMiddlewareBls(dealId: string, assigned: { bl: Row; usd: stri
   if (!assigned.length) return [];
   const [have, commodities] = await Promise.all([fxList('billOfLading', { ZDEAL_ID: dealId }), moduleView('commodity').then(v => v.tables.commodities ?? [])]);
   const present = new Set(have.map(r => mwBlKey(r)));
-  const written: string[] = [];
-  for (const { bl, usd } of assigned) {
-    const row = middlewareBlRow(dealId, bl, usd, commodities.find(c => str(c.commodity) === str(bl.commodity)), today());
-    if (present.has(mwBlKey(row))) continue;
-    await fxCreate('billOfLading', row);
-    written.push(str(bl.blNo));
-  }
-  return written;
+  // One independent row per BL: written a few at a time, not one after another (hundreds of BLs on one Deal ID).
+  const todo = assigned
+    .map(({ bl, usd }) => ({ bl, row: middlewareBlRow(dealId, bl, usd, commodities.find(c => str(c.commodity) === str(bl.commodity)), today()) }))
+    .filter(({ row }) => !present.has(mwBlKey(row)));
+  await mapLimit(todo, 8, ({ row }) => fxCreate('billOfLading', row));
+  return todo.map(({ bl }) => str(bl.blNo));
 }
 
 /**

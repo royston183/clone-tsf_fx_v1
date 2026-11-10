@@ -11,6 +11,39 @@ const LINES: { name: string; text: string; art: 'cocoa' | 'coffee' | 'nuts' | 's
   { name: 'Dairy', text: 'Sourced and processed dairy ingredients.', art: 'dairy' }
 ];
 
+/**
+ * "Did you know?" facts, a few per product line. `ofi` facts are only what the application itself already states about the
+ * company's product lines or its name; everything else is a general fact about the commodity. Add a fact here, nowhere else.
+ */
+type Fact = { kind: 'ofi' | 'general'; text: string };
+const FACTS: Record<(typeof LINES)[number]['art'], Fact[]> = {
+  cocoa: [
+    { kind: 'ofi', text: 'ofi turns cocoa into powders, butters and liquors under its deZaan range, the three cocoa products you assign BLs for here.' },
+    { kind: 'general', text: 'A cocoa tree takes about three to five years to bear its first pods, and each pod holds roughly 30 to 50 beans.' },
+    { kind: 'general', text: 'Cocoa butter is the natural fat of the bean; it melts close to body temperature, which is why chocolate melts in the mouth.' }
+  ],
+  coffee: [
+    { kind: 'ofi', text: 'ofi supplies green coffee beans and also makes custom soluble and instant coffee for its customers.' },
+    { kind: 'general', text: 'A coffee bean is the seed of a cherry; Arabica and Robusta are the two species that make up almost all the coffee traded.' },
+    { kind: 'general', text: 'Robusta usually carries about twice the caffeine of Arabica, which is part of why it is popular in instant coffee.' }
+  ],
+  nuts: [
+    { kind: 'ofi', text: "The ofi nut range covers almonds, cashews, hazelnuts, pistachios and peanuts." },
+    { kind: 'general', text: 'An almond is the seed of a fruit related to the peach, and a cashew grows hanging from the bottom of its fruit, the cashew apple.' },
+    { kind: 'general', text: 'Despite the name, the peanut is a legume that ripens underground, not a tree nut.' }
+  ],
+  spices: [
+    { kind: 'ofi', text: 'ofi sells bulk natural spices, herbs and dehydrated vegetables.' },
+    { kind: 'general', text: 'Black pepper is the dried berry of a climbing vine, and peppercorns turn from green to black as they are dried.' },
+    { kind: 'general', text: 'Chilli heat comes from capsaicin, which is concentrated in the white ribs of the pepper more than in the seeds.' }
+  ],
+  dairy: [
+    { kind: 'ofi', text: 'ofi sources and processes dairy ingredients, one of its five product lines alongside cocoa, coffee, nuts and spices.' },
+    { kind: 'general', text: 'It takes roughly ten litres of milk to make one kilogram of hard cheese.' },
+    { kind: 'general', text: 'Powdered milk is made by spray-drying: milk is sprayed into hot air and the water leaves in a fraction of a second.' }
+  ]
+};
+
 function Art({ kind }: { kind: (typeof LINES)[number]['art'] }) {
   return (
     <svg className={`bean-loader__art bean-loader__art--${kind}`} viewBox="0 0 160 140" aria-hidden="true">
@@ -54,11 +87,15 @@ function Art({ kind }: { kind: (typeof LINES)[number]['art'] }) {
 export function BeanLoader({ steps }: { steps: { done: boolean }[] }) {
   const [at, setAt] = useState(0);
   useEffect(() => {
-    const t = setInterval(() => setAt(n => (n + 1) % LINES.length), 2600);
+    const t = setInterval(() => setAt(n => { const next = (n + 1) % LINES.length; if (next === 0) setRound(r => r + 1); return next; }), 8000);
     return () => clearInterval(t);
   }, []);
   const share = Math.round((steps.filter(s => s.done).length / Math.max(1, steps.length)) * 100);
   const line = LINES[at];
+  // The next fact of this line each time the line comes round; no timer of its own.
+  const [round, setRound] = useState(0);
+  const facts = FACTS[line.art];
+  const fact = facts[round % facts.length];
   return (
     <div className="bean-loader panel" role="status" aria-live="polite" aria-label="Getting everything ready">
       <div className="bean-loader__slide" key={line.name}>
@@ -66,6 +103,10 @@ export function BeanLoader({ steps }: { steps: { done: boolean }[] }) {
         <div className="bean-loader__text">
           <h3>{line.name}</h3>
           <p>{line.text}</p>
+          <div className="bean-loader__fact">
+            <span className="bean-loader__fact-head"><strong>Did you know?</strong><em className={`bean-loader__tag bean-loader__tag--${fact.kind}`}>{fact.kind === 'ofi' ? 'ofi' : 'General fact'}</em></span>
+            <p>{fact.text}</p>
+          </div>
         </div>
       </div>
       <div className="bean-loader__foot">
