@@ -41,12 +41,11 @@ import { setStatusTexts } from './data.ts'
 import { DateCell } from './DateCell.tsx'
 import { DealLookupModal } from './DealLookupModal.tsx'
 import { DealPicker } from './DealPicker.tsx'
-import { AssignedBlsModal, DealBlsPanel, InvoiceReviewModal, useDealBls } from './DealBls.tsx'
+import { AssignedBlsModal, InvoiceReviewModal, useDealBls } from './DealBls.tsx'
 import { TrafficLightTag } from '@/components/ui/Badge'
 import { formatAmount, formatCompact } from '@/lib/fields/parse'
 import { assignState, progressPct, STATE_TONE } from '@/pages/propose-tradeflows/view'
 import { DiffModal } from './DiffModal.tsx'
-import { InvoiceNumbersModal } from './InvoiceNumbersModal.tsx'
 import { money, parseNum, statusText, validDMY } from './format.ts'
 import {
   canCancelInvoice,
@@ -113,6 +112,7 @@ const INV_COLS: Array<{ key: string; label: string }> = [
   { key: 'invNo', label: 'Invoice No' },
   { key: 'invTrmRef', label: 'Inv TRM Ref No' },
   { key: 'pc', label: 'P/C' },
+  { key: 'viewInv', label: 'View Invoices' },
 ]
 
 const PAGE_SIZE = 8
@@ -175,7 +175,8 @@ export default function MoGenerateInvoicesDealId() {
   const [review, setReview] = useState<{ message: string; status: InvoiceFinalStatus } | null>(null)
   const [blOpen, setBlOpen] = useState(false)
   const [diffOpen, setDiffOpen] = useState(false)
-  const [numbersOpen, setNumbersOpen] = useState(false)
+  // The trade leg whose invoice documents are open in the preview.
+  const [previewLeg, setPreviewLeg] = useState<string | null>(null)
   const [bankRow, setBankRow] = useState(-1)
   // House bank accounts (HouseBankAccount) and each entity's company code (ZSGTSFTR_COMP) for the bank popup.
   const [houseBanks, setHouseBanks] = useState<HouseBankAccount[]>([])
@@ -387,7 +388,7 @@ export default function MoGenerateInvoicesDealId() {
     if (!deal) return
     if (showMessage && invoiceGridMissing()) return
     updateDeal((d) => ({ ...d, inv: d.inv.map(recalcInvoiceRow) }))
-    if (showMessage) note('Adjusted Price / Qty recalculated.')
+    if (showMessage) note('Trade Invoices recalculated.')
   }
 
   const initiateInvoiceConfirmation = () => {
@@ -656,7 +657,7 @@ export default function MoGenerateInvoicesDealId() {
             </div>
           </div>
           <div className="top-right">
-            <button className="hdr-btn primary" type="button" disabled={!canConfirmInvoice} onClick={initiateInvoiceConfirmation}>
+            <button className="hdr-btn primary" type="button" disabled={!canConfirmInvoice} title={canConfirmInvoice ? undefined : blocker.message || 'Available once the Deal ID is at status 04 with its BLs and invoice rows'} onClick={initiateInvoiceConfirmation}>
               <svg viewBox="0 0 24 24">
                 <path d="M12 5v14M5 12h14" />
               </svg>
@@ -667,12 +668,6 @@ export default function MoGenerateInvoicesDealId() {
                 <path d="M12 4v11M7 11l5 5 5-5M5 20h14" />
               </svg>
               <span>Download PDF</span>
-            </button>
-            <button className="hdr-btn" type="button" disabled={!deal || !isFinalInvoiceStatus(deal.status) || !deal.inv.some((r) => r.invNo)} title="Available once the invoice numbers are generated (status 05 / 07)" onClick={() => setNumbersOpen(true)}>
-              <svg viewBox="0 0 24 24">
-                <path d="M5 4h14v16H5zM8 9h8M8 13h8M8 17h5" />
-              </svg>
-              <span>Invoice Numbers</span>
             </button>
             <span className="live-dot" title="Workbench active" />
             <button className="hdr-btn" type="button" disabled={!deal || deal.dm} onClick={() => setBlOpen(true)}>
@@ -803,10 +798,11 @@ export default function MoGenerateInvoicesDealId() {
             </section>
           ) : null}
 
-          {deal ? (
-            <DealBlsPanel dealId={deal.dealId} bls={dealBls} canConfirm={canConfirmInvoice} onReview={initiateInvoiceConfirmation}
-              why={deal.dm ? 'Invoiced through its Deal Monitor' : busy ? '' : statusOpens ? blocker.message : `Opens at status 04 · now ${deal.status}`}
-              action={statusOpens && blocker.code === 'no-rows' ? { label: syncing ? 'Creating…' : 'Create invoice rows', busy: syncing || busy, run: createInvoiceRows } : undefined} />
+          {deal && statusOpens && blocker.message ? (
+            <div className="inv-prereq" role="status">
+              <span>{blocker.message}</span>
+              {blocker.code === 'no-rows' ? <button className="button small" type="button" disabled={syncing || busy} onClick={createInvoiceRows}>{syncing ? 'Creating…' : 'Create invoice rows'}</button> : null}
+            </div>
           ) : null}
 
           <div className="tables">
@@ -908,7 +904,7 @@ export default function MoGenerateInvoicesDealId() {
             <section className="card table-card">
               <div className="table-toolbar">
                 <div className="table-title">
-                  Adjusted Price / Qty <span className="count">{invMeta.total} records</span>
+                  Trade Invoices <span className="count">{invMeta.total} records</span>
                 </div>
                 <div className="toolbar-tools">
                   <input
@@ -931,7 +927,7 @@ export default function MoGenerateInvoicesDealId() {
               </div>
               <div className="grid-wrap">
                 {!deal ? (
-                  <div className="empty">{loading ? 'Loading Deal ID from SAP…' : 'Select a Deal ID to view adjusted price / quantity.'}</div>
+                  <div className="empty">{loading ? 'Loading Deal ID from SAP…' : 'Select a Deal ID to view its trade invoices.'}</div>
                 ) : deal.invReason ? (
                   <div className="empty">{deal.invReason}</div>
                 ) : (
@@ -940,7 +936,7 @@ export default function MoGenerateInvoicesDealId() {
                       <tr>
                         <th className="select-cell" />
                         {INV_COLS.map((c) =>
-                          c.key === 'assign' ? (
+                          c.key === 'assign' || c.key === 'viewInv' ? (
                             <th key={c.key}>{c.label}</th>
                           ) : (
                             <th key={c.key} className={`sortable${invSort.key === c.key ? (invSort.dir === 1 ? ' sorted-asc' : ' sorted-desc') : ''}`} onClick={() => nextInvSort(c.key)}>
@@ -1016,6 +1012,13 @@ export default function MoGenerateInvoicesDealId() {
                             <td>
                               <span className={`status-text ${r.pc === 'C' ? 'status-ok' : r.pc === 'P' ? 'status-warn' : 'status-info'}`}>{r.pc || '—'}</span>
                             </td>
+                            <td>
+                              {r.invNo && isFinalInvoiceStatus(deal.status) ? (
+                                <button className="assign-btn" type="button" onClick={(e) => { e.stopPropagation(); setPreviewLeg(r.ttype) }}>View Invoices</button>
+                              ) : (
+                                <span className="status-text status-info" title="The invoice of this leg is generated when the invoice is confirmed">Not Generated</span>
+                              )}
+                            </td>
                           </tr>
                         )
                       })}
@@ -1031,6 +1034,8 @@ export default function MoGenerateInvoicesDealId() {
           </div>
         </main>
       </div>
+
+      {busy ? <div className="inv-busy" role="status" aria-live="polite"><span className="inv-busy__dot" aria-hidden="true" />Working in SAP… please wait, do not click again.</div> : null}
 
       <div className="toast-wrap">
         {toasts.map((t) => (
@@ -1067,7 +1072,7 @@ export default function MoGenerateInvoicesDealId() {
       {complianceOpen && deal ? <ComplianceModal resultingStatus={pendingInvoiceStatus} onClose={() => setComplianceOpen(false)} onProceed={() => void saveInvoice()} /> : null}
       {/* View BLs: the BLs assigned to the Deal ID in Propose Tradeflow (no de-assign: an assignment is final). */}
       {blOpen && deal ? <AssignedBlsModal dealId={deal.dealId} bls={dealBls} dealUsd={getDealUsdAmount(deal)} tolerancePct={deal.tolerance ?? 0} onClose={() => setBlOpen(false)} /> : null}
-      {numbersOpen && deal ? <InvoiceNumbersModal dealId={deal.dealId} status={deal.status} rows={deal.inv.filter((r) => r.invNo)} onClose={() => setNumbersOpen(false)} /> : null}
+      {previewLeg && deal ? <InvoiceGeneratedModal deal={deal} leg={previewLeg} onClose={() => setPreviewLeg(null)} /> : null}
       {diffOpen && deal ? <DiffModal rows={deal.diff} fxReason={deal.fxReason} onClose={() => setDiffOpen(false)} /> : null}
       {bankRow >= 0 && deal ? (
         <BankModal

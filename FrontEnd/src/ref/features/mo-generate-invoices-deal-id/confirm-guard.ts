@@ -1,6 +1,6 @@
 /**
  * What must be true before an invoice can be confirmed, as a business message instead of a failure half-way through the steps.
- * The invoice (T1, T2, T3 of "Adjusted Price / Qty") is built from the BLs assigned to the Deal ID; with no BLs, or with BLs
+ * The invoice (T1, T2, T3 of "Trade Invoices") is built from the BLs assigned to the Deal ID; with no BLs, or with BLs
  * that have no invoice row yet, there is nothing to confirm and the confirmation would stop at its first check.
  */
 import type { Deal, InvRow } from './types.ts'
@@ -42,7 +42,7 @@ export function confirmBlocker(deal: Deal, bls: { loading: boolean; error: strin
   if (deal.inv.length === 0) {
     return {
       code: 'no-rows',
-      message: `${bls.count} BL${bls.count === 1 ? ' is' : 's are'} assigned to Deal ID ${deal.dealId} in SAP, but the invoice rows (Adjusted Price / Qty: T1, T2, T3) have not been created from them yet. Use "Create invoice rows" to build them from the assigned BLs.`,
+      message: `${bls.count} BL${bls.count === 1 ? ' is' : 's are'} assigned to Deal ID ${deal.dealId} in SAP, but the invoice rows (Trade Invoices: T1, T2, T3) have not been created from them yet. Use "Create invoice rows" to build them from the assigned BLs.`,
     }
   }
   const keys = invoiceKeyProblem(deal.dealId, deal.inv)

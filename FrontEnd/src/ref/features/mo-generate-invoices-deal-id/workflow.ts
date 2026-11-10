@@ -19,6 +19,7 @@
  */
 import { txt } from '../../shared/fx/masters.ts'
 import type { FxRow as MwRow } from '../../shared/fx/mw.ts'
+import { mapLimit } from '../../shared/fx/pool.ts'
 import { dec, num } from '../../shared/fx/sap.ts'
 import { ADJ_KEY, adjRecordOf, amendDealWrites, dealBls, messageOf, toWire } from './api.ts'
 import { DEAL_INVOICE_STATUS, canReverseInvoice, isFinalInvoiceStatus, pcForStatus, toggledStatus, type InvoiceFinalStatus } from './invoice-status.ts'
@@ -223,7 +224,7 @@ export async function confirmInvoiceGeneration(input: ConfirmInput, ports: Ports
       name: 'check',
       run: async () => {
         if (!isFinalInvoiceStatus(status)) throw new Error(`${status} is not an invoice status.`)
-        if (!rows.length) throw new Error('There is no invoice row left to confirm for this Deal ID: it has no invoice rows (Adjusted Price / Qty), or every row already carries an invoice type.')
+        if (!rows.length) throw new Error('There is no invoice row left to confirm for this Deal ID: it has no invoice rows (Trade Invoices), or every row already carries an invoice type.')
         const keyProblem = invoiceKeyProblem(dealId, deal.inv)
         if (keyProblem) throw new Error(keyProblem)
         await requireResource(ports, RESOURCE.ifInv)
@@ -293,7 +294,8 @@ export async function confirmInvoiceGeneration(input: ConfirmInput, ports: Ports
         const stamp = changedBy(await ports.now())
         const [normal, reuse] = await Promise.all([ports.list(RESOURCE.bl, { ZDEAL_ID: dealId }), ports.list(RESOURCE.blReuse, { ZDEAL_ID: dealId })])
         const data = dealBls(normal, reuse)
-        let n = 0
+        // One update per BL row, each independent of the others: run them a few at a time, not one after another.
+        const updates: Array<() => Promise<void>> = []
         for (const r of rowsToFinalise(deal.inv).filter((x) => !input.sellers.length || input.sellers.includes(x.seller))) {
           const pdate = dats(String(r.rec['ZINV_PDATE'] ?? ''))
           const matches = data.filter(
@@ -309,10 +311,11 @@ export async function confirmInvoiceGeneration(input: ConfirmInput, ports: Ports
               ZBL_STAT_ID: DEAL_BL_INVOICED,
               ...stamp,
             }
-            await updateFitting(ports.update, reused ? RESOURCE.blReuse : RESOURCE.bl, keyOf(b, reused ? KEY.blReuse : KEY.bl), changes)
-            n++
+            updates.push(() => updateFitting(ports.update, reused ? RESOURCE.blReuse : RESOURCE.bl, keyOf(b, reused ? KEY.blReuse : KEY.bl), changes))
           }
         }
+        await mapLimit(updates, 8, (run) => run())
+        const n = updates.length
         return `${n} BL row(s)`
       },
     },

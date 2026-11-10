@@ -219,3 +219,11 @@
 .invblotter .tables {grid-template-rows:auto auto}
 .invblotter .tables > .table-card {overflow:visible}
 .invblotter .tables > .table-card > .grid-wrap {flex:none;min-height:0;max-height:none;overflow-x:auto;overflow-y:visible}
+
+/* What stops a confirmation, in one line above the Trade Invoices; and the "working in SAP" banner while it runs. */
+.invblotter .inv-prereq { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 10px; border: 1px solid color-mix(in srgb, var(--amber, #b7791f) 40%, var(--line, #D7E0E9)); background: color-mix(in srgb, var(--amber, #b7791f) 9%, var(--surface, #fff)); font-size: 12.5px; }
+.invblotter .inv-prereq span { flex: 1 1 320px; }
+.invblotter .inv-busy { position: fixed; left: 50%; top: 14px; transform: translateX(-50%); z-index: 960; display: flex; align-items: center; gap: 10px; padding: 9px 16px; border-radius: 999px; background: #0B5CD5; color: #fff; font-size: 13px; font-weight: 600; box-shadow: 0 8px 22px rgba(11, 92, 213, .35); }
+.invblotter .inv-busy__dot { width: 10px; height: 10px; border-radius: 50%; background: #fff; animation: inv-pulse 1s ease-in-out infinite; }
+@keyframes inv-pulse { 0%, 100% { opacity: .35; transform: scale(.8); } 50% { opacity: 1; transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .invblotter .inv-busy__dot { animation: none; } }
