@@ -11,7 +11,7 @@ import { tradeflowManageSeed } from '@/modules/tradeflow-manage/seed';
 import { valueOf } from '@/modules/tradeflow/pricing';
 
 /** A TSF Deal ID as Propose needs it: its commodity comes from its master contract (TSF FX commodity code). */
-export interface Deal { dealId: string; dealDesc: string; tsfCommodity: string; tsfCommodityText: string; amount: string; currency: string }
+export interface Deal { dealId: string; dealDesc: string; tsfCommodity: string; tsfCommodityText: string; amount: string; currency: string; /** The Deal ID's workflow status (ZDEAL_STAT) when it was read; absent on sample data. */ dealStatus?: string }
 /** What goes to the AI (and nothing more): the deal's figures and, per combination, its BLs' numbers and USD values. */
 export interface AiRequest {
   deal: { dealId: string; tsfCommodity: string; dealUsd: string; remainingUsd: string };

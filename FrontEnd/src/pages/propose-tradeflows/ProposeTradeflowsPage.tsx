@@ -9,7 +9,7 @@ import { TrafficLightTag } from '@/components/ui/Badge';
 import { Notice } from '@/components/ui/Notice';
 import { Toast, useToast } from '@/components/ui/Toast';
 import { onSampleData } from '@/lib/client/data';
-import { formatAmount, formatCompact, formatDate } from '@/lib/fields/parse';
+import { formatAmount4, formatCompact, formatDate } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { assignedTotal, candidates, type Combination } from '@/lib/propose/match';
@@ -18,6 +18,7 @@ import { sampleProposeData, type Interpretation, type ProposeData } from './data
 import { liveProposeData } from './live';
 import { acceptPlan, assignedByTradeflow, commodityNote, dealFigures, dealRows, dealTotals, pctText, usdMn, DEFAULT_ANSWERS, waysOf, distinctProposals, proposalsUnder, rulesOf, type DealRow, type Fill, type FillAnswers } from './logic';
 import { AssignedGroups, AssignedModal } from './parts';
+import { assignStatusProblem } from './status-rules';
 import { BeanLoader } from './BeanLoader';
 import { ProposalModal } from './ProposalModal';
 import { assignState, orderByRules, progressPct, STATE_TONE } from './view';
@@ -27,7 +28,7 @@ interface Loaded { deals: DealRow[]; bls: Row[]; commodities: Row[] }
 export interface Proposal { combo: Combination; reason: string }
 /** One condition as typed and applied; the conditions stack, and each can be removed on its own. */
 export interface Entry { id: number; text: string; reading: Interpretation }
-const usd = (v: string | null) => (v === null || v === '' ? '—' : `${formatAmount(v)} USD`);
+const usd = (v: string | null) => (v === null || v === '' ? '—' : `${formatAmount4(v)} USD`);
 /** The most BL detail rows one AI request carries (the BackEnd accepts 1,000). */
 const AI_BL_ROWS = 1000;
 const StateTag = ({ deal }: { deal: DealRow }) => { const s = assignState(deal); return <TrafficLightTag tone={STATE_TONE[s]}>{s}</TrafficLightTag>; };
@@ -145,11 +146,11 @@ export default function ProposeTradeflowsPage() {
                 <tbody>{shown.map(d => {
                   const n = assignedCount.get(d.dealId) ?? 0;
                   const f = dealFigures(d);
-                  const full = (v: string | null) => (v === null ? 'Not available' : `${formatAmount(v)} USD`);
+                  const full = (v: string | null) => (v === null ? 'Not available' : `${formatAmount4(v)} USD`);
                   return (
                     <tr key={d.dealId} data-table-row="" className={d.dealId === selected ? 'selected' : ''} onClick={() => setSelected(d.dealId)}>
                       <td><button className="tsf-propose__dealid mono" onClick={e => { e.stopPropagation(); setSelected(d.dealId); }} aria-pressed={d.dealId === selected} aria-label={`Deal ${d.dealId} ${assignState(d)}`}>{d.dealId}</button>
-                        {n > 0 && <button className="tsf-propose__bls-link" onClick={e => { e.stopPropagation(); setViewing(d); }} aria-label={`View the BLs assigned to ${d.dealId}`} title={`${n} BLs assigned · ${formatAmount(d.assignedUsd)} USD`}><ListChecks size={11} />{n}</button>}</td>
+                        {n > 0 && <button className="tsf-propose__bls-link" onClick={e => { e.stopPropagation(); setViewing(d); }} aria-label={`View the BLs assigned to ${d.dealId}`} title={`${n} BLs assigned · ${formatAmount4(d.assignedUsd)} USD`}><ListChecks size={11} />{n}</button>}</td>
                       <td>{d.tsfCommodity ? `${d.tsfCommodity}${d.tsfCommodityText ? ` · ${d.tsfCommodityText}` : ''}` : '—'}</td>
                       <td className="num" title={full(f.total)}>{usdMn(f.total)}</td>
                       <td className="num" title={full(f.utilized)}>{usdMn(f.utilized)}</td>
@@ -159,7 +160,7 @@ export default function ProposeTradeflowsPage() {
                     </tr>
                   );
                 })}</tbody>
-                <tfoot>{(() => { const t = dealTotals(shown); return <tr><th>Total</th><th>{shown.length} deal{shown.length === 1 ? '' : 's'}</th><th className="num" title={`${formatAmount(t.total ?? '0')} USD`}>{usdMn(t.total)}</th><th className="num" title={`${formatAmount(t.utilized)} USD`}>{usdMn(t.utilized)}</th><th className="num" title={t.issue || `${formatAmount(t.balance ?? '0')} USD`}>{usdMn(t.balance)}</th><th className="num">{pctText(t.remainingPct)}</th><th /></tr>; })()}</tfoot>
+                <tfoot>{(() => { const t = dealTotals(shown); return <tr><th>Total</th><th>{shown.length} deal{shown.length === 1 ? '' : 's'}</th><th className="num" title={`${formatAmount4(t.total ?? '0')} USD`}>{usdMn(t.total)}</th><th className="num" title={`${formatAmount4(t.utilized)} USD`}>{usdMn(t.utilized)}</th><th className="num" title={t.issue || `${formatAmount4(t.balance ?? '0')} USD`}>{usdMn(t.balance)}</th><th className="num">{pctText(t.remainingPct)}</th><th /></tr>; })()}</tfoot>
               </DataTable>
               </div>
             ) : <p className="tsf-propose__muted tsf-propose__pad">{acrossDeals ? 'No matching deals or available BLs found for the selected criteria.' : view === 'assigned' ? 'No deal has BLs assigned yet. Assign a proposal and its deal shows here.' : 'No Deal IDs match.'}</p>}
@@ -332,10 +333,11 @@ function DealPanel({ deal, nav, loaded, data, answers, onAnswers, entries, onEnt
           </div>
         </div>
         <dl className="tsf-dealhero__figs">
-          <div><dt>Deal amount</dt><dd>{formatCompact(deal.amount)} <small>{deal.currency}</small></dd><span>{formatAmount(deal.amount)}</span></div>
-          <div className="key"><dt>{Number(deal.remainingUsd) < 0 ? 'Over by' : 'Unassigned'}</dt><dd>{deal.remainingUsd ? formatCompact(Math.abs(Number(deal.remainingUsd))) : '—'} <small>USD</small></dd><span>{deal.remainingUsd ? formatAmount(Math.abs(Number(deal.remainingUsd)).toFixed(2)) : ''}</span></div>
+          <div><dt>Deal amount</dt><dd>{formatCompact(deal.amount)} <small>{deal.currency}</small></dd><span>{formatAmount4(deal.amount)}</span></div>
+          <div className="key"><dt>{Number(deal.remainingUsd) < 0 ? 'Over by' : 'Unassigned'}</dt><dd>{deal.remainingUsd ? formatCompact(Math.abs(Number(deal.remainingUsd))) : '—'} <small>USD</small></dd><span>{deal.remainingUsd ? formatAmount4(Math.abs(Number(deal.remainingUsd)).toFixed(2)) : ''}</span></div>
         </dl>
       </div>
+      {deal.dealStatus !== undefined && assignStatusProblem(deal.dealId, deal.dealStatus) && <Notice kind="warn">{assignStatusProblem(deal.dealId, deal.dealStatus)}</Notice>}
       {deal.status === 'No USD rate' && <Notice kind="warn">No USD rate for {deal.currency} today: this Deal ID gets no proposals until SAP has one (rate type M).</Notice>}
       {deal.status === 'Filled' && <Notice>This Deal ID is fully assigned (within 1%).</Notice>}
       {note && <Notice kind="warn">{note}</Notice>}
@@ -353,7 +355,7 @@ function DealPanel({ deal, nav, loaded, data, answers, onAnswers, entries, onEnt
           <button type="button" className="tsf-propose__reset" aria-label="Clear all selections and conditions" onClick={clearAll}><X size={12} />Clear all</button>
           {!answers.fill.length && <span className="tsf-propose__allways">All ways</span>}
         </div>
-        {criteria.target && <span className="tsf-propose__aim">Aiming at <b>{formatAmount(aimUsd)} USD</b> of {formatAmount(deal.remainingUsd)} left</span>}
+        {criteria.target && <span className="tsf-propose__aim">Aiming at <b>{formatAmount4(aimUsd)} USD</b> of {formatAmount4(deal.remainingUsd)} left</span>}
       </div>
       )}
       </div>
@@ -422,7 +424,7 @@ function DealPanel({ deal, nav, loaded, data, answers, onAnswers, entries, onEnt
                   <tr key={nos.join('+')} data-table-row="" className={i === 0 ? 'best' : ''} onDoubleClick={() => setOpen(p)}>
                     <td><button className="tsf-propose__link tsf-propose__open" title={note} onClick={() => setOpen(p)} aria-label={`Proposal ${i + 1}: ${nos.length} BLs, ${assignedTotal(p.combo, aimUsd)} USD`}>{i + 1}. {label}</button>
                       {p.reason && <span className="tsf-propose__reason" title={p.reason}><Sparkles size={11} />{p.reason}</span>}</td>
-                    <td className="num"><b>{formatAmount(assignedTotal(p.combo, aimUsd))}</b>{p.combo.cap && <small className="tsf-propose__sub">BL {p.combo.cap.blNo} capped at {formatAmount(p.combo.cap.usd)}</small>}</td>
+                    <td className="num"><b>{formatAmount4(assignedTotal(p.combo, aimUsd))}</b>{p.combo.cap && <small className="tsf-propose__sub">BL {p.combo.cap.blNo} capped at {formatAmount4(p.combo.cap.usd)}</small>}</td>
                     <td className="num"><span className={`tsf-propose__match${p.combo.fit ? ' out' : Math.abs(p.combo.diffPct) <= 0.1 ? ' exact' : ''}`}>{p.combo.cap ? 'fills exactly' : `${p.combo.diffPct > 0 ? '+' : ''}${p.combo.diffPct.toFixed(2)}%`}</span></td>
                     <td className="num">{nos.length}</td>
                     <td className="tsf-propose__nowrap tsf-propose__bls" title={`${dates.length ? `${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])}

@@ -5,7 +5,7 @@ import { CheckCircle2, FileSpreadsheet, RefreshCw, Sparkles } from 'lucide-react
 import { DataTable } from '@/components/table/DataTable';
 import { downloadFile, sheetXlsx } from '@/lib/client/xlsx-write';
 import { Modal } from '@/components/ui/Modal';
-import { formatAmount, formatCompact, formatDate } from '@/lib/fields/parse';
+import { formatAmount4, formatCompact, formatDate } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { assignedTotal } from '@/lib/propose/match';
@@ -15,7 +15,7 @@ import type { Proposal } from './ProposeTradeflowsPage';
 import { matchPct } from './view';
 import { proposalFileName, proposalSheet } from './proposal-export';
 
-const money = (v: number) => formatAmount(v.toFixed(2));
+const money = (v: number) => formatAmount4(v.toFixed(2));
 const WAY_NAME: Record<string, string> = { fewest: 'Fewest BLs', closest: 'Closest amount', oldest: 'Oldest BLs', contracts: 'Fewest contracts', parties: 'Fewest notify parties' };
 
 export function ProposalModal({ proposal, rank, deal, aimUsd, bls, busy, onClose, onAccept, onDrop }: {
@@ -83,16 +83,16 @@ export function ProposalModal({ proposal, rank, deal, aimUsd, bls, busy, onClose
                   <td className="mono">{str(b.tfNo)}</td>
                   <td className="num">{fmtQty(str(b.quantity))}</td>
                   <td className="num">{combo.cap?.blNo === no
-                    ? <>{formatAmount(combo.cap.usd)} <small className="tsf-proposal__share">of {formatAmount(str(b.usdValue))}</small></>
-                    : formatAmount(str(b.usdValue))}</td>
+                    ? <>{formatAmount4(combo.cap.usd)} <small className="tsf-proposal__share">of {formatAmount4(str(b.usdValue))}</small></>
+                    : formatAmount4(str(b.usdValue))}</td>
                 </tr>
               );
             })}</tbody>
-            <tfoot><tr><th colSpan={6}>Total · {rows.length} BLs</th><th className="num">{fmtQty(quantity.toFixed(3))} {unit}</th><th className="num">{formatAmount(assignedTotal(combo, aimUsd))}</th></tr></tfoot>
+            <tfoot><tr><th colSpan={6}>Total · {rows.length} BLs</th><th className="num">{fmtQty(quantity.toFixed(3))} {unit}</th><th className="num">{formatAmount4(assignedTotal(combo, aimUsd))}</th></tr></tfoot>
           </DataTable>
           </div>
         </section>
-        <p className="tsf-proposal__note">Assigning writes Deal ID {deal.dealId} on these BLs and stores each BL's USD value with it{combo.cap ? `; BL ${combo.cap.blNo} stores only the ${formatAmount(combo.cap.usd)} USD the deal still needed` : ''}. Check it before assigning: an assignment is final.</p>
+        <p className="tsf-proposal__note">Assigning writes Deal ID {deal.dealId} on these BLs and stores each BL's USD value with it{combo.cap ? `; BL ${combo.cap.blNo} stores only the ${formatAmount4(combo.cap.usd)} USD the deal still needed` : ''}. Check it before assigning: an assignment is final.</p>
       </div>
     </Modal>
   );

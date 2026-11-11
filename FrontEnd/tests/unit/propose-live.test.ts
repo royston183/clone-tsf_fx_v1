@@ -16,8 +16,8 @@ describe('live Propose data helpers', () => {
   });
   it('builds a Deal from a TSF Deal ID and its master contract commodity', () => {
     const mcs = new Map([['2000000005', { commodity: 'C130', commodityDesc: 'ALMOND' }]]);
-    expect(toDeal({ dealId: '7000000006', dealDesc: 'OSIPL_FX_2026', mcRef: '2000000005', dealAmount: '1000.00', dealCurrDesc: 'USD-USD-INR' }, mcs))
-      .toEqual({ dealId: '7000000006', dealDesc: 'OSIPL_FX_2026', tsfCommodity: 'C130', tsfCommodityText: 'ALMOND', amount: '1000.00', currency: 'USD' });
+    expect(toDeal({ dealId: '7000000006', dealDesc: 'OSIPL_FX_2026', mcRef: '2000000005', dealAmount: '1000.00', dealCurrDesc: 'USD-USD-INR', status: '03' }, mcs))
+      .toEqual({ dealId: '7000000006', dealDesc: 'OSIPL_FX_2026', tsfCommodity: 'C130', tsfCommodityText: 'ALMOND', amount: '1000.00', currency: 'USD', dealStatus: '03' });
     expect(toDeal({ dealId: '7000000099', dealDesc: '', mcRef: 'X', dealAmount: '5', dealCurrDesc: 'INR-INR-INR' }, mcs).tsfCommodity).toBe('');
   });
   it('values each BL in USD from its trade flow price and currency', () => {

@@ -42,13 +42,13 @@ export function DiffModal({ rows, fxReason, onClose }: { rows: DiffRow[]; fxReas
                   rows.map((r) => (
                     <tr key={r.ttype}>
                       <td>{r.ttype}</td>
-                      <td className="num">{money(r.finalAmt, 2)}</td>
+                      <td className="num">{money(r.finalAmt, 4)}</td>
                       <td>{r.currency}</td>
-                      <td className="num">{money(r.planned, 2)}</td>
-                      <td className="num">{money(r.diff1, 2)}</td>
+                      <td className="num">{money(r.planned, 4)}</td>
+                      <td className="num">{money(r.diff1, 4)}</td>
                       <td>{r.dealType}</td>
-                      <td className="num">{r.dealAmt === null ? '—' : money(r.dealAmt, 2)}</td>
-                      <td className="num">{r.diff2 === null ? '—' : money(r.diff2, 2)}</td>
+                      <td className="num">{r.dealAmt === null ? '—' : money(r.dealAmt, 4)}</td>
+                      <td className="num">{r.diff2 === null ? '—' : money(r.diff2, 4)}</td>
                     </tr>
                   ))
                 )}

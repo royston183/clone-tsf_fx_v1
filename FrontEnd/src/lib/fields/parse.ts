@@ -89,6 +89,13 @@ export function formatAmount(v: string): string {
   return `${negative ? '-' : ''}${groupThousands(whole)}${fraction !== undefined ? `.${fraction}` : ''}`;
 }
 
+/** An amount or quantity with exactly four decimals and thousands separators (1345.0004 → 1,345.0004); text that is not a number is returned as it is. */
+export function formatAmount4(v: string | number): string {
+  const n = typeof v === 'number' ? v : /^-?\d+(\.\d+)?$/.test(v.trim()) ? Number(v) : NaN;
+  if (!Number.isFinite(n)) return String(v);
+  return n.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
+
 /** An amount in short: 23,924,000 → 23.9M, 500,000 → 500K, 1,250,000,000 → 1.25B (below 1,000 as it is). */
 export function formatCompact(v: string | number): string {
   const n = Number(v);

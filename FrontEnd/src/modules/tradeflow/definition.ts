@@ -3,7 +3,7 @@
 // (BL No from ZSGTSFNR05). Read-only here: Manage Tradeflows will change them (logic to come).
 // SAP: ZFS_T_SLC_TFLOW / ZFS_T_SLC_TFBL through ZFS_SB_TRADEFLOW_O4_API, once the UI is approved.
 import { col, str } from '@/lib/grid/grid';
-import { formatAmount, formatDate } from '@/lib/fields/parse';
+import { formatAmount4, formatDate } from '@/lib/fields/parse';
 import type { FieldDef } from '@/lib/fields/types';
 import type { Column } from '@/lib/grid/types';
 import type { ObjectModuleDef } from '../types';
@@ -41,7 +41,7 @@ const tfDate: FieldDef<TfLookups> = { field: 'tfDate', label: 'TF Date', type: '
 const blNo: FieldDef<TfLookups> = { field: 'blNo', label: 'BL No', type: 'code', max: 10, mono: true };
 const price: FieldDef<TfLookups> = {
   field: 'price', label: 'Price', type: 'amount', scale: 4, currencyField: 'currency',
-  shown: r => (priced(r) ? formatAmount(r.price) : 'No price')
+  shown: r => (priced(r) ? formatAmount4(r.price) : 'No price')
 };
 const value: FieldDef<TfLookups> = { field: 'value', label: 'Value', type: 'amount', currencyField: 'currency' };
 const currency: FieldDef<TfLookups> = { field: 'currency', label: 'Currency', type: 'code', max: 5 };
@@ -62,10 +62,10 @@ const COLUMNS: Column[] = [
   col('blNo', 'BL No', { code: true, text: r => (Number(r.blCount) > 1 ? `${r.blCount} BLs` : str(r.blNo)) }),
   ...LEAD.map(byField).map(fieldCol),
   col('price', 'Price', {
-    type: 'amount', align: 'right', text: r => (priced(r) ? `${formatAmount(r.price)} ${str(r.currency)}` : 'No price'),
+    type: 'amount', align: 'right', text: r => (priced(r) ? `${formatAmount4(r.price)} ${str(r.currency)}` : 'No price'),
     statusTone: r => (priced(r) ? 'green' : 'amber')
   }),
-  col('value', 'Value', { type: 'amount', align: 'right', text: r => (Number(r.value) > 0 ? `${formatAmount(r.value)} ${str(r.currency)}` : '') }),
+  col('value', 'Value', { type: 'amount', align: 'right', text: r => (Number(r.value) > 0 ? `${formatAmount4(r.value)} ${str(r.currency)}` : '') }),
   col('dealId', 'Deal ID', { code: true }),
   ...TF_FIELDS.filter(d => !LEAD.includes(d.field)).map(fieldCol)
 ];

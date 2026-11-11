@@ -13,6 +13,7 @@ import { describeCriteria, readConditions, type Criteria, mergeCriteria } from '
 import type { AiAnswer, AskAnswer, Deal, Interpretation, ProposeData } from './data';
 import { fxCreate, fxList } from '@/ref/shared/fx/mw';
 import { assignmentProblems, BL_ASSIGNED_STATUS, dealsWithBls, statusWithBls } from './logic';
+import { assignStatusProblem } from './status-rules';
 import { middlewareBlRow, mwBlKey } from './mwbl';
 
 /** The deal amount's currency: the first one of the deal currency chain ("USD-USD-INR" → USD). */
@@ -38,7 +39,7 @@ export function toDeal(row: Row, mcs: Map<string, { commodity: string; commodity
   const mc = mcs.get(str(row.mcRef));
   return {
     dealId: str(row.dealId), dealDesc: str(row.dealDesc), tsfCommodity: str(mc?.commodity), tsfCommodityText: str(mc?.commodityDesc),
-    amount: str(row.dealAmount), currency: dealCurrency(str(row.dealCurrDesc))
+    amount: str(row.dealAmount), currency: dealCurrency(str(row.dealCurrDesc)), dealStatus: str(row.status)
   };
 }
 
@@ -133,6 +134,10 @@ export function liveProposeData(): ProposeData {
       const bls = (await moduleView('bl-assign')).tables.bls ?? [];
       const problems = assignmentProblems(target, usdByBl, Object.keys(usdByBl), bls, values);
       if (problems.length) throw new Error(`Not assigned: ${problems.join(' ')} Refresh to see the current BLs.`);
+      // And the Deal ID itself, read again from SAP: BLs go only to a Deal ID that is marked for invoicing (03) or already holds BLs (04).
+      const current = (await moduleQuery('tsf-deal-id', 'dealIds', { page: 1, pageSize: 100, filters: [{ field: 'dealId', op: 'in', values: [target.dealId] }] })).rows[0];
+      const statusProblem = assignStatusProblem(target.dealId, str(current?.status));
+      if (statusProblem) throw new Error(`Not assigned: ${statusProblem}`);
       // The fresh rows carry their ETags: SAP refuses the write (409) if any of them changes before it lands.
       const rows = bls.filter(b => usdByBl[b.blNo] !== undefined).map(b => ({ ...b, dealId: target.dealId, assignedUsd: usdByBl[b.blNo] }));
       await moduleChange('bl-assign', 'bls', 'update', rows);
