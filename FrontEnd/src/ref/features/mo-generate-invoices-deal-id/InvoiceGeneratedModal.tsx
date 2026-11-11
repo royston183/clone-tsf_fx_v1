@@ -110,7 +110,7 @@ export function InvoiceGeneratedModal({ deal, leg, onClose }: { deal: Deal; /** 
           <tbody>
             {legs.map((l) => (
               <tr key={`${l.legId}-${l.invNo}`}>
-                <td>{l.legId}</td><td className="mono"><b>{l.invNo}</b></td><td>{longDate(l.invDate) || '—'}</td><td className="num">{grouped(l.amount, 2)}</td><td>{l.currency}</td>
+                <td>{l.legId}</td><td className="mono"><b>{l.invNo}</b></td><td>{longDate(l.invDate) || '—'}</td><td className="num">{grouped(l.amount, 4)}</td><td>{l.currency}</td>
               </tr>
             ))}
           </tbody>

@@ -5,7 +5,7 @@ import { Modal } from '@/components/ui/Modal';
 import { DataTable } from '@/components/table/DataTable';
 import { Notice } from '@/components/ui/Notice';
 import { WizardSteps } from '@/components/ui/WizardSteps';
-import { formatAmount } from '@/lib/fields/parse';
+import { formatAmount4 } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { equalSplit } from '@/modules/tradeflow-manage/split';
@@ -66,7 +66,7 @@ export function SplitDialog({ tf, source, open, busy, onClose, onSave }: {
                   <td>BL {i + 1}</td>
                   <td className="num"><input className="input num" inputMode="decimal" aria-label={`Quantity of BL ${i + 1}`} value={q}
                     onChange={e => setQuantities(list => list.map((v, j) => (j === i ? e.target.value : v)))} /></td>
-                  <td className="num">{summary.values[i] ? formatAmount(summary.values[i]) : 'No price'}</td>
+                  <td className="num">{summary.values[i] ? formatAmount4(summary.values[i]) : 'No price'}</td>
                 </tr>
               ))}</tbody>
               <tfoot><tr><th>Total</th><th className="num">{fmtQty(summary.total)}</th><th /></tr></tfoot>

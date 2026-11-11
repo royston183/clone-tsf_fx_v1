@@ -5,6 +5,8 @@ import { assignedTotal, candidates, closestCombinations, findFewest, findFewestG
 import { blUnavailable, dealMismatch, filterBls, hasCriteria, type Criteria, targetOf } from '@/lib/propose/query';
 import type { Deal } from './data';
 
+import { canMove } from './status-rules';
+
 export interface DealRow extends Deal {
   /** The Deal Amount in USD (null without a rate). */
   usd: string | null;
@@ -233,12 +235,11 @@ export function assignmentProblems(target: AssignTarget, plan: Record<string, st
 export const BL_ASSIGNED_STATUS = '04';
 
 /**
- * The status a Deal ID moves to when it has active BLs assigned: 04 from any earlier status (01–03). A Deal ID already
- * at 04 or beyond (invoiced, settled) is never moved back; null means leave it.
+ * The status a Deal ID moves to when it has active BLs assigned: 04, and only from 03 (marked for invoicing): the app does not skip
+ * a stage. A Deal ID already at 04 or beyond is never moved back; null means leave it (see status-rules.ts).
  */
 export function statusWithBls(status: string): string | null {
-  const n = parseInt(status, 10);
-  return Number.isFinite(n) && n >= 1 && n < 4 ? BL_ASSIGNED_STATUS : null;
+  return canMove(status, BL_ASSIGNED_STATUS) ? BL_ASSIGNED_STATUS : null;
 }
 
 /** The Deal IDs that have an active BL assigned (what the status follows). */

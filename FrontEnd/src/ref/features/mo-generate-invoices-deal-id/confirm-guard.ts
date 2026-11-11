@@ -31,6 +31,8 @@ export type ConfirmBlocker = {
   code: '' | 'loading' | 'bls-error' | 'no-bls' | 'no-rows' | 'no-refs' | 'nothing-left'
   /** What is missing and how to resolve it, for the user. */
   message: string
+  /** True when the cause is missing master data, so no action on the screen can fix it. */
+  blocked?: boolean
 }
 
 const NONE: ConfirmBlocker = { code: '', message: '' }
@@ -38,7 +40,12 @@ const NONE: ConfirmBlocker = { code: '', message: '' }
 export function confirmBlocker(deal: Deal, bls: { loading: boolean; error: string; count: number }): ConfirmBlocker {
   if (bls.loading) return { code: 'loading', message: 'The assigned BLs are still being read from SAP. Wait a moment, then try again.' }
   if (bls.error) return { code: 'bls-error', message: `The BLs of Deal ID ${deal.dealId} could not be read from SAP (${bls.error}). Press Refresh and try again.` }
-  if (bls.count === 0) return { code: 'no-bls', message: `No BLs are assigned to Deal ID ${deal.dealId}. Assign them in Trade Flows → Propose Tradeflow first.` }
+  // The invoice grid cannot be built for this Deal ID (missing master data): rows would not help, and the reason is the one SAP's data gives.
+  if (deal.invReason && bls.count > 0) return { code: 'no-rows', blocked: true, message: deal.invReason }
+  if (bls.count === 0) {
+    const stale = deal.status === '04' ? ' Its status shows 04 (BL Assigned to Deal ID), but SAP holds no BL for it: the status was set outside a BL assignment.' : ''
+    return { code: 'no-bls', message: `No BLs are assigned to Deal ID ${deal.dealId}. Assign them in Trade Flows → Propose Tradeflow first.${stale}` }
+  }
   if (deal.inv.length === 0) {
     return {
       code: 'no-rows',

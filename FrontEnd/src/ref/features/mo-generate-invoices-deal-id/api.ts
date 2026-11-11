@@ -74,6 +74,28 @@ export function headerJoin(deal: MwRow | undefined, mcs: readonly MwRow[], rules
   return { deal, mc, rule, trader: trader ?? ({} as MwRow) }
 }
 
+/**
+ * What the header can still show when only the rule of the FX model is missing (ZSGTSFTR_RULE_BT has no row for the master contract's
+ * model): the Deal ID and its master contract are both there. Used for display only; the trade invoices need the rule and are not built.
+ */
+export function partialHeader(deal: MwRow | undefined, mcs: readonly MwRow[], traders: readonly MwRow[]) {
+  if (!deal) return undefined
+  const mc = first(mcs, 'ZMC_REF_NO', txt(deal, 'ZMC_REF'))
+  if (!mc) return undefined
+  return { deal, mc, trader: first(traders, 'ZTCODE', txt(deal, 'ZTRD_CODE')) ?? ({} as MwRow) }
+}
+
+/** Which link of the header chain is missing, in words a person can act on. */
+export function headerProblem(dealId: string, deal: MwRow | undefined, mcs: readonly MwRow[], rules: readonly MwRow[]): string {
+  if (!deal) return `Deal ID ${dealId} was not found in ZSGTSFTR_DEALID.`
+  const mcRef = txt(deal, 'ZMC_REF')
+  const mc = first(mcs, 'ZMC_REF_NO', mcRef)
+  if (!mc) return `Deal ID ${dealId} points to master contract ${mcRef || '(none)'}, which was not found in ZSGTSFTR_MAS_CON, so its header cannot be shown.`
+  const model = txt(mc, 'ZMOD_ID')
+  if (!first(rules, 'ZMOD_ID', model)) return `Deal ID ${dealId} belongs to master contract ${mcRef}, whose FX model ${model || '(none)'} has no entry in ZSGTSFTR_RULE_BT. The header shows what the Deal ID and its master contract hold; its trade invoices cannot be built until the rule for model ${model || '(none)'} is maintained in SAP.`
+  return ''
+}
+
 /** One Deal ID of the value help / View Deals list. */
 export function dealListRow(d: MwRow, mc: MwRow | undefined, statuses: readonly MwRow[]): DealListRow {
   const status = txt(d, 'ZDEAL_STAT')
@@ -195,9 +217,12 @@ export async function loadDeal(dealId: string, signal?: AbortSignal): Promise<Lo
   const rules = mc && txt(mc, 'ZMOD_ID') ? await fxList('fxModel', { ZMOD_ID: txt(mc, 'ZMOD_ID') }, o) : []
   const traders = d ? (await fxList('trmTrader', {}, o)).filter((t) => txt(t, 'ZTCODE') === txt(d, 'ZTRD_CODE')) : []
   const head = headerJoin(d, mcs, rules, traders)
-  if (d && !head) notices.push(`Deal ID ${dealId}: ZSGTSFTR_DEALID ⋈ ZSGTSFTR_MAS_CON ⋈ ZSGTSFTR_RULE_BT ⋈ ZSGTRMTR_TRADER returned no row, so the header stays empty (as in SAP).`)
+  // Without the model's rule the invoices cannot be built, but the Deal ID and its master contract can still be shown.
+  const shown = head ?? partialHeader(d, mcs, traders)
+  const problem = head ? '' : headerProblem(dealId, d, mcs, rules)
+  if (d && problem) notices.push(problem)
 
-  const model = head ? modelWithCurrency(txt(head.mc, 'ZMOD_ID'), txt(head.deal, 'ZDEAL_CURR_ID')) : ''
+  const model = shown ? modelWithCurrency(txt(shown.mc, 'ZMOD_ID'), txt(shown.deal, 'ZDEAL_CURR_ID')) : ''
   const statusOptions = statusList(statuses, d ? txt(d, 'ZTSF_MODEL') : '')
 
   // FX deals: APP_STR (ZTSF_DEAL_ID) + the standard FxTransaction on BUKRS + RFHA; an option model has no service.
@@ -222,6 +247,7 @@ export async function loadDeal(dealId: string, signal?: AbortSignal): Promise<Lo
   let profitMaintained = false
   const rule = rules[0]
   if (fxReason) invReason = invWaitingReason(fxReason)
+  else if (shown && !head) invReason = problem
   else if (head) {
     const [entStr, curStr, orgPro, tvarvc, modelRules] = await Promise.all([
       txt(head.mc, 'ZENT_ID') ? fxList('entityString', { ZENT_ID: txt(head.mc, 'ZENT_ID') }, o) : Promise.resolve([]),
@@ -261,23 +287,23 @@ export async function loadDeal(dealId: string, signal?: AbortSignal): Promise<Lo
 
   const deal: Deal = {
     dealId,
-    dealRef: head ? txt(head.deal, 'ZDEAL_REF') : '',
-    mcRef: head ? txt(head.mc, 'ZMC_REF_NO') : '',
-    mcDesc: head ? txt(head.mc, 'ZMC_DESC') : '',
+    dealRef: shown ? txt(shown.deal, 'ZDEAL_REF') : '',
+    mcRef: shown ? txt(shown.mc, 'ZMC_REF_NO') : '',
+    mcDesc: shown ? txt(shown.mc, 'ZMC_DESC') : '',
     modelId: model,
-    modelDesc: head ? txt(head.mc, 'ZMOD_DESC') : '',
-    entityString: head ? txt(head.mc, 'ZENT_DESC') : '',
-    currencyString: head ? txt(head.deal, 'ZDEAL_CURR_DESC') : '',
-    trader: head ? txt(head.deal, 'ZTRD_CODE') : '',
-    traderDesc: head ? txt(head.trader, 'ZTRADER') : '',
-    status: head ? txt(head.deal, 'ZDEAL_STAT') : '',
-    fxInvModel: head ? txt(head.deal, 'ZFX_INV_MODEL') : '',
-    dealStart: head ? dmyFromIso(txt(head.deal, 'ZS_DATE')) : '',
-    dealEnd: head ? dmyFromIso(txt(head.deal, 'ZE_DATE')) : '',
-    mcDate: head ? dmyFromIso(txt(head.mc, 'ZMC_DATE')) : '',
-    shipStart: head ? dmyFromIso(txt(head.mc, 'ZSHIP_START')) : '',
-    shipEnd: head ? dmyFromIso(txt(head.mc, 'ZSHIP_END')) : '',
-    dm: head ? txt(head.deal, 'ZDM') === 'X' : false,
+    modelDesc: shown ? txt(shown.mc, 'ZMOD_DESC') : '',
+    entityString: shown ? txt(shown.mc, 'ZENT_DESC') : '',
+    currencyString: shown ? txt(shown.deal, 'ZDEAL_CURR_DESC') : '',
+    trader: shown ? txt(shown.deal, 'ZTRD_CODE') : '',
+    traderDesc: shown ? txt(shown.trader, 'ZTRADER') : '',
+    status: shown ? txt(shown.deal, 'ZDEAL_STAT') : '',
+    fxInvModel: shown ? txt(shown.deal, 'ZFX_INV_MODEL') : '',
+    dealStart: shown ? dmyFromIso(txt(shown.deal, 'ZS_DATE')) : '',
+    dealEnd: shown ? dmyFromIso(txt(shown.deal, 'ZE_DATE')) : '',
+    mcDate: shown ? dmyFromIso(txt(shown.mc, 'ZMC_DATE')) : '',
+    shipStart: shown ? dmyFromIso(txt(shown.mc, 'ZSHIP_START')) : '',
+    shipEnd: shown ? dmyFromIso(txt(shown.mc, 'ZSHIP_END')) : '',
+    dm: shown ? txt(shown.deal, 'ZDM') === 'X' : false,
     tolerance: tol,
     fx,
     inv,

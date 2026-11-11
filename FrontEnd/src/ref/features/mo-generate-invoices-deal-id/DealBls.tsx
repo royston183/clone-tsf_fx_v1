@@ -7,13 +7,16 @@ import { DataTable } from '@/components/table/DataTable'
 import { TrafficLightTag } from '@/components/ui/Badge'
 import { Modal } from '@/components/ui/Modal'
 import { onSampleData } from '@/lib/client/data'
-import { formatAmount, formatCompact, formatDate } from '@/lib/fields/parse'
+import { formatAmount4, formatCompact, formatDate } from '@/lib/fields/parse'
 import { str } from '@/lib/grid/grid'
 import type { Row } from '@/lib/grid/types'
 import { fmtQty } from '@/pages/manage-tradeflows/logic'
 import { sampleProposeData } from '@/pages/propose-tradeflows/data'
 import { liveProposeData } from '@/pages/propose-tradeflows/live'
 import { dealRows, type DealRow } from '@/pages/propose-tradeflows/logic'
+import { money } from './format.ts'
+import { allVerified, isVerified, legId, toggled, type Verified } from './leg-verify.ts'
+import type { InvRow } from './types.ts'
 import './deal-bls.css'
 
 export interface DealBls { rows: Row[]; usd: number; quantity: number; unit: string; loading: boolean; error: string;
@@ -69,10 +72,10 @@ function BlTable({ dealId, bls, label }: { dealId: string; bls: DealBls; label: 
           <td className="mono">{str(b.tfNo)}</td>
           <td>{str(b.contractRef) || '—'}</td>
           <td className="num">{fmtQty(str(b.quantity))}</td>
-          <td className="num">{formatAmount(str(b.assignedUsd))}</td>
+          <td className="num">{formatAmount4(str(b.assignedUsd))}</td>
         </tr>
       ))}</tbody>
-      <tfoot><tr><th colSpan={6}>Total · {bls.rows.length} BL{bls.rows.length === 1 ? '' : 's'} on {dealId}</th><th className="num">{fmtQty(bls.quantity.toFixed(3))}</th><th className="num">{formatAmount(bls.usd.toFixed(2))}</th></tr></tfoot>
+      <tfoot><tr><th colSpan={6}>Total · {bls.rows.length} BL{bls.rows.length === 1 ? '' : 's'} on {dealId}</th><th className="num">{fmtQty(bls.quantity.toFixed(3))}</th><th className="num">{formatAmount4(bls.usd.toFixed(2))}</th></tr></tfoot>
     </DataTable>
   )
 }
@@ -98,23 +101,26 @@ export function DealBlsPanel({ dealId, bls, canConfirm, why, onReview, action }:
 const STEPS = ['Review BLs', 'Check amounts', 'Confirm'] as const
 
 /** Before the invoice is generated: the BLs, then the amounts against the deal, then the confirmation. */
-export function InvoiceReviewModal({ dealId, bls, dealUsd, invoiceUsd, tolerancePct, message, partial, busy, onClose, onConfirm }: {
-  dealId: string; bls: DealBls; dealUsd: number; invoiceUsd: number; tolerancePct: number; message: string; partial: boolean; busy: boolean;
+export function InvoiceReviewModal({ dealId, bls, legs, dealUsd, invoiceUsd, tolerancePct, message, partial, busy, onClose, onConfirm }: {
+  dealId: string; bls: DealBls; /** The invoice legs (rows of Trade Invoices) this confirmation generates; each is verified on its own in step 2. */ legs: readonly InvRow[]; dealUsd: number; invoiceUsd: number; tolerancePct: number; message: string; partial: boolean; busy: boolean;
   onClose: () => void; onConfirm: () => void
 }) {
   const [step, setStep] = useState(0)
+  // Verified legs, kept with the values they were ticked at; a fresh wizard starts with none.
+  const [verified, setVerified] = useState<Verified>({})
+  const legsOk = allVerified(verified, legs)
   const diffPct = dealUsd ? ((invoiceUsd - dealUsd) / dealUsd) * 100 : 0
   const blDiffPct = dealUsd ? ((bls.usd - dealUsd) / dealUsd) * 100 : 0
   const tone = (pct: number) => (Math.abs(pct) <= tolerancePct ? 'green' : Math.abs(pct) <= tolerancePct * 3 ? 'amber' : 'red') as 'green' | 'amber' | 'red'
   const pct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`
   return (
     <Modal title={`Invoice for ${dealId}`} eyebrow="Generate invoice" size="wide" busy={busy} onClose={onClose}
-      subtitle={`${bls.rows.length} BL${bls.rows.length === 1 ? '' : 's'} · ${fmtQty(bls.quantity.toFixed(3))} ${bls.unit} · ${formatAmount(bls.usd.toFixed(2))} USD assigned`}
+      subtitle={`${bls.rows.length} BL${bls.rows.length === 1 ? '' : 's'} · ${fmtQty(bls.quantity.toFixed(3))} ${bls.unit} · ${formatAmount4(bls.usd.toFixed(2))} USD assigned`}
       footer={<>
         <button className="button secondary" disabled={busy} onClick={onClose}>Close</button>
         {step > 0 && <button className="button secondary" disabled={busy} onClick={() => setStep(s => s - 1)}><ChevronLeft size={14} />Back</button>}
         {step < 2
-          ? <button className="button" disabled={busy || (step === 0 && !bls.rows.length)} onClick={() => setStep(s => s + 1)}>Next: {STEPS[step + 1]}<ChevronRight size={14} /></button>
+          ? <button className="button" disabled={busy || (step === 0 && !bls.rows.length) || (step === 1 && !legsOk)} title={step === 1 && !legsOk ? 'Verify every invoice leg first' : undefined} onClick={() => setStep(s => s + 1)}>Next: {STEPS[step + 1]}<ChevronRight size={14} /></button>
           : <button className="button" disabled={busy} onClick={onConfirm}><CheckCircle2 size={15} />Confirm invoice generation</button>}
       </>}>
       <div className="dealbls__review">
@@ -135,9 +141,8 @@ export function InvoiceReviewModal({ dealId, bls, dealUsd, invoiceUsd, tolerance
           <section className="dealbls__section">
             <h4>Amounts against the deal</h4>
             <dl className="dealbls__figures">
-              <div><dt>FX deal amount</dt><dd>{formatAmount(dealUsd.toFixed(2))} <small>USD</small><span className="num-short">{formatCompact(dealUsd)}</span></dd></div>
-              <div className="plus"><dt>BLs assigned</dt><dd>{formatAmount(bls.usd.toFixed(2))} <small>USD · {pct(blDiffPct)}</small><span className="num-short">{formatCompact(bls.usd)}</span></dd></div>
-              <div><dt>Invoice amount</dt><dd>{formatAmount(invoiceUsd.toFixed(2))} <small>USD · {pct(diffPct)}</small><span className="num-short">{formatCompact(invoiceUsd)}</span></dd></div>
+              <div><dt>FX deal amount</dt><dd>{formatAmount4(dealUsd.toFixed(2))} <small>USD</small><span className="num-short">{formatCompact(dealUsd)}</span></dd></div>
+              <div className="plus"><dt>BLs assigned</dt><dd>{formatAmount4(bls.usd.toFixed(2))} <small>USD · {pct(blDiffPct)}</small><span className="num-short">{formatCompact(bls.usd)}</span></dd></div>
               <div><dt>Quantity</dt><dd>{fmtQty(bls.quantity.toFixed(3))} <small>{bls.unit}</small></dd></div>
             </dl>
             <div className="dealbls__checks">
@@ -145,13 +150,35 @@ export function InvoiceReviewModal({ dealId, bls, dealUsd, invoiceUsd, tolerance
               <p><TrafficLightTag tone={tone(diffPct)}>{Math.abs(diffPct) <= tolerancePct ? 'Within tolerance' : 'Outside tolerance'}</TrafficLightTag> Invoice against the FX deal ({pct(diffPct)})</p>
               <p><TrafficLightTag tone={partial ? 'amber' : 'green'}>{partial ? 'Partial invoice' : 'Full invoice'}</TrafficLightTag> {message}</p>
             </div>
+            {legs.length > 0 && (
+              <>
+                <h4>Verify each invoice leg</h4>
+                <p className="dealbls__note">Tick every leg once you have checked its values. Next: Confirm stays off until all {legs.length} {legs.length === 1 ? 'leg is' : 'legs are'} ticked.</p>
+                <div className="dealbls__scroll">
+                  <DataTable nativeLayout nativeExport aria-label={'Invoice legs of ' + dealId}>
+                    <thead><tr><th>Verify</th><th>Leg</th><th>Inv TRM Ref No</th><th>Invoice Date</th><th>Due Date</th><th>Commodity</th><th className="num">Quantity</th><th className="num">Price (USD)</th><th className="num">Exchange Rate</th><th className="num">Price</th><th className="num">Final Inv Amt</th><th className="num">Inv Amt (USD)</th><th className="num">Planned Inv Amt</th></tr></thead>
+                    <tbody>{legs.map(r => {
+                      const id = legId(r)
+                      return (
+                        <tr key={id}>
+                          <td><input type="checkbox" aria-label={'Verify ' + r.ttype + ' ' + r.invTrmRef} checked={isVerified(verified, r)} onChange={e => setVerified(v => toggled(v, r, e.target.checked))} /></td>
+                          <td className="mono">{r.ttype}</td><td className="mono">{r.invTrmRef || '—'}</td><td>{r.invDate}</td><td>{r.dueDate}</td><td>{r.commodity}</td>
+                          <td className="num">{money(r.qty, 4)}</td><td className="num">{money(r.usdPrice, 4)}</td><td className="num">{money(r.rate, 4)}</td><td className="num">{money(r.price, 4)}</td>
+                          <td className="num">{money(r.amt, 4)}</td><td className="num">{money(r.amtUsd, 4)}</td><td className="num">{money(r.planned, 4)}</td>
+                        </tr>
+                      )
+                    })}</tbody>
+                  </DataTable>
+                </div>
+              </>
+            )}
           </section>
         )}
 
         {step === 2 && (
           <section className="dealbls__section">
             <h4>Confirm</h4>
-            <p className="dealbls__confirm">Generate the {partial ? 'partial' : 'full'} invoice for Deal ID <b>{dealId}</b>: {bls.rows.length} BLs, {fmtQty(bls.quantity.toFixed(3))} {bls.unit}, invoice amount <b>{formatAmount(invoiceUsd.toFixed(2))} USD</b> against an FX deal of {formatAmount(dealUsd.toFixed(2))} USD.</p>
+            <p className="dealbls__confirm">Generate the {partial ? 'partial' : 'full'} invoice for Deal ID <b>{dealId}</b>: {bls.rows.length} BLs, {fmtQty(bls.quantity.toFixed(3))} {bls.unit}, invoice amount <b>{formatAmount4(invoiceUsd.toFixed(2))} USD</b> against an FX deal of {formatAmount4(dealUsd.toFixed(2))} USD.</p>
             <p className="dealbls__note">Next comes the compliance check; the invoice is generated only after it.</p>
           </section>
         )}
@@ -175,7 +202,7 @@ export function AssignedBlsModal({ dealId, bls, dealUsd, tolerancePct, onClose }
   const dates = bls.rows.map(b => str(b.blDate)).filter(Boolean).sort()
   return (
     <Modal title={`BLs assigned to ${dealId}`} eyebrow="View BLs" size="wide" onClose={onClose}
-      subtitle={`${bls.rows.length} BL${bls.rows.length === 1 ? '' : 's'} · ${fmtQty(bls.quantity.toFixed(3))} ${bls.unit} · ${formatAmount(bls.usd.toFixed(2))} USD`}
+      subtitle={`${bls.rows.length} BL${bls.rows.length === 1 ? '' : 's'} · ${fmtQty(bls.quantity.toFixed(3))} ${bls.unit} · ${formatAmount4(bls.usd.toFixed(2))} USD`}
       footer={<button className="button secondary" onClick={onClose}>Close</button>}>
       <div className="dealbls__review">
         {bls.loading ? <p className="dealbls__empty">Reading the BLs from SAP…</p> : bls.error ? <p className="dealbls__empty">{bls.error}</p> : !bls.rows.length ? (
@@ -184,9 +211,9 @@ export function AssignedBlsModal({ dealId, bls, dealUsd, tolerancePct, onClose }
           <section className="dealbls__section">
             <h4>Against the FX deal</h4>
             <dl className="dealbls__figures">
-              <div><dt>FX deal amount</dt><dd>{formatAmount(dealUsd.toFixed(2))} <small>USD</small><span className="num-short">{formatCompact(dealUsd)}</span></dd></div>
-              <div className="plus"><dt>BLs assigned</dt><dd>{formatAmount(bls.usd.toFixed(2))} <small>USD</small><span className="num-short">{formatCompact(bls.usd)}</span></dd></div>
-              <div><dt>Difference</dt><dd>{formatAmount((bls.usd - dealUsd).toFixed(2))} <small>USD · {diffPct > 0 ? '+' : ''}{diffPct.toFixed(2)}%</small></dd></div>
+              <div><dt>FX deal amount</dt><dd>{formatAmount4(dealUsd.toFixed(2))} <small>USD</small><span className="num-short">{formatCompact(dealUsd)}</span></dd></div>
+              <div className="plus"><dt>BLs assigned</dt><dd>{formatAmount4(bls.usd.toFixed(2))} <small>USD</small><span className="num-short">{formatCompact(bls.usd)}</span></dd></div>
+              <div><dt>Difference</dt><dd>{formatAmount4((bls.usd - dealUsd).toFixed(2))} <small>USD · {diffPct > 0 ? '+' : ''}{diffPct.toFixed(2)}%</small></dd></div>
               <div><dt>Quantity</dt><dd>{fmtQty(bls.quantity.toFixed(3))} <small>{bls.unit}</small><span className="num-short">{formatCompact(bls.quantity)}</span></dd></div>
             </dl>
             <p className="dealbls__check"><TrafficLightTag tone={within ? 'green' : 'amber'}>{within ? 'Within tolerance' : 'Outside tolerance'}</TrafficLightTag> BLs against the FX deal (tolerance {tolerancePct.toFixed(2)}%){dates.length ? ` · BL dates ${formatDate(dates[0])} → ${formatDate(dates[dates.length - 1])}` : ''}</p>

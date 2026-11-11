@@ -23,6 +23,7 @@ import { amount2, applyEdit, enablement, isBlank, isNdf, lockBlock, normalise, n
 import { InfoDialog, McDialog, NotesDialog, SpotDialog, StatusTag, TxnListDialog, UploadDialog, ViewTxnDialog, type SpotDraft } from './InfoDialogs';
 import { AssignDialog, SsDialog } from './ReleaseDialogs';
 import { SapAutoDealDialog, SapPairDialog } from './SapDialogs';
+import { favouriteOptions, matchesQuery } from './traders';
 import { loadAutoMasters, type AutoMasters } from './sap';
 import { MastersContext, type BlMasters } from './masters';
 import { loadBlotterMasters, loadBlotterRows, messageOf, type BlMasterData } from './live';
@@ -84,6 +85,7 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
   const [blotterDate, setBlotterDate] = useState(today);
   const [group, setGroup] = useState('');
   const [trader, setTrader] = useState('');
+  const [traderQuery, setTraderQuery] = useState('');
   const [rows, setRows] = useState<BlotterRow[]>(() => normalise(initial, today));
   const [mcs, setMcs] = useState(md.mcs);
   const [deals, setDeals] = useState(md.deals);
@@ -105,6 +107,8 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
     catch (e) { const message = messageOf(e); setAuto({ k: 'error', message }); notify(`The master contracts could not be read: ${message}`, 'error'); return null; }
   };
 
+  // The desk's usual traders by short name, resolved to their SAP codes (the deals are booked under the SAP code).
+  const favourites = useMemo(() => favouriteOptions(md.groups.flatMap(g => g.traders)), [md.groups]);
   const real = useMemo(() => rows.filter(r => !isBlank(r)), [rows]);
   const sel = useMemo(() => real.filter(r => selected.includes(r.id)), [real, selected]);
   const en = enablement(sel, locked);
@@ -351,7 +355,7 @@ function Blotter({ node, md, initial, initialError }: { node: CustomPageProps['n
         <div className="tsf-fields bl-context">
           <label className="tsf-field">Blotter Date<input type="date" value={blotterDate} onChange={e => changeDate(e.target.value)} /></label>
           <label className="tsf-field">Group<select value={group} onChange={e => { setGroup(e.target.value); setTrader(''); }}><option value="">All groups</option>{md.groups.map(g => <option key={g.code} value={g.code}>{g.code} {g.text}</option>)}</select></label>
-          <label className="tsf-field">Trader / Trade Code<select value={trader} onChange={e => setTrader(e.target.value)}><option value="">All traders</option>{traders.map(t => <option key={t.code} value={t.code}>{t.code} · {t.text}</option>)}</select></label>
+          <label className="tsf-field">Trader / Trade Code<input type="search" className="tsf-trader-search" aria-label="Search traders" placeholder="Search traders…" value={traderQuery} onChange={e => setTraderQuery(e.target.value)} /><select value={trader} onChange={e => setTrader(e.target.value)}><option value="">All traders</option>{favourites.filter(f => matchesQuery(traderQuery, f.label, f.code)).length > 0 && <optgroup label="Favourite traders">{favourites.filter(f => matchesQuery(traderQuery, f.label, f.code)).map(f => <option key={`fav-${f.code}`} value={f.code}>{f.label}</option>)}</optgroup>}<optgroup label="All traders">{traders.filter(t => matchesQuery(traderQuery, t.code, t.text) || t.code === trader).map(t => <option key={t.code} value={t.code}>{t.code} · {t.text}</option>)}</optgroup></select></label>
           <div><button className="button" disabled={!blotterDate || ld.k === 'loading'} onClick={load}>Load Blotter</button></div>
         </div>
 

@@ -119,7 +119,7 @@ export function BlModal({
                       <td>{r.pol}</td>
                       <td>{r.pod}</td>
                       <td>{r.commodity}</td>
-                      <td className="num">{money(r.qty, 2)}</td>
+                      <td className="num">{money(r.qty, 4)}</td>
                       <td>
                         <span className={`status-text ${deassigned ? 'status-ok' : 'status-info'}`}>{r.status}</span>
                       </td>

@@ -35,6 +35,8 @@ import { downloadPdfs, pdfFiles } from './invoice-pdf.ts'
 import { loadLogo } from './branding.ts'
 import { loadCompanies } from './companies.ts'
 import { InvoiceGeneratedModal } from './InvoiceGeneratedModal.tsx'
+import { WorkflowStatus } from './WorkflowStatus.tsx'
+import type { StatusOption } from './invoice.ts'
 import { confirmBlocker } from './confirm-guard.ts'
 import { liveProposeData } from '@/pages/propose-tradeflows/live'
 import { setStatusTexts } from './data.ts'
@@ -43,7 +45,7 @@ import { DealLookupModal } from './DealLookupModal.tsx'
 import { DealPicker } from './DealPicker.tsx'
 import { AssignedBlsModal, InvoiceReviewModal, useDealBls } from './DealBls.tsx'
 import { TrafficLightTag } from '@/components/ui/Badge'
-import { formatAmount, formatCompact } from '@/lib/fields/parse'
+import { formatAmount4, formatCompact } from '@/lib/fields/parse'
 import { assignState, progressPct, STATE_TONE } from '@/pages/propose-tradeflows/view'
 import { DiffModal } from './DiffModal.tsx'
 import { money, parseNum, statusText, validDMY } from './format.ts'
@@ -75,16 +77,16 @@ const FX_COLS: Array<{ key: keyof FxRow; label: string; num?: number }> = [
   { key: 'entity', label: 'Entity' },
   { key: 'bs1', label: 'Side 1' },
   { key: 'curr1', label: 'Crcy 1' },
-  { key: 'amt1', label: 'Amount 1', num: 2 },
+  { key: 'amt1', label: 'Amount 1', num: 4 },
   { key: 'bs2', label: 'Side 2' },
   { key: 'curr2', label: 'Crcy 2' },
-  { key: 'amt2', label: 'Amount 2', num: 2 },
+  { key: 'amt2', label: 'Amount 2', num: 4 },
   { key: 'allIn', label: 'All in Rate', num: 4 },
   { key: 'strike', label: 'Strike', num: 4 },
   { key: 'ndfDate', label: 'NDF Fixing Date' },
   { key: 'ndfRef', label: 'NDF Ref' },
   { key: 'ndfRate', label: 'NDF Settlement Rate', num: 4 },
-  { key: 'cashAmt', label: 'Cash Settlement Amount', num: 2 },
+  { key: 'cashAmt', label: 'Cash Settlement Amount', num: 4 },
   { key: 'cashCurr', label: 'Cash Currency' },
   { key: 'mc', label: 'MC Ref No' },
   { key: 'txn', label: 'Txn Status' },
@@ -177,6 +179,8 @@ export default function MoGenerateInvoicesDealId() {
   const [diffOpen, setDiffOpen] = useState(false)
   // The trade leg whose invoice documents are open in the preview.
   const [previewLeg, setPreviewLeg] = useState<string | null>(null)
+  // The status master for this Deal ID's model, for the read-only workflow progress.
+  const [statusOptions, setStatusOptions] = useState<StatusOption[]>([])
   const [bankRow, setBankRow] = useState(-1)
   // House bank accounts (HouseBankAccount) and each entity's company code (ZSGTSFTR_COMP) for the bank popup.
   const [houseBanks, setHouseBanks] = useState<HouseBankAccount[]>([])
@@ -274,6 +278,7 @@ export default function MoGenerateInvoicesDealId() {
       const loaded = await loadDeal(id)
       if (seq !== loadSeq.current) return
       setStatusTexts(loaded.statusOptions)
+      setStatusOptions(loaded.statusOptions)
       setDeal(loaded.deal)
       setCtx(loaded.ctx)
       if (loaded.notice && !quiet) toast(loaded.notice, 'warn')
@@ -744,7 +749,7 @@ export default function MoGenerateInvoicesDealId() {
                   <h2>
                     <span className="mono">{deal.dealId}</span>
                     {figures ? <TrafficLightTag tone={STATE_TONE[assignState(figures)]}>{assignState(figures)}</TrafficLightTag> : null}
-                    <span className="inv-hero__status" title={statusText(deal.status)}>{statusText(deal.status)}</span>
+                    <WorkflowStatus status={deal.status} label={statusText(deal.status)} options={statusOptions} />
                   </h2>
                   <p title={`${deal.mcDesc} · ${deal.entityString}`}>{[figures?.tsfCommodityText, deal.mcDesc, deal.entityString].filter(Boolean).join(' · ') || '—'}</p>
                 </div>
@@ -752,17 +757,17 @@ export default function MoGenerateInvoicesDealId() {
                   <div>
                     <dt>Deal amount</dt>
                     <dd>{figures?.usd ? formatCompact(figures.usd) : '—'} <small>USD</small></dd>
-                    <span>{figures?.usd ? formatAmount(figures.usd) : ''}</span>
+                    <span>{figures?.usd ? formatAmount4(figures.usd) : ''}</span>
                   </div>
                   <div>
                     <dt>Assigned · {dealBls.rows.length} BLs</dt>
                     <dd>{figures ? formatCompact(figures.assignedUsd) : formatCompact(dealBls.usd)} <small>USD</small></dd>
-                    <span>{formatAmount(figures ? figures.assignedUsd : dealBls.usd.toFixed(2))}</span>
+                    <span>{formatAmount4(figures ? figures.assignedUsd : dealBls.usd.toFixed(2))}</span>
                   </div>
                   <div className="key">
                     <dt>{over ? 'Over by' : 'Unassigned'}</dt>
                     <dd>{figures?.remainingUsd ? formatCompact(Math.abs(Number(figures.remainingUsd))) : '—'} <small>USD</small></dd>
-                    <span>{figures?.remainingUsd ? formatAmount(Math.abs(Number(figures.remainingUsd)).toFixed(2)) : dealBls.loading ? 'Reading…' : ''}</span>
+                    <span>{figures?.remainingUsd ? formatAmount4(Math.abs(Number(figures.remainingUsd)).toFixed(2)) : dealBls.loading ? 'Reading…' : ''}</span>
                   </div>
                 </dl>
                 <div className="inv-hero__bar">
@@ -801,7 +806,7 @@ export default function MoGenerateInvoicesDealId() {
           {deal && statusOpens && blocker.message ? (
             <div className="inv-prereq" role="status">
               <span>{blocker.message}</span>
-              {blocker.code === 'no-rows' ? <button className="button small" type="button" disabled={syncing || busy} onClick={createInvoiceRows}>{syncing ? 'Creating…' : 'Create invoice rows'}</button> : null}
+              {blocker.code === 'no-rows' && !blocker.blocked ? <button className="button small" type="button" disabled={syncing || busy} onClick={createInvoiceRows}>{syncing ? 'Creating…' : 'Create invoice rows'}</button> : null}
             </div>
           ) : null}
 
@@ -991,10 +996,10 @@ export default function MoGenerateInvoicesDealId() {
                             <td>{r.commodity}</td>
                             <td>{r.gtComm}</td>
                             <td className="editable-cell">
-                              <input className="cell-input" disabled={!canEdit || amendMode} defaultValue={money(r.qty, 2)} onBlur={(e) => setInvField(idx, 'qty', e.target.value)} />
+                              <input className="cell-input" disabled={!canEdit || amendMode} defaultValue={money(r.qty, 4)} onBlur={(e) => setInvField(idx, 'qty', e.target.value)} />
                             </td>
                             <td className="editable-cell">
-                              <input className="cell-input" disabled={!canEdit} defaultValue={money(r.usdPrice, 9)} onBlur={(e) => setInvField(idx, 'usdPrice', e.target.value)} />
+                              <input className="cell-input" disabled={!canEdit} defaultValue={money(r.usdPrice, 4)} onBlur={(e) => setInvField(idx, 'usdPrice', e.target.value)} />
                             </td>
                             <td className="editable-cell">
                               <input className="cell-input" disabled={!canEdit || amendMode || r.curr === 'USD'} defaultValue={money(r.rate, 4)} onBlur={(e) => {
@@ -1003,10 +1008,10 @@ export default function MoGenerateInvoicesDealId() {
                                 if (!Number.isNaN(v) && v >= 0) e.target.value = money(v, 4)
                               }} />
                             </td>
-                            <td className="num">{money(r.price, 9)}</td>
-                            <td className="num">{money(r.amt, 2)}</td>
-                            <td className="num">{money(r.amtUsd, 2)}</td>
-                            <td className="num">{money(r.planned, 2)}</td>
+                            <td className="num">{money(r.price, 4)}</td>
+                            <td className="num">{money(r.amt, 4)}</td>
+                            <td className="num">{money(r.amtUsd, 4)}</td>
+                            <td className="num">{money(r.planned, 4)}</td>
                             <td>{r.invNo || '—'}</td>
                             <td>{r.invTrmRef || '—'}</td>
                             <td>
@@ -1065,7 +1070,7 @@ export default function MoGenerateInvoicesDealId() {
       {txnRow ? <TxnModal row={txnRow} onClose={() => setTxnRow(null)} /> : null}
       {confirmState ? <ConfirmModal state={confirmState} onClose={() => setConfirmState(null)} /> : null}
       {review && deal ? (
-        <InvoiceReviewModal dealId={deal.dealId} bls={dealBls} dealUsd={getDealUsdAmount(deal)} invoiceUsd={getInvoiceUsdAmount(deal)} tolerancePct={deal.tolerance ?? 0}
+        <InvoiceReviewModal dealId={deal.dealId} bls={dealBls} legs={deal.inv.filter((r) => !r.locked)} dealUsd={getDealUsdAmount(deal)} invoiceUsd={getInvoiceUsdAmount(deal)} tolerancePct={deal.tolerance ?? 0}
           message={review.message} partial={review.status === DEAL_INVOICE_STATUS.PARTIAL_INVOICE_CREATED} busy={busy}
           onClose={() => setReview(null)} onConfirm={() => { setReview(null); setComplianceOpen(true) }} />
       ) : null}

@@ -1,6 +1,7 @@
 // The loading screen of the Trade Flows pages: no technical words, only the client's product lines, one after another,
 // each with its own little illustration, and a thin bar that fills as the data arrives.
 import { useEffect, useState } from 'react';
+import { nextStart, readLast, rememberStart } from './start-line';
 import './bean-loader.css';
 
 const LINES: { name: string; text: string; art: 'cocoa' | 'coffee' | 'nuts' | 'spices' | 'dairy' }[] = [
@@ -85,7 +86,10 @@ function Art({ kind }: { kind: (typeof LINES)[number]['art'] }) {
 }
 
 export function BeanLoader({ steps }: { steps: { done: boolean }[] }) {
-  const [at, setAt] = useState(0);
+  // Each opening starts on the next line after the previous one; the starting line is stored once, and the automatic changes never touch it.
+  const [start] = useState(() => nextStart(readLast(), LINES.length));
+  const [at, setAt] = useState(start);
+  useEffect(() => { rememberStart(start); }, [start]);
   useEffect(() => {
     const t = setInterval(() => setAt(n => { const next = (n + 1) % LINES.length; if (next === 0) setRound(r => r + 1); return next; }), 8000);
     return () => clearInterval(t);

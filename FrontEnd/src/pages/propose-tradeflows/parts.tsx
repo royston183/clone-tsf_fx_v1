@@ -3,7 +3,7 @@
 import { ArrowRight } from 'lucide-react';
 import { DataTable } from '@/components/table/DataTable';
 import { Modal } from '@/components/ui/Modal';
-import { formatAmount, formatDate } from '@/lib/fields/parse';
+import { formatAmount4, formatDate } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row } from '@/lib/grid/types';
 import { fmtQty } from '@/pages/manage-tradeflows/logic';
@@ -20,7 +20,7 @@ export function AssignedGroups({ dealId, bls }: { dealId: string; bls: Row[] }) 
   if (!count) return <p className="tsf-propose__muted">None yet. Choose a proposal and assign it to put its BLs on {dealId}.</p>;
   return (
     <div className="tsf-propose__groups">
-      <p className="tsf-propose__groups-sum"><b>{count}</b> BL{count === 1 ? '' : 's'} from <b>{groups.length}</b> trade flow{groups.length === 1 ? '' : 's'} · <b>{fmtQty(quantity)}</b> {unit} · <b>{formatAmount(usd)}</b> USD assigned</p>
+      <p className="tsf-propose__groups-sum"><b>{count}</b> BL{count === 1 ? '' : 's'} from <b>{groups.length}</b> trade flow{groups.length === 1 ? '' : 's'} · <b>{fmtQty(quantity)}</b> {unit} · <b>{formatAmount4(usd)}</b> USD assigned</p>
       <div className="tsf-propose__scroll">
       <DataTable nativeLayout nativeExport aria-label={`BLs assigned to ${dealId}`}>
         <thead><tr><th>Trade flow</th><th>BL No</th><th>BL date</th><th className="num">Quantity</th><th className="num">Assigned USD</th></tr></thead>
@@ -30,10 +30,10 @@ export function AssignedGroups({ dealId, bls }: { dealId: string; bls: Row[] }) 
             <td className="mono">{str(b.blNo)}</td>
             <td>{formatDate(str(b.blDate) || g.tfDate)}</td>
             <td className="num">{fmtQty(str(b.quantity))}</td>
-            <td className="num">{formatAmount(str(b.assignedUsd))}{Number(str(b.usdValue)) > Number(str(b.assignedUsd)) + 0.005 && <small className="tsf-propose__capped"> of {formatAmount(str(b.usdValue))}</small>}</td>
+            <td className="num">{formatAmount4(str(b.assignedUsd))}{Number(str(b.usdValue)) > Number(str(b.assignedUsd)) + 0.005 && <small className="tsf-propose__capped"> of {formatAmount4(str(b.usdValue))}</small>}</td>
           </tr>
         )))}</tbody>
-        <tfoot><tr><th colSpan={3}>Total · {count} BL{count === 1 ? '' : 's'}</th><th className="num">{fmtQty(quantity)} {unit}</th><th className="num">{formatAmount(usd)}</th></tr></tfoot>
+        <tfoot><tr><th colSpan={3}>Total · {count} BL{count === 1 ? '' : 's'}</th><th className="num">{fmtQty(quantity)} {unit}</th><th className="num">{formatAmount4(usd)}</th></tr></tfoot>
       </DataTable>
       </div>
     </div>

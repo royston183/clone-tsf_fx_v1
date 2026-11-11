@@ -13,7 +13,7 @@ import { Notice } from '@/components/ui/Notice';
 import { Toast, useToast } from '@/components/ui/Toast';
 import { moduleView, objectRead, objectWrite, onSampleData, SAMPLE_DATA_NOTE, sourceLabel } from '@/lib/client/data';
 import { usePathname, useRouter, useSearchParams } from '@/lib/client/nav';
-import { formatAmount, formatDate } from '@/lib/fields/parse';
+import { formatAmount4, formatDate } from '@/lib/fields/parse';
 import { str } from '@/lib/grid/grid';
 import type { Row, View } from '@/lib/grid/types';
 import { keyFromParam, openParam } from '@/lib/object/object';
@@ -127,8 +127,8 @@ function Record({ tfKey, onBack, onSaved, onError }: { tfKey: Row; onBack: () =>
         <dl className="tsf-manage__facts">
           <div><dt>Commodity</dt><dd>{str(tf.commodity)}</dd></div>
           <div><dt>Quantity</dt><dd>{fmtQty(str(tf.quantity))} {unit}</dd></div>
-          <div><dt>Price</dt><dd>{price ? `${formatAmount(price)} ${cur}` : <TrafficLightTag tone="amber">No price</TrafficLightTag>}</dd></div>
-          <div><dt>Value</dt><dd>{price ? `${formatAmount(valueOf(price, str(tf.quantity)))} ${cur}` : '—'}</dd></div>
+          <div><dt>Price</dt><dd>{price ? `${formatAmount4(price)} ${cur}` : <TrafficLightTag tone="amber">No price</TrafficLightTag>}</dd></div>
+          <div><dt>Value</dt><dd>{price ? `${formatAmount4(valueOf(price, str(tf.quantity)))} ${cur}` : '—'}</dd></div>
           <div><dt>Open quantity</dt><dd className={Number(open) > 0 ? 'open' : ''}>{fmtQty(open)} {unit}</dd></div>
         </dl>
       </div>
@@ -153,7 +153,7 @@ function Record({ tfKey, onBack, onSaved, onError }: { tfKey: Row; onBack: () =>
                 <td><TrafficLightTag tone={s.tone}>{s.label}</TrafficLightTag></td>
                 <td className="mono">{str(b.dealId) || '—'}</td>
                 <td className="num">{fmtQty(str(b.quantity))}</td>
-                <td className="num">{price ? formatAmount(valueOf(price, str(b.quantity))) : '—'}</td>
+                <td className="num">{price ? formatAmount4(valueOf(price, str(b.quantity))) : '—'}</td>
                 <td>{isDeleted(b) ? `${str(b.deletedBy)} ${str(b.deletedAt)}`.trim() : ''}</td>
                 <td className="actions">
                   <button className="button small secondary" disabled={locked} title={why} aria-label={`Split BL ${str(b.blNo)}`} onClick={() => setDialog({ kind: 'split', source: b })}><Scissors size={14} />Split</button>
